@@ -1,8 +1,11 @@
 import { useState, type ReactNode } from 'react'
 import {
+  appendEpisodes,
   episodeAverage,
   globalScore,
   grade,
+  missingEpisodeNumbers,
+  scoredEpisodeCount,
   scoreParts,
   sortEpisodes
 } from '../scoring'
@@ -51,7 +54,9 @@ export function AnimeDetail({
   const g = grade(score)
   const parts = scoreParts(anime, weights)
   const avg = episodeAverage(anime)
+  const scoredCount = scoredEpisodeCount(anime)
   const ordered = sortEpisodes(anime.episodes)
+  const missing = missingEpisodeNumbers(anime.episodes, anime.totalEpisodes)
   const hue = (anime.title.charCodeAt(0) * 37 + anime.title.length * 11) % 360
 
   const patch = (p: Partial<Anime>): void => updateAnime(anime.id, p)
@@ -62,14 +67,20 @@ export function AnimeDetail({
   const setEpisodes = (episodes: Episode[]): void => patch({ episodes })
 
   const addEpisodes = (count: number): void => {
-    const base = anime.episodes.reduce((max, e) => Math.max(max, e.number), 0)
-    const seed = Math.round(avg ?? 50)
-    const created: Episode[] = Array.from({ length: count }, (_, i) => ({
+    // Unrated by default — an unrated episode must not count as a zero.
+    setEpisodes(appendEpisodes(anime.episodes, count))
+  }
+
+  /** Top up to the episode total announced by the source. */
+  const completeEpisodes = (): void => {
+    if (missing.length === 0) return
+
+    const added: Episode[] = missing.map((number) => ({
       id: crypto.randomUUID(),
-      number: base + i + 1,
-      score: seed
+      number,
+      score: null
     }))
-    setEpisodes([...anime.episodes, ...created])
+    setEpisodes(sortEpisodes([...anime.episodes, ...added]))
   }
 
   const updateEpisode = (id: string, p: Partial<Episode>): void =>
@@ -141,19 +152,50 @@ export function AnimeDetail({
             </div>
             <div className="field">
               <label>Episodes</label>
-              <input className="input" value={anime.episodes.length} readOnly />
+              <input
+                className="input"
+                value={
+                  anime.totalEpisodes
+                    ? `${anime.episodes.length} / ${anime.totalEpisodes}`
+                    : String(anime.episodes.length)
+                }
+                readOnly
+              />
             </div>
           </div>
-          <label
-            style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', width: 220 }}
-          >
-            <input
-              type="checkbox"
-              checked={!!anime.favorite}
-              onChange={(e) => patch({ favorite: e.target.checked })}
-            />
-            Personal favourite
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={!!anime.favorite}
+                onChange={(e) => patch({ favorite: e.target.checked })}
+              />
+              Personal favourite
+            </label>
+            {anime.source && (
+              <a
+                className="al-link"
+                href={anime.source.siteUrl}
+                target="_blank"
+                rel="noreferrer"
+                title="Ouvrir sur AniList"
+              >
+                AniList #{anime.source.anilistId}
+                {anime.source.malId ? ` · MAL ${anime.source.malId}` : ''}
+              </a>
+            )}
+            {anime.source?.malId && (
+              <a
+                className="al-link"
+                href={`https://myanimelist.net/anime/${anime.source.malId}`}
+                target="_blank"
+                rel="noreferrer"
+                title="Ouvrir sur MyAnimeList"
+              >
+                MyAnimeList ↗
+              </a>
+            )}
+          </div>
         </div>
       </div>
 
@@ -238,10 +280,21 @@ export function AnimeDetail({
         <span className="hint">
           {anime.episodes.length === 0
             ? 'no episodes yet'
-            : `${anime.episodes.length} scored · avg ${avg?.toFixed(1)}`}
+            : `${scoredCount} rated / ${anime.episodes.length} listed` +
+              (anime.totalEpisodes ? ` / ${anime.totalEpisodes} total` : '') +
+              (avg === null ? ' · no rating yet' : ` · avg ${avg.toFixed(1)}`)}
         </span>
         <div className="spacer" />
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {missing.length > 0 && (
+            <button
+              className="btn sm"
+              onClick={completeEpisodes}
+              title={`Add the ${missing.length} episodes missing from the source count`}
+            >
+              <IconPlus size={14} /> Fill {missing.length} missing
+            </button>
+          )}
           <input
             className="input"
             style={{ width: 62, textAlign: 'center' }}
@@ -265,9 +318,10 @@ export function AnimeDetail({
 
       {ordered.length === 0 ? (
         <div className="empty" style={{ padding: '40px 20px' }}>
-          <h3>No episode scores</h3>
-          <p style={{ margin: 0, maxWidth: 380 }}>
-            Add episodes and score each one from 0 to 100. The average feeds the global ranking.
+          <h3>No episodes yet</h3>
+          <p style={{ margin: 0, maxWidth: 400 }}>
+            Add episodes and score each one from 0 to 100. Unrated episodes are ignored by the
+            average, so you can add a whole season first and rate as you watch.
           </p>
         </div>
       ) : (
@@ -299,7 +353,7 @@ export function AnimeDetail({
               <ScoreControl
                 hue={hue}
                 value={ep.score}
-                onChange={(v) => updateEpisode(ep.id, { score: v ?? 0 })}
+                onChange={(v) => updateEpisode(ep.id, { score: v })}
               />
               <div style={{ textAlign: 'center' }}>
                 <GradeBadge

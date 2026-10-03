@@ -115,11 +115,65 @@ try {
   await sleep(400)
   await shot('7-settings')
 
+  // ---- AniList reference lookup ----
+  await win.getByRole('button', { name: 'My Anime' }).click()
+  await sleep(400)
+  await win.getByRole('button', { name: 'Add anime' }).first().click()
+  await sleep(400)
+
+  const alSearch = win.locator('.al-block input.input')
+  await alSearch.fill('sousou no frieren')
+  await win.locator('.al-result').first().waitFor({ state: 'visible', timeout: 25000 })
+  const resultCount = await win.locator('.al-result').count()
+  console.log(`ANILIST: ${resultCount} results for "sousou no frieren"`)
+  await shot('8-anilist-results')
+
+  await win.locator('.al-result').first().click()
+  await sleep(3000) // wait for the details call
+
+  const filled = {
+    title: await win.locator('#af-title').inputValue(),
+    year: await win.locator('#af-year').inputValue(),
+    studio: await win.locator('#af-studio').inputValue(),
+    badge: (await win.locator('.al-selected').innerText()).replace(/\s+/g, ' ').trim()
+  }
+  console.log(`ANILIST filled: title="${filled.title}" year="${filled.year}" studio="${filled.studio}"`)
+  console.log(`ANILIST badge: ${filled.badge}`)
+  await shot('9-anilist-picked')
+
+  await win.locator('.modal button[type=submit]').click()
+  await sleep(1500)
+
+  // The header row also carries .ep-row, hence the -1.
+  const epRows = (await win.locator('.ep-row').count()) - 1
+  const epSummary = (await win.locator('.section-title .hint').last().innerText()).replace(/\s+/g, ' ')
+  const episodesField = await win.locator('.detail-fields .field').last().locator('input').inputValue()
+  const firstEpScore = await win.locator('.ep-row .score-input').nth(1).inputValue()
+  const firstEpTitle = await win.locator('.ep-row .ep-title').nth(1).inputValue()
+  const anilistLink = (await win.locator('.al-link').first().innerText()).replace(/\s+/g, ' ')
+  console.log(`ANILIST created: ${epRows} episode rows, field="${episodesField}"`)
+  console.log(`ANILIST summary: ${epSummary}`)
+  console.log(`ANILIST first episode: title="${firstEpTitle}" score="${firstEpScore}" (empty = unrated)`)
+  console.log(`ANILIST link: ${anilistLink}`)
+  await shot('10-anilist-created')
+
   // ---- Confirm persistence: reload and check the data survived ----
   await win.reload()
-  await sleep(1200)
+  await sleep(1500)
   const cardCount = await win.locator('.card').count()
-  console.log(`PERSISTENCE: ${cardCount} cards after reload (expected 2)`)
+  console.log(`PERSISTENCE: ${cardCount} cards after reload (expected 3)`)
+
+  // Reload lands on the library view, so open the entry to read its score.
+  await win.locator('.card', { hasText: 'Sousou no Frieren' }).first().click()
+  await sleep(900)
+  const unratedGlobal = await win.locator('.gauge-score').innerText()
+  const persistedEpisodes = await win.locator('.ep-row').count()
+  const persistedTitle = await win.locator('.ep-row .ep-title').nth(1).inputValue()
+  console.log(
+    `PERSISTENCE: Frieren TV global=${unratedGlobal} (— expected: nothing rated yet), ` +
+      `${persistedEpisodes - 1} episodes kept`
+  )
+  console.log(`PERSISTENCE: episode title kept = "${persistedTitle}"`)
 
   console.log('SMOKE OK')
 } catch (err) {

@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "icon": "node scripts/make-icon.mjs",
     "smoke": "npm run build && node scripts/smoke.mjs",
+    "smoke:offline": "npm run build && node scripts/smoke-offline.mjs",
     "dist": "electron-vite build && electron-builder --win",
     "dist:dir": "electron-vite build && electron-builder --dir"
   },

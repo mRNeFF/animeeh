@@ -932,3 +932,152 @@ tbody tr.clickable {
   background: var(--panel-2);
   margin-bottom: 8px;
 }
+
+/* ------------------------------------------------------------------ */
+/* AniList lookup                                                      */
+/* ------------------------------------------------------------------ */
+
+.al-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.09), rgba(168, 85, 247, 0.03));
+}
+
+.al-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted-2);
+}
+.al-state.error {
+  flex-direction: column;
+  align-items: flex-start;
+  color: var(--bad);
+}
+
+.al-results {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 268px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.al-result {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.al-result:hover {
+  background: var(--panel-3);
+  border-color: var(--border-strong);
+}
+.al-result.active {
+  border-color: var(--accent);
+  background: rgba(168, 85, 247, 0.16);
+}
+
+.al-cover {
+  width: 38px;
+  height: 54px;
+  flex: none;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--panel-3);
+}
+.al-cover.placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--muted-2);
+  font-weight: 700;
+}
+
+.al-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.al-title {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.al-sub {
+  font-size: 11px;
+  color: var(--muted-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.al-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 10.5px;
+  color: var(--muted-2);
+  margin-top: 1px;
+}
+.al-studio {
+  color: var(--muted);
+}
+
+.al-selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.al-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.spinner {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  display: inline-block;
+  animation: al-spin 0.7s linear infinite;
+}
+@keyframes al-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.al-link {
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+}
+.al-link:hover {
+  color: var(--accent-2);
+}

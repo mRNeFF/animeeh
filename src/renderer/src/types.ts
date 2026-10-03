@@ -64,8 +64,17 @@ export interface Episode {
   /** Episode number as the user counts it (1-based, but free-form). */
   number: number
   title?: string
-  /** 0–100 */
-  score: number
+  /** 0–100, or `null` when the episode has not been rated yet. */
+  score: number | null
+}
+
+/** Where an entry's reference data came from. */
+export interface AnimeSource {
+  provider: 'anilist'
+  anilistId: number
+  /** MyAnimeList id, when AniList links one. */
+  malId: number | null
+  siteUrl: string
 }
 
 /** Every criterion is optional: `null` means "not rated yet". */
@@ -79,9 +88,12 @@ export interface Anime {
   studio?: string
   status: Status
   episodes: Episode[]
+  /** Total episode count announced by the source, used to track progress. */
+  totalEpisodes?: number
   criteria: CriterionScores
   notes?: string
   favorite?: boolean
+  source?: AnimeSource
   createdAt: string
   updatedAt: string
 }

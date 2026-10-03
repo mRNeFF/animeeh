@@ -6,6 +6,7 @@ import {
   STORE_VERSION,
   emptyCriteria,
   type Anime,
+  type AnimeSource,
   type CriterionKey,
   type CriterionScores,
   type ComponentKey,
@@ -20,14 +21,89 @@ import {
 /* ------------------------------------------------------------------ */
 
 export function episodeAverage(anime: Anime): number | null {
-  const scored = anime.episodes.filter((e) => Number.isFinite(e.score))
+  const scored = anime.episodes.filter(
+    (e) => e.score !== null && Number.isFinite(e.score as number)
+  )
   if (scored.length === 0) return null
-  const total = scored.reduce((sum, e) => sum + e.score, 0)
+  const total = scored.reduce((sum, e) => sum + (e.score as number), 0)
   return total / scored.length
+}
+
+/** How many episodes actually carry a rating. */
+export function scoredEpisodeCount(anime: Anime): number {
+  return anime.episodes.filter((e) => e.score !== null && Number.isFinite(e.score)).length
 }
 
 export function episodeCount(anime: Anime): number {
   return anime.episodes.length
+}
+
+/** Next episode number to hand out (max + 1). */
+export function nextEpisodeNumber(anime: Anime): number {
+  return anime.episodes.reduce((max, e) => Math.max(max, e.number), 0) + 1
+}
+
+/**
+ * Create `count` unrated episodes numbered from 1, optionally attaching titles
+ * supplied by the reference source (AniList) by episode number.
+ */
+export function buildEpisodes(
+  count: number,
+  titles: { number: number; title?: string }[] = []
+): Episode[] {
+  const byNumber = new Map(titles.map((t) => [t.number, t.title]))
+  const safe = Math.max(0, Math.min(1000, Math.floor(count)))
+
+  return Array.from({ length: safe }, (_, index) => {
+    const number = index + 1
+    return {
+      id: crypto.randomUUID(),
+      number,
+      title: byNumber.get(number) || undefined,
+      score: null
+    }
+  })
+}
+
+/** Append unrated episodes continuing from the highest existing number. */
+export function appendEpisodes(
+  existing: Episode[],
+  count: number,
+  titles: { number: number; title?: string }[] = []
+): Episode[] {
+  const start = existing.reduce((max, e) => Math.max(max, e.number), 0)
+  const byNumber = new Map(titles.map((t) => [t.number, t.title]))
+  const safe = Math.max(0, Math.min(1000, Math.floor(count)))
+
+  const added: Episode[] = Array.from({ length: safe }, (_, index) => {
+    const number = start + index + 1
+    return {
+      id: crypto.randomUUID(),
+      number,
+      title: byNumber.get(number) || undefined,
+      score: null
+    }
+  })
+
+  return [...existing, ...added]
+}
+
+/**
+ * Episode numbers between 1 and the announced total that are not listed yet.
+ * Returns [] when the total is unknown.
+ */
+export function missingEpisodeNumbers(
+  existing: Episode[],
+  totalEpisodes?: number
+): number[] {
+  if (!totalEpisodes || totalEpisodes <= 0) return []
+  const have = new Set(existing.map((e) => e.number))
+
+  const missing: number[] = []
+  for (let n = 1; n <= Math.min(totalEpisodes, 1000); n += 1) {
+    if (!have.has(n)) missing.push(n)
+  }
+  return missing
 }
 
 export function sortEpisodes(episodes: Episode[]): Episode[] {
@@ -229,9 +305,23 @@ export function normaliseAnime(input: Partial<Anime>): Anime {
           id: e.id ?? crypto.randomUUID(),
           number: Number.isFinite(e.number) ? Number(e.number) : index + 1,
           title: e.title,
-          score: Number.isFinite(e.score) ? Math.max(0, Math.min(100, Number(e.score))) : 0
+          // Unrated episodes stay unrated — they must not drag the average down.
+          score:
+            typeof e.score === 'number' && Number.isFinite(e.score)
+              ? Math.max(0, Math.min(100, e.score))
+              : null
         }))
     : []
+
+  const source: AnimeSource | undefined =
+    input.source && typeof input.source.anilistId === 'number'
+      ? {
+          provider: 'anilist',
+          anilistId: input.source.anilistId,
+          malId: typeof input.source.malId === 'number' ? input.source.malId : null,
+          siteUrl: input.source.siteUrl ?? `https://anilist.co/anime/${input.source.anilistId}`
+        }
+      : undefined
 
   const now = new Date().toISOString()
   return {
@@ -242,9 +332,13 @@ export function normaliseAnime(input: Partial<Anime>): Anime {
     studio: input.studio,
     status: input.status ?? 'completed',
     episodes,
+    totalEpisodes: Number.isFinite(input.totalEpisodes)
+      ? Number(input.totalEpisodes)
+      : undefined,
     criteria,
     notes: input.notes,
     favorite: !!input.favorite,
+    source,
     createdAt: input.createdAt ?? now,
     updatedAt: input.updatedAt ?? now
   }

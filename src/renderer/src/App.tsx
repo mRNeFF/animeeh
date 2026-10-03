@@ -13,6 +13,7 @@ import {
   IconTrophy
 } from './components/Icons'
 import { useStore } from './store'
+import { buildEpisodes } from './scoring'
 import { createAnime } from './types'
 
 type View = 'library' | 'leaderboard' | 'criteria' | 'settings'
@@ -149,6 +150,10 @@ export default function App(): ReactNode {
           submitLabel="Add anime"
           onClose={() => setAdding(false)}
           onSubmit={(v) => {
+            const planned = v.createEpisodes
+              ? (v.totalEpisodes ?? v.episodeBlueprint.length)
+              : 0
+
             const anime = createAnime({
               title: v.title,
               englishTitle: v.englishTitle || undefined,
@@ -156,7 +161,10 @@ export default function App(): ReactNode {
               studio: v.studio || undefined,
               status: v.status,
               notes: v.notes || undefined,
-              favorite: v.favorite
+              favorite: v.favorite,
+              totalEpisodes: v.totalEpisodes,
+              source: v.source,
+              episodes: planned > 0 ? buildEpisodes(planned, v.episodeBlueprint) : []
             })
             addAnime(anime)
             setAdding(false)

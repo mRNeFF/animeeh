@@ -1,6 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
+import { getAnimeDetails, MIN_QUERY_LENGTH, searchAnime } from './anilist'
+import type { AnimeDetails, AnimeSearchResult, AniListOutcome } from '../shared/anilist'
 
 /** In dev, electron-vite injects this so we can load the Vite dev server. */
 const rendererDevUrl = process.env['ELECTRON_RENDERER_URL']
@@ -92,6 +94,42 @@ ipcMain.handle('data:import', async () => {
   const raw = await fs.readFile(filePaths[0], 'utf-8')
   return { path: filePaths[0], data: JSON.parse(raw) }
 })
+
+/* ------------------------------------------------------------------ */
+/* IPC: AniList reference lookup                                       */
+/* ------------------------------------------------------------------ */
+
+ipcMain.handle(
+  'anilist:search',
+  async (_event, query: unknown): Promise<AniListOutcome<AnimeSearchResult[]>> => {
+    if (typeof query !== 'string' || query.trim().length < MIN_QUERY_LENGTH) {
+      return { ok: true, data: [] }
+    }
+    try {
+      return { ok: true, data: await searchAnime(query) }
+    } catch (err) {
+      // Network problems must never break the app: the user can still type
+      // everything in by hand.
+      console.error('AniList search failed', err)
+      return { ok: false, error: (err as Error).message }
+    }
+  }
+)
+
+ipcMain.handle(
+  'anilist:details',
+  async (_event, anilistId: unknown): Promise<AniListOutcome<AnimeDetails>> => {
+    if (typeof anilistId !== 'number' || !Number.isFinite(anilistId)) {
+      return { ok: false, error: 'Invalid AniList id' }
+    }
+    try {
+      return { ok: true, data: await getAnimeDetails(anilistId) }
+    } catch (err) {
+      console.error('AniList details failed', err)
+      return { ok: false, error: (err as Error).message }
+    }
+  }
+)
 
 /* ------------------------------------------------------------------ */
 

@@ -20,6 +20,8 @@ async function createWindow(): Promise<void> {
     title: 'ANIMEEH',
     autoHideMenuBar: true,
     backgroundColor: '#0d0a15',
+    // Packaged builds inherit the icon from ANIMEEH.exe; dev needs it explicitly.
+    icon: app.isPackaged ? undefined : join(__dirname, '../../build/icon.ico'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,

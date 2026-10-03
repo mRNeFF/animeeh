@@ -1,6 +1,6 @@
 {
   "name": "animeeh",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ANIMEEH — track and rank every anime you watch, episode by episode.",
   "main": "./out/main/index.js",
   "author": "Axel",
@@ -15,6 +15,7 @@
     "smoke": "npm run build && node scripts/smoke.mjs",
     "smoke:offline": "npm run build && node scripts/smoke-offline.mjs",
     "smoke:update": "node scripts/smoke-update.mjs",
+    "release": "node scripts/release.mjs",
     "dist": "electron-vite build && electron-builder --win",
     "dist:dir": "electron-vite build && electron-builder --dir"
   },

@@ -40,3 +40,15 @@ mac:
   target:
     - dmg
   category: public.app-category.entertainment
+
+# Release feed consumed by electron-updater (see src/main/updater.ts).
+# The repo is public on purpose: electron-updater queries it with no
+# credentials, so a private repo could not be used without shipping a token.
+publish:
+  provider: github
+  owner: mRNeFF
+  repo: animeeh
+  # electron-builder defaults to a draft release, which electron-updater cannot
+  # see. Publish the release immediately so the update feed actually works.
+  releaseType: release
+

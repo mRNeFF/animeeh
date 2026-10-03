@@ -1,0 +1,138 @@
+import { _electron as electron } from 'playwright-core'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+const userDataDir = mkdtempSync(join(tmpdir(), 'animeeh-smoke-'))
+
+const errors = []
+const logs = []
+
+const app = await electron.launch({ args: [root, `--user-data-dir=${userDataDir}`], cwd: root })
+const win = await app.firstWindow()
+
+win.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`))
+win.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`))
+
+const shot = (name) => win.screenshot({ path: join(root, `smoke-${name}.png`) })
+const sleep = (ms) => win.waitForTimeout(ms)
+
+try {
+  await win.waitForLoadState('domcontentloaded')
+  await sleep(1500)
+  await shot('1-empty')
+
+  // ---- Add a first anime ----
+  await win.getByRole('button', { name: /Add your first anime/i }).click()
+  await sleep(300)
+  await win.locator('#af-title').fill("Frieren: Beyond Journey's End")
+  await win.locator('#af-year').fill('2023')
+  await win.locator('#af-studio').fill('Madhouse')
+  await win.locator('.modal button[type=submit]').click()
+  await sleep(700)
+  await shot('2-detail-empty')
+
+  // ---- Rate the seven criteria via their numeric boxes ----
+  const criteriaInputs = win.locator('.criteria-list .criterion .score-input')
+  const cValues = [95, 96, 92, 88, 90, 85, 89]
+  for (let i = 0; i < cValues.length; i += 1) {
+    await criteriaInputs.nth(i).fill(String(cValues[i]))
+    await sleep(60)
+  }
+  await sleep(400)
+
+  // ---- Add episodes and score them ----
+  for (let i = 0; i < 5; i += 1) {
+    await win.getByRole('button', { name: /Episode$/ }).first().click()
+    await sleep(90)
+  }
+  const epInputs = win.locator('.ep-row .score-input')
+  const epValues = [92, 96, 99, 94, 97]
+  for (let i = 0; i < epValues.length; i += 1) {
+    await epInputs.nth(i).fill(String(epValues[i]))
+    await sleep(60)
+  }
+  await sleep(500)
+  const gauge = await win.locator('.gauge-score').innerText()
+  const avgText = await win.locator('.criteria-list .criterion').last().innerText()
+  console.log(`DETAIL: Frieren global=${gauge} (expected ~91.3, S)`) 
+  console.log(`DETAIL episode avg row: ${avgText.replace(/\s+/g, ' ')}`)
+  await shot('3-detail-filled')
+
+  // ---- Add a second anime so the leaderboard has content ----
+  await win.getByRole('button', { name: 'Library' }).click()
+  await sleep(300)
+  await win.getByRole('button', { name: 'Add anime' }).first().click()
+  await sleep(300)
+  await win.locator('#af-title').fill('Attack on Titan')
+  await win.locator('#af-year').fill('2013')
+  await win.locator('.modal button[type=submit]').click()
+  await sleep(600)
+  const c2 = win.locator('.criteria-list .criterion .score-input')
+  const v2 = [88, 94, 90, 80, 92, 87, 84]
+  for (let i = 0; i < v2.length; i += 1) {
+    await c2.nth(i).fill(String(v2[i]))
+    await sleep(60)
+  }
+  for (let i = 0; i < 3; i += 1) {
+    await win.getByRole('button', { name: /Episode$/ }).first().click()
+    await sleep(90)
+  }
+  const ep2 = win.locator('.ep-row .score-input')
+  for (let i = 0; i < 3; i += 1) {
+    await ep2.nth(i).fill(String([90, 93, 89][i]))
+    await sleep(60)
+  }
+  await sleep(500)
+
+  // ---- Library grid ----
+  await win.getByRole('button', { name: 'Library' }).click()
+  await sleep(500)
+  await shot('4-library')
+
+  // ---- Leaderboard ----
+  await win.getByRole('button', { name: 'Leaderboard' }).click()
+  await sleep(600)
+  await shot('5-leaderboard')
+  const rows = await win.locator('tbody tr').allInnerTexts()
+  console.log('LEADERBOARD:\n' + rows.map((r) => '  ' + r.replace(/\s+/g, ' | ')).join('\n'))
+  const overflow = await win.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth
+  )
+  console.log(`LAYOUT: horizontal overflow = ${overflow}px (0 is ideal)`)
+
+  // ---- Criteria view ----
+  await win.getByRole('button', { name: 'By Criteria' }).click()
+  await sleep(400)
+  await win.getByRole('button', { name: 'Animation' }).click()
+  await sleep(400)
+  await shot('6-criteria')
+
+  // ---- Settings ----
+  await win.getByRole('button', { name: 'Settings' }).click()
+  await sleep(400)
+  await shot('7-settings')
+
+  // ---- Confirm persistence: reload and check the data survived ----
+  await win.reload()
+  await sleep(1200)
+  const cardCount = await win.locator('.card').count()
+  console.log(`PERSISTENCE: ${cardCount} cards after reload (expected 2)`)
+
+  console.log('SMOKE OK')
+} catch (err) {
+  errors.push(`[script] ${err.message}`)
+  try {
+    await shot('failure')
+  } catch {
+    /* ignore */
+  }
+} finally {
+  if (logs.length) console.log('--- renderer console ---\n' + logs.join('\n'))
+  if (errors.length) console.log('--- ERRORS ---\n' + errors.join('\n'))
+  await app.close()
+}
+
+process.exit(errors.length ? 1 : 0)

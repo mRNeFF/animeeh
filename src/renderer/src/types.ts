@@ -100,6 +100,8 @@ export interface Anime {
 
 export interface Settings {
   weights: Weights
+  /** Check GitHub for a new release shortly after launch. */
+  checkForUpdatesOnStartup: boolean
 }
 
 export interface StoreData {
@@ -124,7 +126,8 @@ export const DEFAULT_WEIGHTS: Weights = {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  weights: { ...DEFAULT_WEIGHTS }
+  weights: { ...DEFAULT_WEIGHTS },
+  checkForUpdatesOnStartup: true
 }
 
 export const STORE_VERSION = 1

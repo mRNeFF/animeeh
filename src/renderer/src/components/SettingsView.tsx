@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useStore } from '../store'
 import { COMPONENTS, DEFAULT_WEIGHTS, type ComponentKey, type StoreData } from '../types'
 import { IconDownload, IconFolder, IconUpload } from './Icons'
+import { UpdatePanel } from './UpdatePanel'
 
 export function SettingsView(): ReactNode {
   const { data, updateSettings, replaceAll } = useStore()
@@ -37,6 +38,27 @@ export function SettingsView(): ReactNode {
 
   return (
     <>
+      <UpdatePanel />
+
+      <div className="panel">
+        <h3>Startup</h3>
+        <div className="panel-sub">Behaviour when the app launches.</div>
+        <div className="toggle-row">
+          <label htmlFor="set-check-startup">
+            <span className="toggle-title">Check for updates on startup</span>
+            <span className="toggle-sub">
+              Looks for a new release a few seconds after launch and shows a badge if one is found.
+            </span>
+          </label>
+          <input
+            id="set-check-startup"
+            type="checkbox"
+            checked={data.settings.checkForUpdatesOnStartup}
+            onChange={(e) => updateSettings({ checkForUpdatesOnStartup: e.target.checked })}
+          />
+        </div>
+      </div>
+
       <div className="panel">
         <h3>Criteria weights</h3>
         <div className="panel-sub">

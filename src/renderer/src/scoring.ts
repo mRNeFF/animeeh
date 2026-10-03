@@ -346,8 +346,13 @@ export function normaliseAnime(input: Partial<Anime>): Anime {
 
 export function normaliseStore(input: unknown): StoreData {
   const raw = (input ?? {}) as Partial<StoreData>
+  const rawSettings = raw.settings as Partial<Settings> | undefined
   const settings: Settings = {
-    weights: normaliseWeights(raw.settings?.weights ?? DEFAULT_SETTINGS.weights)
+    weights: normaliseWeights(rawSettings?.weights ?? DEFAULT_SETTINGS.weights),
+    checkForUpdatesOnStartup:
+      typeof rawSettings?.checkForUpdatesOnStartup === 'boolean'
+        ? rawSettings.checkForUpdatesOnStartup
+        : DEFAULT_SETTINGS.checkForUpdatesOnStartup
   }
   return {
     version: STORE_VERSION,

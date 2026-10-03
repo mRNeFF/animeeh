@@ -9,10 +9,12 @@ import {
   IconChart,
   IconLibrary,
   IconPlus,
+  IconRefresh,
   IconSettings,
   IconTrophy
 } from './components/Icons'
 import { useStore } from './store'
+import { useUpdate } from './useUpdate'
 import { buildEpisodes } from './scoring'
 import { createAnime } from './types'
 
@@ -37,8 +39,11 @@ export default function App(): ReactNode {
   const [view, setView] = useState<View>('library')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const { status: updateStatus } = useUpdate()
 
   const inDetail = view === 'library' && selectedId !== null
+  const updateReady =
+    updateStatus?.stage === 'available' || updateStatus?.stage === 'downloaded'
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -120,6 +125,25 @@ export default function App(): ReactNode {
             <div className="sub">{header.sub}</div>
           </div>
           <div className="topbar-actions">
+            {updateReady && (
+              <button
+                className="btn"
+                onClick={() => {
+                  setView('settings')
+                  setSelectedId(null)
+                }}
+                title={
+                  updateStatus?.stage === 'downloaded'
+                    ? 'Update downloaded — open Settings to install'
+                    : `Version ${updateStatus?.availableVersion} is available`
+                }
+              >
+                <IconRefresh size={15} />
+                {updateStatus?.stage === 'downloaded'
+                  ? 'Update ready'
+                  : `Update ${updateStatus?.availableVersion ?? ''}`.trim()}
+              </button>
+            )}
             <button className="btn primary" onClick={() => setAdding(true)}>
               <IconPlus size={16} /> Add anime
             </button>

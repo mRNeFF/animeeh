@@ -2,7 +2,16 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { getAnimeDetails, MIN_QUERY_LENGTH, searchAnime } from './anilist'
+import {
+  checkForUpdates,
+  downloadUpdate,
+  getUpdateStatus,
+  installUpdate,
+  scheduleStartupCheck,
+  updateEvents
+} from './updater'
 import type { AnimeDetails, AnimeSearchResult, AniListOutcome } from '../shared/anilist'
+import type { UpdateStatus } from '../shared/update'
 
 /** In dev, electron-vite injects this so we can load the Vite dev server. */
 const rendererDevUrl = process.env['ELECTRON_RENDERER_URL']
@@ -10,6 +19,22 @@ const isDev = !app.isPackaged && !!rendererDevUrl
 
 function dataFilePath(): string {
   return join(app.getPath('userData'), 'animeeh-data.json')
+}
+
+/**
+ * Read the persisted settings from the data file, so startup behaviour can
+ * honour them before the renderer is ready.
+ */
+async function readPreferences(): Promise<{ checkForUpdatesOnStartup?: boolean }> {
+  try {
+    const raw = await fs.readFile(dataFilePath(), 'utf-8')
+    const parsed = JSON.parse(raw) as {
+      settings?: { checkForUpdatesOnStartup?: boolean }
+    }
+    return parsed.settings ?? {}
+  } catch {
+    return {}
+  }
 }
 
 async function createWindow(): Promise<void> {
@@ -132,9 +157,39 @@ ipcMain.handle(
 )
 
 /* ------------------------------------------------------------------ */
+/* IPC: in-app updates                                                 */
+/* ------------------------------------------------------------------ */
+
+ipcMain.handle('update:status', (): UpdateStatus => getUpdateStatus())
+
+ipcMain.handle('update:check', (): Promise<UpdateStatus> => checkForUpdates())
+
+ipcMain.handle('update:download', (): Promise<UpdateStatus> => downloadUpdate())
+
+ipcMain.handle('update:install', () => {
+  installUpdate()
+  return true
+})
+
+/** Push every status change to all open windows. */
+updateEvents.on('status', (next: UpdateStatus) => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send('update:status-changed', next)
+  }
+})
+
+/* ------------------------------------------------------------------ */
 
 app.whenReady().then(async () => {
   await createWindow()
+
+  // Honour the user's "check at startup" preference.
+  try {
+    const prefs = await readPreferences()
+    if (prefs.checkForUpdatesOnStartup !== false) scheduleStartupCheck()
+  } catch {
+    scheduleStartupCheck()
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) void createWindow()

@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AnimeDetails, AnimeSearchResult, AniListOutcome } from '../shared/anilist'
+import type { UpdateStatus } from '../shared/update'
 
 const api = {
   load: (): Promise<unknown | null> => ipcRenderer.invoke('data:load'),
@@ -14,9 +15,22 @@ const api = {
     ipcRenderer.invoke('anilist:search', query),
   /** Full details (including per-episode titles) for one AniList entry. */
   animeDetails: (anilistId: number): Promise<AniListOutcome<AnimeDetails>> =>
-    ipcRenderer.invoke('anilist:details', anilistId)
+    ipcRenderer.invoke('anilist:details', anilistId),
+
+  /* ---- in-app updates ---- */
+  updateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:status'),
+  checkForUpdates: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:check'),
+  downloadUpdate: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:download'),
+  installUpdate: (): Promise<boolean> => ipcRenderer.invoke('update:install'),
+  /** Subscribe to status pushes; returns an unsubscribe function. */
+  onUpdateStatus: (listener: (status: UpdateStatus) => void): (() => void) => {
+    const handler = (_event: unknown, status: UpdateStatus): void => listener(status)
+    ipcRenderer.on('update:status-changed', handler)
+    return () => ipcRenderer.removeListener('update:status-changed', handler)
+  }
 }
 
 contextBridge.exposeInMainWorld('animeeh', api)
 
 export type AnimeEhApi = typeof api
+

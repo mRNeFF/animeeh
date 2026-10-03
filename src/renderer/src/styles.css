@@ -1081,3 +1081,94 @@ tbody tr.clickable {
 .al-link:hover {
   color: var(--accent-2);
 }
+
+/* ------------------------------------------------------------------ */
+/* Updates                                                             */
+/* ------------------------------------------------------------------ */
+
+.upd-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.upd-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-2);
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.upd-badge.stage-available,
+.upd-badge.stage-downloaded {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+  color: #fff;
+}
+.upd-badge.stage-checking,
+.upd-badge.stage-downloading {
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--warn);
+}
+.upd-badge.stage-not-available {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.1);
+  color: var(--good);
+}
+.upd-badge.stage-error {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--bad);
+}
+
+.upd-progress {
+  height: 7px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-top: 12px;
+}
+.upd-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.25s ease;
+}
+
+.error-text {
+  color: var(--bad);
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.toggle-row:first-of-type {
+  border-top: none;
+}
+.toggle-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+}
+.toggle-row .toggle-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.toggle-row .toggle-sub {
+  font-size: 11.5px;
+  color: var(--muted-2);
+}

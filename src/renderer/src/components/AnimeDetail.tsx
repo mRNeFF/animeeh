@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   appendEpisodes,
   episodeAverage,
@@ -41,6 +41,46 @@ export function AnimeDetail({
   const [namesMessage, setNamesMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(
     null
   )
+
+  /**
+   * Backfill the cover and genres from the reference source.
+   *
+   * Entries added before the form saved them can have a source id but no
+   * artwork. Runs once per anime when it opens, uses the cached franchise call,
+   * and only writes fields that are still empty.
+   *
+   * Declared before the early return so hook order never changes.
+   */
+  const backfilled = useRef<string | null>(null)
+  const needsBackfill = !!anime && (!anime.coverImage || (anime.genres?.length ?? 0) === 0)
+  const backfillSourceId = anime?.source?.anilistId ?? anime?.seasons?.[0]?.anilistId ?? null
+
+  useEffect(() => {
+    if (!needsBackfill || backfillSourceId === null) return
+    if (backfilled.current === anime?.id) return
+    backfilled.current = anime?.id ?? null
+
+    let cancelled = false
+    void window.animeeh
+      .animeFranchise(backfillSourceId)
+      .then((outcome) => {
+        if (cancelled || !outcome.ok || !anime) return
+        const details = outcome.data
+        const next: Partial<Anime> = {}
+        if (!anime.coverImage && details.coverImage) next.coverImage = details.coverImage
+        if ((anime.genres?.length ?? 0) === 0 && details.genres.length > 0) {
+          next.genres = details.genres
+        }
+        if (Object.keys(next).length > 0) updateAnime(anime.id, next)
+      })
+      .catch(() => {
+        // Artwork is cosmetic; a failure here stays silent.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [needsBackfill, backfillSourceId, anime, updateAnime])
 
   const weights = data.settings.weights
 

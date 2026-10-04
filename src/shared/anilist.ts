@@ -50,6 +50,8 @@ export interface AnimeSearchResult {
   episodes: number | null
   studio: string | null
   coverImage: string | null
+  /** Genres from the reference source. */
+  genres: string[]
   siteUrl: string
   /** Seasons merged into this entry; always at least one. */
   seasons: AnimeSeasonRef[]

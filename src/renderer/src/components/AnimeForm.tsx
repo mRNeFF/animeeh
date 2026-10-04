@@ -27,6 +27,10 @@ export interface AnimeFormValues {
   episodeBlueprint: EpisodeBlueprint[]
   /** Seasons merged into this franchise. */
   seasons: AnimeSeason[]
+  /** Cover art from the reference source. */
+  coverImage?: string
+  /** Genres from the reference source. */
+  genres: string[]
   /** Whether the caller should pre-create the episode rows. */
   createEpisodes: boolean
 }
@@ -97,6 +101,8 @@ export function AnimeForm({
     totalEpisodes: initial?.totalEpisodes,
     episodeBlueprint: [],
     seasons: initial?.seasons ?? [],
+    coverImage: initial?.coverImage,
+    genres: initial?.genres ?? [],
     createEpisodes: true
   })
 
@@ -166,6 +172,8 @@ export function AnimeForm({
       totalEpisodes: result.episodes ?? undefined,
       episodeBlueprint: [],
       seasons: seasonsFrom(result),
+      coverImage: result.coverImage ?? undefined,
+      genres: result.genres ?? [],
       createEpisodes: true
     }))
 
@@ -187,6 +195,8 @@ export function AnimeForm({
           source: sourceFrom(details),
           totalEpisodes: details.episodes ?? undefined,
           seasons: seasonsFrom(details),
+          coverImage: details.coverImage ?? prev.coverImage,
+          genres: details.genres.length > 0 ? details.genres : prev.genres,
           episodeBlueprint: details.episodeTitles.map((e) => ({
             number: e.number,
             title: e.title,
@@ -208,7 +218,9 @@ export function AnimeForm({
       source: undefined,
       totalEpisodes: undefined,
       episodeBlueprint: [],
-      seasons: []
+      seasons: [],
+      coverImage: undefined,
+      genres: []
     }))
   }
 

@@ -134,6 +134,8 @@ interface RawMedia {
   seasonYear: number | null
   startDate: { year: number | null } | null
   coverImage?: { large?: string | null } | null
+  /** Only present on queries that request it; the relations sub-selection omits it. */
+  genres?: string[] | null
   siteUrl?: string | null
   studios?: { nodes: { name: string }[] } | null
   relations?: { edges: { relationType: string; node: RawMedia | null }[] | null } | null
@@ -216,6 +218,7 @@ function toSearchResult(root: RawMedia, seasons: AnimeSeasonRef[]): AnimeSearchR
     episodes: sumEpisodes(seasons.map((s) => s.episodes)),
     studio: firstStudio(root),
     coverImage: root.coverImage?.large ?? null,
+    genres: (root.genres ?? []).filter((g): g is string => typeof g === 'string' && g !== ''),
     siteUrl: root.siteUrl ?? `https://anilist.co/anime/${root.id}`,
     seasons
   }
@@ -348,6 +351,7 @@ const MEDIA_FIELDS = `
   seasonYear
   startDate { year }
   coverImage { large }
+  genres
   siteUrl
   studios(isMain: true) { nodes { name } }
 `

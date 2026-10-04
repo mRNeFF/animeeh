@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimeDetail } from './components/AnimeDetail'
 import { AnimeForm } from './components/AnimeForm'
 import { AnimeLibrary } from './components/AnimeLibrary'
@@ -17,9 +17,58 @@ import { useI18n, type MessageKey } from './i18n'
 import { useStore } from './store'
 import { useUpdate } from './useUpdate'
 import { applySeasonSpans, buildEpisodes } from './scoring'
-import { createAnime } from './types'
+import { createAnime, type Anime } from './types'
 
 type View = 'library' | 'leaderboard' | 'criteria' | 'settings'
+
+/**
+ * Silently fill in missing cover art and genres for entries that have a
+ * reference id but no artwork — which is how entries added by older builds look.
+ *
+ * Runs once per launch, sequentially and paced, and capped so a large library
+ * cannot hammer the API. Failures are swallowed: artwork is cosmetic.
+ */
+const MAX_BACKFILL = 25
+
+function useMetadataBackfill(): void {
+  const { data, updateAnime } = useStore()
+  const started = useRef(false)
+
+  useEffect(() => {
+    if (started.current || data.anime.length === 0) return
+
+    const targets = data.anime
+      .filter((a) => !a.coverImage || (a.genres?.length ?? 0) === 0)
+      .filter((a) => !!(a.source?.anilistId ?? a.seasons?.[0]?.anilistId))
+      .slice(0, MAX_BACKFILL)
+
+    started.current = true
+    if (targets.length === 0) return
+
+    void (async () => {
+      for (const anime of targets) {
+        const sourceId = anime.source?.anilistId ?? anime.seasons?.[0]?.anilistId
+        if (!sourceId) continue
+        try {
+          const outcome = await window.animeeh.animeFranchise(sourceId)
+          if (outcome.ok) {
+            const next: Partial<Anime> = {}
+            if (!anime.coverImage && outcome.data.coverImage) {
+              next.coverImage = outcome.data.coverImage
+            }
+            if ((anime.genres?.length ?? 0) === 0 && outcome.data.genres.length > 0) {
+              next.genres = outcome.data.genres
+            }
+            if (Object.keys(next).length > 0) updateAnime(anime.id, next)
+          }
+        } catch {
+          // cosmetic only
+        }
+        await new Promise((r) => setTimeout(r, 250))
+      }
+    })()
+  }, [data.anime, updateAnime])
+}
 
 const NAV: { key: View; labelKey: MessageKey; icon: (p: { size?: number }) => ReactNode }[] = [
   { key: 'library', labelKey: 'nav.library', icon: IconLibrary },
@@ -38,6 +87,7 @@ const TITLES: Record<View, { title: MessageKey; sub: MessageKey }> = {
 export default function App(): ReactNode {
   const { data, loaded, saving, addAnime } = useStore()
   const { t } = useI18n()
+  useMetadataBackfill()
   const [view, setView] = useState<View>('library')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -189,6 +239,8 @@ export default function App(): ReactNode {
               totalEpisodes: v.totalEpisodes,
               source: v.source,
               seasons: v.seasons.length > 0 ? v.seasons : undefined,
+              coverImage: v.coverImage,
+              genres: v.genres.length > 0 ? v.genres : undefined,
               episodes:
                 planned > 0
                   ? applySeasonSpans(

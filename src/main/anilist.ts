@@ -33,6 +33,31 @@ const MAX_CACHE_ENTRIES = 300
 const CHAIN_RELATIONS = new Set(['SEQUEL', 'PREQUEL'])
 
 /**
+ * Franchises AniList does not connect with SEQUEL/PREQUEL, but that belong in
+ * one entry.
+ *
+ * Kept explicit on purpose. The obvious automation would be to follow the
+ * ALTERNATIVE relation, but that relation also links Fullmetal Alchemist (2003)
+ * to Brotherhood — two separate adaptations — so following it generally would
+ * wrongly merge unrelated shows. Each exception is listed and reasoned about
+ * individually.
+ */
+const FRANCHISE_GROUPS: number[][] = [
+  // Steins;Gate and Steins;Gate 0. AniList only links them through the
+  // "Divide By Zero" OVA:
+  //   9253  --ALTERNATIVE--> 21624 (OVA)
+  //   21127 --PREQUEL-------> 21624 (OVA)
+  // Season order falls out of the year, putting Steins;Gate 0 second.
+  [9253, 21127]
+]
+
+/** The curated group an AniList id belongs to, if any. */
+function franchiseGroupFor(id: number): number[] | null {
+  return FRANCHISE_GROUPS.find((group) => group.includes(id)) ?? null
+}
+
+
+/**
  * Formats allowed inside a chain. This filter is what keeps Attack on Titan's
  * PREQUEL link to the "Kuinaki Sentaku" OVA out of the season list.
  */
@@ -318,20 +343,53 @@ export function franchiseKey(title: string): string {
  * never merged, so films and OVAs keep their own rows.
  */
 export function groupSearchResults(media: RawMedia[]): AnimeSearchResult[] {
-  const groups = new Map<string, RawMedia[]>()
+  const buckets: RawMedia[][] = []
+  const byKey = new Map<string, RawMedia[]>()
 
   for (const item of media) {
     if (!SERIES_FORMATS.has(item.format ?? '')) {
-      groups.set(`#${item.id}`, [item])
+      // Non-series entries are never merged by title, but a curated group can
+      // still fold them in below.
+      buckets.push([item])
       continue
     }
     const key = franchiseKey(pickTitle(item))
-    const existing = groups.get(key)
-    if (existing) existing.push(item)
-    else groups.set(key, [item])
+    const existing = byKey.get(key)
+    if (existing) {
+      existing.push(item)
+      continue
+    }
+    const bucket = [item]
+    byKey.set(key, bucket)
+    buckets.push(bucket)
   }
 
-  return [...groups.values()].map((members) => {
+  // Fold together any buckets that a curated franchise group spans. Without
+  // this, "Steins;Gate" and "Steins;Gate 0" would still show as two rows.
+  const consumed = new Set<RawMedia[]>()
+  const merged: RawMedia[][] = []
+
+  for (const bucket of buckets) {
+    if (consumed.has(bucket)) continue
+
+    let combined = [...bucket]
+    consumed.add(bucket)
+
+    for (const other of buckets) {
+      if (consumed.has(other)) continue
+      const sharesGroup = combined.some((a) => {
+        const group = franchiseGroupFor(a.id)
+        return group !== null && other.some((b) => group.includes(b.id))
+      })
+      if (!sharesGroup) continue
+      consumed.add(other)
+      combined = [...combined, ...other]
+    }
+
+    merged.push(combined)
+  }
+
+  return merged.map((members) => {
     const ordered = [...members].sort(byYearThenId)
     const seasons = groupSeasonParts(ordered).map((parts, index) => toSeasonRef(parts, index + 1))
     return toSearchResult(ordered[0], seasons)
@@ -501,6 +559,19 @@ async function assembleFranchise(startId: number): Promise<RawMedia[]> {
       entries.set(id, await fetchWithRelations(id))
     } catch {
       /* skip unreachable neighbour */
+    }
+  }
+
+  // Pull in franchises AniList leaves disconnected (see FRANCHISE_GROUPS).
+  const curated = franchiseGroupFor(startId)
+  if (curated) {
+    for (const id of curated) {
+      if (entries.has(id)) continue
+      try {
+        entries.set(id, await fetchWithRelations(id))
+      } catch {
+        /* skip unreachable group member */
+      }
     }
   }
 

@@ -16,6 +16,7 @@
     "smoke:offline": "npm run build && node scripts/smoke-offline.mjs",
     "smoke:update": "node scripts/smoke-update.mjs",
     "smoke:update:live": "node scripts/smoke-update-live.mjs",
+    "check:franchise": "node scripts/check-franchise.mjs",
     "release": "node scripts/release.mjs",
     "dist": "electron-vite build && electron-builder --win",
     "dist:dir": "electron-vite build && electron-builder --dir"

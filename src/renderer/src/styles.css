@@ -1083,6 +1083,95 @@ tbody tr.clickable {
 }
 
 /* ------------------------------------------------------------------ */
+/* Seasons                                                             */
+/* ------------------------------------------------------------------ */
+
+.al-seasons {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+
+.pill-button {
+  cursor: pointer;
+  color: var(--text);
+  border-color: var(--accent);
+  background: rgba(168, 85, 247, 0.16);
+}
+.pill-button:hover {
+  background: rgba(168, 85, 247, 0.26);
+}
+
+.al-season-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(13, 10, 21, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.al-season-list li {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 11.5px;
+}
+.al-season-num {
+  font-weight: 800;
+  color: var(--accent);
+}
+.al-season-title {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.al-season-meta {
+  color: var(--muted-2);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.ep-season {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+  margin-top: 1px;
+  opacity: 0.85;
+}
+
+.season-strip {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.season-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-2);
+  font-size: 10.5px;
+  color: var(--muted-2);
+}
+.season-chip strong {
+  color: var(--accent);
+  font-size: 11px;
+}
+
+/* ------------------------------------------------------------------ */
 /* Updates                                                             */
 /* ------------------------------------------------------------------ */
 

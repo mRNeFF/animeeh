@@ -6,6 +6,7 @@ import {
   STORE_VERSION,
   emptyCriteria,
   type Anime,
+  type AnimeSeason,
   type AnimeSource,
   type CriterionKey,
   type CriterionScores,
@@ -49,17 +50,19 @@ export function nextEpisodeNumber(anime: Anime): number {
  */
 export function buildEpisodes(
   count: number,
-  titles: { number: number; title?: string }[] = []
+  titles: { number: number; title?: string; season?: number }[] = []
 ): Episode[] {
-  const byNumber = new Map(titles.map((t) => [t.number, t.title]))
-  const safe = Math.max(0, Math.min(1000, Math.floor(count)))
+  const byNumber = new Map(titles.map((t) => [t.number, t]))
+  const safe = Math.max(0, Math.min(2000, Math.floor(count)))
 
   return Array.from({ length: safe }, (_, index) => {
     const number = index + 1
+    const source = byNumber.get(number)
     return {
       id: crypto.randomUUID(),
       number,
-      title: byNumber.get(number) || undefined,
+      title: source?.title || undefined,
+      season: source?.season,
       score: null
     }
   })
@@ -69,23 +72,53 @@ export function buildEpisodes(
 export function appendEpisodes(
   existing: Episode[],
   count: number,
-  titles: { number: number; title?: string }[] = []
+  titles: { number: number; title?: string; season?: number }[] = []
 ): Episode[] {
   const start = existing.reduce((max, e) => Math.max(max, e.number), 0)
-  const byNumber = new Map(titles.map((t) => [t.number, t.title]))
-  const safe = Math.max(0, Math.min(1000, Math.floor(count)))
+  const byNumber = new Map(titles.map((t) => [t.number, t]))
+  const safe = Math.max(0, Math.min(2000, Math.floor(count)))
 
   const added: Episode[] = Array.from({ length: safe }, (_, index) => {
     const number = start + index + 1
+    const source = byNumber.get(number)
     return {
       id: crypto.randomUUID(),
       number,
-      title: byNumber.get(number) || undefined,
+      title: source?.title || undefined,
+      season: source?.season,
       score: null
     }
   })
 
   return [...existing, ...added]
+}
+
+/**
+ * Fill in the season of every episode from the season episode counts.
+ *
+ * Episode titles are not a reliable source for this: AniList only returns them
+ * for some seasons (Attack on Titan's Season 1 only), so an episode count based
+ * on titles would leave later seasons unlabelled.
+ */
+export function applySeasonSpans(episodes: Episode[], seasons?: AnimeSeason[]): Episode[] {
+  if (!seasons || seasons.length < 2) return episodes
+
+  // Episode number at which each season starts, ignoring seasons whose length
+  // AniList does not know.
+  const spans: { season: number; from: number; to: number }[] = []
+  let cursor = 1
+  for (const s of [...seasons].sort((a, b) => a.season - b.season)) {
+    const count = s.episodes ?? 0
+    if (count <= 0) continue
+    spans.push({ season: s.season, from: cursor, to: cursor + count - 1 })
+    cursor += count
+  }
+  if (spans.length < 2) return episodes
+
+  return episodes.map((episode) => {
+    const span = spans.find((s) => episode.number >= s.from && episode.number <= s.to)
+    return span ? { ...episode, season: span.season } : episode
+  })
 }
 
 /**
@@ -305,6 +338,10 @@ export function normaliseAnime(input: Partial<Anime>): Anime {
           id: e.id ?? crypto.randomUUID(),
           number: Number.isFinite(e.number) ? Number(e.number) : index + 1,
           title: e.title,
+          season:
+            typeof e.season === 'number' && Number.isFinite(e.season) && e.season > 0
+              ? Math.floor(e.season)
+              : undefined,
           // Unrated episodes stay unrated — they must not drag the average down.
           score:
             typeof e.score === 'number' && Number.isFinite(e.score)
@@ -312,6 +349,19 @@ export function normaliseAnime(input: Partial<Anime>): Anime {
               : null
         }))
     : []
+
+  const seasons: AnimeSeason[] | undefined = Array.isArray(input.seasons)
+    ? input.seasons
+        .filter((s): s is AnimeSeason => !!s && typeof s.anilistId === 'number')
+        .map((s, index) => ({
+          season: Number.isFinite(s.season) ? Number(s.season) : index + 1,
+          anilistId: s.anilistId,
+          malId: typeof s.malId === 'number' ? s.malId : null,
+          title: s.title ?? `Season ${index + 1}`,
+          year: Number.isFinite(s.year) ? Number(s.year) : undefined,
+          episodes: Number.isFinite(s.episodes) ? Number(s.episodes) : undefined
+        }))
+    : undefined
 
   const source: AnimeSource | undefined =
     input.source && typeof input.source.anilistId === 'number'
@@ -339,6 +389,7 @@ export function normaliseAnime(input: Partial<Anime>): Anime {
     notes: input.notes,
     favorite: !!input.favorite,
     source,
+    seasons,
     createdAt: input.createdAt ?? now,
     updatedAt: input.updatedAt ?? now
   }

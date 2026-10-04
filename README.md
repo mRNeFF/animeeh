@@ -14,6 +14,7 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 ## Contents
 
 - [What it does](#what-it-does)
+- [How seasons are merged](#how-seasons-are-merged)
 - [The scoring model](#the-scoring-model)
 - [Install](#install)
 - [Where your data lives](#where-your-data-lives)
@@ -31,6 +32,7 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - **Weighted global score**, with the episode average as a first-class component.
 - **Four views**: Library, Global leaderboard, Rankings by criteria, Settings.
 - **AniList lookup**: type a title and the app pre-fills the year, studio, episode count **and the individual episode titles**, all of which you can still edit by hand.
+- **Seasons are merged into one entry.** Search "shingeki no kyojin" and you get one row, not seventeen: the app follows AniList's sequel links and creates a single entry holding all six TV seasons, with episodes numbered continuously and tagged by season.
 - **In-app updates** via GitHub Releases.
 - **Entirely local**: your ratings live in a single JSON file on your machine. No account, no server.
 
@@ -42,9 +44,35 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 |---|---|
 | ![Leaderboard](docs/screenshots/leaderboard.png) | ![Criteria](docs/screenshots/criteria.png) |
 
-| AniList lookup | Settings |
+| AniList lookup (seasons merged) | A multi-season entry |
 |---|---|
-| ![AniList](docs/screenshots/anilist-search.png) | ![Settings](docs/screenshots/settings.png) |
+| ![AniList](docs/screenshots/anilist-search.png) | ![Seasons](docs/screenshots/seasons.png) |
+
+| Settings |
+|---|
+| ![Settings](docs/screenshots/settings.png) |
+
+---
+
+## How seasons are merged
+
+Searching a franchise used to return every season as a separate row. Now the app builds **one entity per franchise**:
+
+1. **Search** groups hits by a normalised title. "Sousou no Frieren", "…2nd Season" and "…3rd Season" collapse into a single row showing `3 seasons · 2023–2027`. Punctuation, `Season N`, `Part N`, `Cour N`, `Final Season` and trailing roman numerals are stripped for the comparison, and a `●` in a title is treated as a separator like any other.
+2. **Picking** walks AniList's `SEQUEL` / `PREQUEL` links outwards until the chain ends, then sorts the seasons into broadcast order with a topological sort. This catches seasons the search page did not show and does not depend on title matching.
+3. **Episodes** are numbered continuously across the chain (season 2 starts where season 1 ended) and each one is tagged with its season, shown as an `S2` badge.
+
+Deliberate choices:
+
+- **Only series formats join a chain** (`TV`, `TV_SHORT`, `ONA`). This is what keeps Attack on Titan's `PREQUEL` link to the *Kuinaki Sentaku* OVA, and Frieren's `SIDE_STORY` link to its *● no Mahou* spin-off, out of the season list. Films and OVAs stay separate entries.
+- **Episode titles are only trusted when the count matches the season.** AniList's `streamingEpisodes` mirrors the streaming service, and Crunchyroll reports the whole franchise: Attack on Titan's Seasons 2 and 3 each return Season 1's 25 episodes. Titles whose length disagrees with the season, or which duplicate an earlier season verbatim, are dropped, and those episodes are created with a placeholder title you can fill in.
+- **A single-season show is untouched** — same flow as before, one season, one entry.
+
+Verify the assembly against the live API at any time:
+
+```powershell
+npm run check:franchise "shingeki no kyojin" "sousou no frieren"
+```
 
 ---
 
@@ -175,6 +203,7 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run smoke:offline` | Checks behaviour when AniList is unreachable |
 | `npm run smoke:update` | Tests updating against a fake local feed |
 | `npm run smoke:update:live` | Tests updating against the real GitHub releases |
+| `npm run check:franchise "query"` | Prints how a franchise is grouped and ordered, against the live AniList API |
 
 ---
 
@@ -240,4 +269,6 @@ This requires an authenticated [GitHub CLI](https://cli.github.com/) (`gh auth l
 - **Windows only for now.** `electron-builder.yml` contains Linux and macOS targets, but neither has been tested.
 - **AniList rate-limits to roughly 30 requests per minute.** The app applies a 450 ms debounce and a 30-minute cache, so you will not notice it in normal use.
 - **AniList is not MyAnimeList.** They are separate databases linked by `idMal`. Data is very close for well-known series but can diverge (episode counts, studios).
+- **Merging seasons is a heuristic plus a graph walk.** The relation walk is authoritative for what is connected, but three things can still surprise you: two genuinely different shows sharing a base title are merged in the search list (picking one still builds only its real chain, so no data is wrong); a season AniList links with a non-`SEQUEL` relation (an OVA-only continuation) stays a separate entry; and a chain is capped at 15 seasons.
+- **Episode titles cover fewer seasons than episodes do.** AniList only reports them reliably for the first season of a long franchise, so later seasons are created with placeholder titles. See [How seasons are merged](#how-seasons-are-merged).
 - **The interface is in English**, as are all in-app messages.

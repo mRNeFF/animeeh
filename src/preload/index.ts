@@ -13,9 +13,12 @@ const api = {
   /** Search MyAnimeList-reference titles through the AniList API. */
   searchAnime: (query: string): Promise<AniListOutcome<AnimeSearchResult[]>> =>
     ipcRenderer.invoke('anilist:search', query),
-  /** Full details (including per-episode titles) for one AniList entry. */
-  animeDetails: (anilistId: number): Promise<AniListOutcome<AnimeDetails>> =>
-    ipcRenderer.invoke('anilist:details', anilistId),
+  /**
+   * Assemble a whole franchise (every season, episodes renumbered) from any one
+   * of its seasons.
+   */
+  animeFranchise: (anilistId: number): Promise<AniListOutcome<AnimeDetails>> =>
+    ipcRenderer.invoke('anilist:franchise', anilistId),
 
   /* ---- in-app updates ---- */
   updateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:status'),

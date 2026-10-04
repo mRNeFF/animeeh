@@ -25,8 +25,15 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const packagedExe = join(root, 'release', 'win-unpacked', 'ANIMEEH.exe')
 const resourcesDir = join(root, 'release', 'win-unpacked', 'resources')
 
+/** Bump the packaged build's version so the fake feed offers something newer. */
+function nextPatch(version) {
+  const [major = 0, minor = 0, patch = 0] = version.split('.').map((n) => parseInt(n, 10) || 0)
+  return `${major}.${minor}.${patch + 1}`
+}
+
+const appVersion = JSON.parse(readFileSync(join(root, 'package.json'), 'utf-8')).version
 /** Version the fake feed advertises, deliberately newer than the app. */
-const FEED_VERSION = '0.1.1'
+const FEED_VERSION = nextPatch(appVersion)
 const PAYLOAD_NAME = `ANIMEEH-${FEED_VERSION}-setup.exe`
 
 if (!existsSync(packagedExe)) {
@@ -148,7 +155,12 @@ try {
   await sleep(1200)
 
   const currentVersion = await win.locator('.panel .panel-sub strong').first().innerText()
-  console.log(`UPDATER: current version = ${currentVersion} (expected 0.1.0)`)
+  console.log(`UPDATER: current version = ${currentVersion} (package.json says ${appVersion})`)
+  if (currentVersion !== appVersion) {
+    console.log(
+      'UPDATER: WARNING packaged build is stale — run `npm run dist:dir` before this test'
+    )
+  }
 
   await win.getByRole('button', { name: /Check for updates/i }).click()
 

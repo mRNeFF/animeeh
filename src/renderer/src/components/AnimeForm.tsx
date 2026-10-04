@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { AnimeDetails, AnimeSearchResult } from '../../../shared/anilist'
-import { STATUSES, type Anime, type AnimeSource, type Status } from '../types'
+import { STATUSES, type Anime, type AnimeSeason, type AnimeSource, type Status } from '../types'
 import { IconClose, IconSearch } from './Icons'
 import { Modal } from './ui'
 
 export interface EpisodeBlueprint {
   number: number
   title?: string
+  season?: number
 }
 
 export interface AnimeFormValues {
@@ -19,10 +20,12 @@ export interface AnimeFormValues {
   favorite: boolean
   /** Reference entry picked from AniList, if any. */
   source?: AnimeSource
-  /** Episode count announced by the source. */
+  /** Episode count announced by the source, across every season. */
   totalEpisodes?: number
-  /** Per-episode titles from the source. */
+  /** Per-episode titles from the source, already numbered across seasons. */
   episodeBlueprint: EpisodeBlueprint[]
+  /** Seasons merged into this franchise. */
+  seasons: AnimeSeason[]
   /** Whether the caller should pre-create the episode rows. */
   createEpisodes: boolean
 }
@@ -37,6 +40,28 @@ function sourceFrom(result: AnimeSearchResult): AnimeSource {
     malId: result.malId,
     siteUrl: result.siteUrl
   }
+}
+
+function seasonsFrom(result: AnimeDetails | AnimeSearchResult): AnimeSeason[] {
+  return result.seasons.map((s) => ({
+    season: s.season,
+    anilistId: s.anilistId,
+    malId: s.malId,
+    title: s.title,
+    year: s.year ?? undefined,
+    episodes: s.episodes ?? undefined
+  }))
+}
+
+/** Small "3 seasons" style summary for a search hit. */
+function seasonSummary(result: AnimeSearchResult): string | null {
+  if (result.seasons.length < 2) return null
+  const years = result.seasons
+    .map((s) => s.year)
+    .filter((y): y is number => typeof y === 'number')
+  const span =
+    years.length > 0 ? `${Math.min(...years)}–${Math.max(...years)}` : null
+  return `${result.seasons.length} seasons${span ? ` · ${span}` : ''}`
 }
 
 export function AnimeForm({
@@ -63,6 +88,7 @@ export function AnimeForm({
     source: initial?.source,
     totalEpisodes: initial?.totalEpisodes,
     episodeBlueprint: [],
+    seasons: initial?.seasons ?? [],
     createEpisodes: true
   })
 
@@ -72,6 +98,7 @@ export function AnimeForm({
   const [searchError, setSearchError] = useState<string | null>(null)
   const [picked, setPicked] = useState<AnimeSearchResult | AnimeDetails | null>(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
+  const [showSeasons, setShowSeasons] = useState(false)
 
   // Guards against out-of-order responses landing after a newer keystroke.
   const requestId = useRef(0)
@@ -120,6 +147,7 @@ export function AnimeForm({
   /* ---------------- pick a search result ---------------- */
   const pick = async (result: AnimeSearchResult): Promise<void> => {
     setPicked(result)
+    setShowSeasons(false)
     setValues((prev) => ({
       ...prev,
       title: result.title,
@@ -129,12 +157,16 @@ export function AnimeForm({
       source: sourceFrom(result),
       totalEpisodes: result.episodes ?? undefined,
       episodeBlueprint: [],
+      seasons: seasonsFrom(result),
       createEpisodes: true
     }))
 
+    // The search row already carries the grouped seasons; this call walks the
+    // relations to make sure the chain is complete and correctly ordered, and
+    // brings back the per-episode titles.
     setLoadingDetails(true)
     try {
-      const outcome = await window.animeeh.animeDetails(result.anilistId)
+      const outcome = await window.animeeh.animeFranchise(result.anilistId)
       if (outcome.ok) {
         const details = outcome.data
         setPicked(details)
@@ -144,14 +176,17 @@ export function AnimeForm({
           englishTitle: details.englishTitle ?? '',
           year: details.year ? String(details.year) : '',
           studio: details.studio ?? '',
+          source: sourceFrom(details),
           totalEpisodes: details.episodes ?? undefined,
+          seasons: seasonsFrom(details),
           episodeBlueprint: details.episodeTitles.map((e) => ({
             number: e.number,
-            title: e.title
+            title: e.title,
+            season: e.season
           }))
         }))
       }
-      // If details fail we keep the search-level data, which is already enough.
+      // If it fails we keep the search-level data, which is already usable.
     } finally {
       setLoadingDetails(false)
     }
@@ -159,11 +194,13 @@ export function AnimeForm({
 
   const clearPicked = (): void => {
     setPicked(null)
+    setShowSeasons(false)
     setValues((prev) => ({
       ...prev,
       source: undefined,
       totalEpisodes: undefined,
-      episodeBlueprint: []
+      episodeBlueprint: [],
+      seasons: []
     }))
   }
 
@@ -171,6 +208,7 @@ export function AnimeForm({
   const plannedEpisodes = values.createEpisodes
     ? (values.totalEpisodes ?? values.episodeBlueprint.length)
     : 0
+  const multiSeason = values.seasons.length > 1
 
   return (
     <Modal
@@ -178,7 +216,7 @@ export function AnimeForm({
       subtitle={
         initial
           ? 'Update the details for this entry.'
-          : 'Search AniList to pre-fill, or type everything manually.'
+          : 'Search AniList to pre-fill, or type everything manually. Seasons of the same series are merged into one entry.'
       }
       onClose={onClose}
     >
@@ -220,32 +258,36 @@ export function AnimeForm({
 
             {!searching && !searchError && results.length > 0 && (
               <div className="al-results">
-                {results.map((r) => (
-                  <button
-                    type="button"
-                    key={r.anilistId}
-                    className={`al-result${picked?.anilistId === r.anilistId ? ' active' : ''}`}
-                    onClick={() => void pick(r)}
-                  >
-                    {r.coverImage ? (
-                      <img className="al-cover" src={r.coverImage} alt="" loading="lazy" />
-                    ) : (
-                      <div className="al-cover placeholder">?</div>
-                    )}
-                    <div className="al-info">
-                      <div className="al-title">{r.title}</div>
-                      {r.englishTitle && r.englishTitle !== r.title && (
-                        <div className="al-sub">{r.englishTitle}</div>
+                {results.map((r) => {
+                  const summary = seasonSummary(r)
+                  return (
+                    <button
+                      type="button"
+                      key={r.anilistId}
+                      className={`al-result${picked?.anilistId === r.anilistId ? ' active' : ''}`}
+                      onClick={() => void pick(r)}
+                    >
+                      {r.coverImage ? (
+                        <img className="al-cover" src={r.coverImage} alt="" loading="lazy" />
+                      ) : (
+                        <div className="al-cover placeholder">?</div>
                       )}
-                      <div className="al-tags">
-                        {r.year && <span>{r.year}</span>}
-                        {r.format && <span>{r.format}</span>}
-                        <span>{r.episodes ? `${r.episodes} eps` : 'eps unknown'}</span>
-                        {r.studio && <span className="al-studio">{r.studio}</span>}
+                      <div className="al-info">
+                        <div className="al-title">{r.title}</div>
+                        {r.englishTitle && r.englishTitle !== r.title && (
+                          <div className="al-sub">{r.englishTitle}</div>
+                        )}
+                        {summary && <div className="al-seasons">{summary}</div>}
+                        <div className="al-tags">
+                          {r.year && <span>{r.year}</span>}
+                          {r.format && <span>{r.format}</span>}
+                          <span>{r.episodes ? `${r.episodes} eps` : 'eps unknown'}</span>
+                          {r.studio && <span className="al-studio">{r.studio}</span>}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  )
+                })}
               </div>
             )}
 
@@ -257,20 +299,53 @@ export function AnimeForm({
               )}
 
             {picked && (
-              <div className="al-selected">
-                <div>
-                  <span className="pill">AniList #{picked.anilistId}</span>{' '}
-                  {picked.malId ? (
-                    <span className="pill">MAL {picked.malId}</span>
-                  ) : (
-                    <span className="pill">no MAL id</span>
-                  )}
-                  {loadingDetails && <span className="hint"> · loading episodes…</span>}
+              <>
+                <div className="al-selected">
+                  <div>
+                    {multiSeason ? (
+                      <button
+                        type="button"
+                        className="pill pill-button"
+                        onClick={() => setShowSeasons((v) => !v)}
+                      >
+                        {values.seasons.length} seasons {showSeasons ? '▴' : '▾'}
+                      </button>
+                    ) : (
+                      <span className="pill">1 season</span>
+                    )}{' '}
+                    {picked.malId ? (
+                      <span className="pill">MAL {picked.malId}</span>
+                    ) : (
+                      <span className="pill">no MAL id</span>
+                    )}
+                    {loadingDetails && <span className="hint"> · assembling seasons…</span>}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    onClick={clearPicked}
+                    title="Remove"
+                  >
+                    <IconClose size={13} />
+                  </button>
                 </div>
-                <button type="button" className="btn ghost sm" onClick={clearPicked} title="Remove">
-                  <IconClose size={13} />
-                </button>
-              </div>
+
+                {showSeasons && (
+                  <ol className="al-season-list">
+                    {values.seasons.map((s) => (
+                      <li key={s.anilistId}>
+                        <span className="al-season-num">S{s.season}</span>
+                        <span className="al-season-title">{s.title}</span>
+                        <span className="al-season-meta">
+                          {[s.year, s.episodes ? `${s.episodes} eps` : null]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </>
             )}
 
             {picked && (values.totalEpisodes ?? 0) > 0 && (
@@ -281,7 +356,9 @@ export function AnimeForm({
                   onChange={(e) => set('createEpisodes', e.target.checked)}
                 />
                 Create all <strong>{values.totalEpisodes}</strong> episodes automatically
-                {values.episodeBlueprint.length > 0 && ' with their titles'}
+                {values.episodeBlueprint.length > 0 &&
+                  ` (${values.episodeBlueprint.length} with titles)`}
+                {multiSeason && ', numbered continuously across seasons'}
               </label>
             )}
           </div>

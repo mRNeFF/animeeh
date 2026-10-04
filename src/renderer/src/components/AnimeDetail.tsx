@@ -57,6 +57,7 @@ export function AnimeDetail({
   const scoredCount = scoredEpisodeCount(anime)
   const ordered = sortEpisodes(anime.episodes)
   const missing = missingEpisodeNumbers(anime.episodes, anime.totalEpisodes)
+  const multiSeason = (anime.seasons?.length ?? 0) > 1
   const hue = (anime.title.charCodeAt(0) * 37 + anime.title.length * 11) % 360
 
   const patch = (p: Partial<Anime>): void => updateAnime(anime.id, p)
@@ -196,6 +197,17 @@ export function AnimeDetail({
               </a>
             )}
           </div>
+          {multiSeason && (
+            <div className="season-strip">
+              {anime.seasons?.map((s) => (
+                <span className="season-chip" key={s.anilistId} title={s.title}>
+                  <strong>S{s.season}</strong>
+                  <span>{s.year ?? '—'}</span>
+                  <span>{s.episodes ? `${s.episodes} eps` : '—'}</span>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -343,7 +355,14 @@ export function AnimeDetail({
           </div>
           {ordered.map((ep) => (
             <div className="ep-row" key={ep.id}>
-              <div className="ep-num">{ep.number}</div>
+              <div className="ep-num">
+                {ep.number}
+                {multiSeason && ep.season !== undefined && (
+                  <span className="ep-season" title={`Season ${ep.season}`}>
+                    S{ep.season}
+                  </span>
+                )}
+              </div>
               <input
                 className="ep-title"
                 placeholder={`Episode ${ep.number}`}

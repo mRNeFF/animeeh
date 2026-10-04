@@ -15,7 +15,7 @@ import {
 } from './components/Icons'
 import { useStore } from './store'
 import { useUpdate } from './useUpdate'
-import { buildEpisodes } from './scoring'
+import { applySeasonSpans, buildEpisodes } from './scoring'
 import { createAnime } from './types'
 
 type View = 'library' | 'leaderboard' | 'criteria' | 'settings'
@@ -188,7 +188,14 @@ export default function App(): ReactNode {
               favorite: v.favorite,
               totalEpisodes: v.totalEpisodes,
               source: v.source,
-              episodes: planned > 0 ? buildEpisodes(planned, v.episodeBlueprint) : []
+              seasons: v.seasons.length > 0 ? v.seasons : undefined,
+              episodes:
+                planned > 0
+                  ? applySeasonSpans(
+                      buildEpisodes(planned, v.episodeBlueprint),
+                      v.seasons.length > 1 ? v.seasons : undefined
+                    )
+                  : []
             })
             addAnime(anime)
             setAdding(false)

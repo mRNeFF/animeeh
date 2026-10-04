@@ -142,7 +142,7 @@ ipcMain.handle(
 )
 
 ipcMain.handle(
-  'anilist:details',
+  'anilist:franchise',
   async (_event, anilistId: unknown): Promise<AniListOutcome<AnimeDetails>> => {
     if (typeof anilistId !== 'number' || !Number.isFinite(anilistId)) {
       return { ok: false, error: 'Invalid AniList id' }
@@ -150,7 +150,7 @@ ipcMain.handle(
     try {
       return { ok: true, data: await getAnimeDetails(anilistId) }
     } catch (err) {
-      console.error('AniList details failed', err)
+      console.error('AniList franchise lookup failed', err)
       return { ok: false, error: (err as Error).message }
     }
   }

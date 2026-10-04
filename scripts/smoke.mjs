@@ -115,7 +115,7 @@ try {
   await sleep(400)
   await shot('7-settings')
 
-  // ---- AniList reference lookup ----
+  // ---- AniList reference lookup (seasons must be merged) ----
   await win.getByRole('button', { name: 'My Anime' }).click()
   await sleep(400)
   await win.getByRole('button', { name: 'Add anime' }).first().click()
@@ -125,24 +125,47 @@ try {
   await alSearch.fill('sousou no frieren')
   await win.locator('.al-result').first().waitFor({ state: 'visible', timeout: 25000 })
   const resultCount = await win.locator('.al-result').count()
-  console.log(`ANILIST: ${resultCount} results for "sousou no frieren"`)
+  console.log(`ANILIST: ${resultCount} grouped results for "sousou no frieren"`)
+
+  // The TV series must appear once, with its seasons merged.
+  const firstResult = win.locator('.al-result').first()
+  const firstText = (await firstResult.innerText()).replace(/\s+/g, ' ').trim()
+  console.log(`ANILIST: first result = ${firstText}`)
   await shot('8-anilist-results')
 
-  await win.locator('.al-result').first().click()
-  await sleep(3000) // wait for the details call
+  await firstResult.click()
+  await sleep(4000) // franchise assembly walks the relations
+
+  const picked = (await win.locator('.al-selected').innerText()).replace(/\s+/g, ' ').trim()
+  console.log(`ANILIST: picked = ${picked}`)
+
+  // Expand the season list to confirm what was merged.
+  const seasonPill = win.locator('.al-selected .pill-button')
+  if (await seasonPill.count()) {
+    await seasonPill.click()
+    await sleep(400)
+    const seasons = (await win.locator('.al-season-list').innerText())
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+    console.log(`ANILIST: merged seasons = ${seasons.length}`)
+    for (const line of seasons) console.log(`    ${line.replace(/\s+/g, ' ')}`)
+  } else {
+    console.log('ANILIST: no season list button (single season)')
+  }
 
   const filled = {
     title: await win.locator('#af-title').inputValue(),
     year: await win.locator('#af-year').inputValue(),
-    studio: await win.locator('#af-studio').inputValue(),
-    badge: (await win.locator('.al-selected').innerText()).replace(/\s+/g, ' ').trim()
+    studio: await win.locator('#af-studio').inputValue()
   }
-  console.log(`ANILIST filled: title="${filled.title}" year="${filled.year}" studio="${filled.studio}"`)
-  console.log(`ANILIST badge: ${filled.badge}`)
+  console.log(
+    `ANILIST filled: title="${filled.title}" year="${filled.year}" studio="${filled.studio}"`
+  )
   await shot('9-anilist-picked')
 
   await win.locator('.modal button[type=submit]').click()
-  await sleep(1500)
+  await sleep(1800)
 
   // The header row also carries .ep-row, hence the -1.
   const epRows = (await win.locator('.ep-row').count()) - 1
@@ -150,10 +173,17 @@ try {
   const episodesField = await win.locator('.detail-fields .field').last().locator('input').inputValue()
   const firstEpScore = await win.locator('.ep-row .score-input').nth(1).inputValue()
   const firstEpTitle = await win.locator('.ep-row .ep-title').nth(1).inputValue()
+  // Episode 29 is the first of season 2 (season 1 has 28 episodes).
+  const s2Title = await win.locator('.ep-row .ep-title').nth(29).inputValue()
+  const seasonBadges = await win.locator('.ep-season').count()
+  const seasonStrip = await win.locator('.season-chip').count()
   const anilistLink = (await win.locator('.al-link').first().innerText()).replace(/\s+/g, ' ')
+
   console.log(`ANILIST created: ${epRows} episode rows, field="${episodesField}"`)
   console.log(`ANILIST summary: ${epSummary}`)
   console.log(`ANILIST first episode: title="${firstEpTitle}" score="${firstEpScore}" (empty = unrated)`)
+  console.log(`ANILIST season badges rendered: ${seasonBadges}, season chips: ${seasonStrip}`)
+  console.log(`ANILIST episode 29 (start of S2): title="${s2Title}"`)
   console.log(`ANILIST link: ${anilistLink}`)
   await shot('10-anilist-created')
 

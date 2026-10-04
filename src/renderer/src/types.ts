@@ -61,11 +61,23 @@ export const STATUS_LABELS: Record<Status, string> = STATUSES.reduce(
 
 export interface Episode {
   id: string
-  /** Episode number as the user counts it (1-based, but free-form). */
+  /** Episode number as the user counts it, continuing across seasons. */
   number: number
   title?: string
   /** 0–100, or `null` when the episode has not been rated yet. */
   score: number | null
+  /** 1-based season, set when the entry groups several seasons. */
+  season?: number
+}
+
+/** One season of a grouped franchise, kept for reference. */
+export interface AnimeSeason {
+  season: number
+  anilistId: number
+  malId: number | null
+  title: string
+  year?: number
+  episodes?: number
 }
 
 /** Where an entry's reference data came from. */
@@ -94,6 +106,11 @@ export interface Anime {
   notes?: string
   favorite?: boolean
   source?: AnimeSource
+  /**
+   * Every season merged into this entry, in broadcast order. Absent for
+   * hand-entered anime and for single-season shows.
+   */
+  seasons?: AnimeSeason[]
   createdAt: string
   updatedAt: string
 }

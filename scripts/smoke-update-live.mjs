@@ -51,17 +51,28 @@ app.process().stderr?.on('data', (d) => process.stdout.write(`[main!] ${d}`))
 
 const sleep = (ms) => win.waitForTimeout(ms)
 
+/**
+ * The installed app may be in either language, so navigation is matched on both
+ * labels rather than hard-coding English.
+ */
+const NAV = {
+  settings: /^(Settings|Réglages)$/,
+  check: /(Check for updates|Rechercher une mise à jour|Recherche…)/,
+  download: /(Download update|Télécharger la mise à jour)/,
+  install: /(Restart and install|Redémarrer et installer)/
+}
+
 try {
   await win.waitForLoadState('domcontentloaded')
   await sleep(2000)
 
-  await win.getByRole('button', { name: 'Settings' }).click()
+  await win.getByRole('button', { name: NAV.settings }).click()
   await sleep(800)
 
   const feed = (await win.locator('.panel .panel-sub').first().innerText()).replace(/\s+/g, ' ')
   console.log(`LIVE: panel = ${feed}`)
 
-  await win.getByRole('button', { name: /Check for updates/i }).click()
+  await win.getByRole('button', { name: NAV.check }).click()
 
   await win.locator('.upd-badge.stage-available').waitFor({ state: 'visible', timeout: 45000 })
   const detail = (await win.locator('.upd-row').innerText()).replace(/\s+/g, ' ').trim()
@@ -76,17 +87,20 @@ try {
 
   // Download the real installer from GitHub.
   console.log('LIVE: downloading the real installer from GitHub...')
-  await win.getByRole('button', { name: /Download update/i }).click()
+  await win.getByRole('button', { name: NAV.download }).click()
 
   for (let i = 0; i < 90; i += 1) {
     await sleep(1000)
     const badge = (await win.locator('.upd-badge').innerText().catch(() => '')).trim()
+    // Match on the stage class rather than the label, so this works in any language.
+    const stage = (await win.locator('.upd-badge').getAttribute('class').catch(() => '')) ?? ''
+
     if (i % 10 === 0) {
       const row = (await win.locator('.upd-row').innerText().catch(() => '')).replace(/\s+/g, ' ')
       console.log(`LIVE: t+${i + 1}s ${badge} | ${row.trim()}`)
     }
-    if (badge.toLowerCase().includes('ready to install')) break
-    if (badge.toLowerCase().includes('error')) {
+    if (stage.includes('stage-downloaded')) break
+    if (stage.includes('stage-error')) {
       const row = (await win.locator('.upd-row').innerText()).replace(/\s+/g, ' ')
       throw new Error(`download failed: ${row.trim()}`)
     }
@@ -96,8 +110,8 @@ try {
   const done = (await win.locator('.upd-row').innerText()).replace(/\s+/g, ' ').trim()
   console.log(`LIVE: ${done}`)
 
-  const canInstall = await win.getByRole('button', { name: /Restart and install/i }).count()
-  console.log(`LIVE: "Restart and install" available = ${canInstall === 1}`)
+  const canInstall = await win.getByRole('button', { name: NAV.install }).count()
+  console.log(`LIVE: install button available = ${canInstall === 1}`)
   await win.screenshot({ path: join(root, 'live-update-downloaded.png') })
 
   console.log('LIVE UPDATE TEST OK')

@@ -1,6 +1,6 @@
 {
   "name": "animeeh",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "ANIMEEH — track and rank every anime you watch, episode by episode.",
   "main": "./out/main/index.js",
   "author": "Axel",
@@ -14,6 +14,8 @@
     "icon": "node scripts/make-icon.mjs",
     "smoke": "npm run build && node scripts/smoke.mjs",
     "smoke:offline": "npm run build && node scripts/smoke-offline.mjs",
+    "smoke:seed": "npm run build && node scripts/smoke-seed.mjs",
+    "seed": "node scripts/build-seed.mjs",
     "smoke:update": "node scripts/smoke-update.mjs",
     "smoke:update:live": "node scripts/smoke-update-live.mjs",
     "check:franchise": "node scripts/check-franchise.mjs",

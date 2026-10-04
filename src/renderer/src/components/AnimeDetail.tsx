@@ -10,10 +10,10 @@ import {
   sortEpisodes
 } from '../scoring'
 import { useStore } from '../store'
+import { criterionKey, statusKey, useI18n } from '../i18n'
 import {
   CRITERIA,
   STATUSES,
-  STATUS_LABELS,
   type Anime,
   type CriterionKey,
   type Episode,
@@ -31,6 +31,7 @@ export function AnimeDetail({
   onBack: () => void
 }): ReactNode {
   const { data, updateAnime, removeAnime } = useStore()
+  const { t } = useI18n()
   const anime = data.anime.find((a) => a.id === animeId)
 
   const [editing, setEditing] = useState(false)
@@ -42,9 +43,9 @@ export function AnimeDetail({
   if (!anime) {
     return (
       <div className="empty">
-        <h3>Anime not found</h3>
+        <h3>{t('empty.notFound')}</h3>
         <button className="btn" onClick={onBack}>
-          <IconArrowLeft size={16} /> Back to library
+          <IconArrowLeft size={16} /> {t('action.backToLibrary')}
         </button>
       </div>
     )
@@ -100,15 +101,20 @@ export function AnimeDetail({
         </button>
         <div className="spacer" />
         <button className="btn" onClick={() => setEditing(true)}>
-          Edit details
+          {t('action.editDetails')}
         </button>
         <button className="btn danger" onClick={() => setConfirmDelete(true)}>
-          <IconTrash size={15} /> Delete
+          <IconTrash size={15} /> {t('action.delete')}
         </button>
       </div>
 
       <div className="detail-head">
-        <Cover title={anime.title} hue={hue} className="detail-cover" />
+        <Cover
+          title={anime.title}
+          hue={hue}
+          src={anime.coverImage}
+          className="detail-cover"
+        />
         <div className="detail-headline">
           <input
             className="detail-title-input"
@@ -171,7 +177,7 @@ export function AnimeDetail({
                 checked={!!anime.favorite}
                 onChange={(e) => patch({ favorite: e.target.checked })}
               />
-              Personal favourite
+              {t('diff.favourite')}
             </label>
             {anime.source && (
               <a
@@ -197,7 +203,15 @@ export function AnimeDetail({
               </a>
             )}
           </div>
-          {multiSeason && (
+          {(anime.genres?.length ?? 0) > 0 && (
+            <div className="genre-strip">
+              {anime.genres?.map((g) => (
+                <span className="genre-pill" key={g}>
+                  {g}
+                </span>
+              ))}
+            </div>
+          )}          {multiSeason && (
             <div className="season-strip">
               {anime.seasons?.map((s) => {
                 const partCount = s.parts?.length ?? 1
@@ -247,7 +261,7 @@ export function AnimeDetail({
             <div className="criterion" key={c.key}>
               <div className="criterion-name">
                 <span className="dot" style={{ background: `hsl(${c.hue} 70% 55%)` }} />
-                {c.label}
+                {t(criterionKey(c.key))}
               </div>
               <ScoreControl
                 hue={c.hue}
@@ -276,16 +290,16 @@ export function AnimeDetail({
 
       {/* ---------------- Contribution breakdown ---------------- */}
       <div className="panel">
-        <h3>How the global score is built</h3>
+        <h3>{t('detail.section.weights')}</h3>
         <div className="panel-sub">
-          Weighted average of every rated component. Change weights in Settings.
+          {t('detail.section.weightsSub')}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           {parts.map((part) => (
             <div className="criterion" key={part.key}>
               <div className="criterion-name">
                 <span className="dot" style={{ background: `hsl(${part.hue} 70% 55%)` }} />
-                {part.label}
+                {t(criterionKey(part.key))}
               </div>
               <Bar value={part.value} hue={part.hue} />
               <span className="hint" style={{ textAlign: 'right' }}>
@@ -300,13 +314,13 @@ export function AnimeDetail({
       {/* ---------------- Episodes ---------------- */}
       <div className="section-title">
         <IconEpisode size={17} />
-        <h2>Episodes</h2>
+        <h2>{t('detail.section.episodes')}</h2>
         <span className="hint">
           {anime.episodes.length === 0
-            ? 'no episodes yet'
-            : `${scoredCount} rated / ${anime.episodes.length} listed` +
-              (anime.totalEpisodes ? ` / ${anime.totalEpisodes} total` : '') +
-              (avg === null ? ' · no rating yet' : ` · avg ${avg.toFixed(1)}`)}
+            ? t('diff.noEpisodesYet')
+            : t('score.ratedOf', { rated: scoredCount, listed: anime.episodes.length }) +
+              (anime.totalEpisodes ? t('score.ofTotal', { total: anime.totalEpisodes }) : '') +
+              (avg === null ? t('score.noRatingYet') : t('score.avg', { value: avg.toFixed(1) }))}
         </span>
         <div className="spacer" />
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -377,7 +391,7 @@ export function AnimeDetail({
               </div>
               <input
                 className="ep-title"
-                placeholder={`Episode ${ep.number}`}
+                placeholder={t('form.episodePlaceholder', { number: ep.number })}
                 value={ep.title ?? ''}
                 onChange={(e) => updateEpisode(ep.id, { title: e.target.value || undefined })}
               />
@@ -395,7 +409,7 @@ export function AnimeDetail({
               </div>
               <button
                 className="btn ghost sm"
-                title="Remove episode"
+                title={t('action.remove')}
                 onClick={() => removeEpisode(ep.id)}
               >
                 <IconTrash size={14} />
@@ -407,7 +421,7 @@ export function AnimeDetail({
 
       {/* ---------------- Notes ---------------- */}
       <div className="section-title">
-        <h2>Notes</h2>
+        <h2>{t('detail.section.notes')}</h2>
       </div>
       <textarea
         className="textarea"
@@ -418,7 +432,7 @@ export function AnimeDetail({
       />
 
       <div className="hint" style={{ marginTop: 22 }}>
-        Status: {STATUS_LABELS[anime.status]} · Last updated{' '}
+        Status: {t(statusKey(anime.status))} · Last updated{' '}
         {new Date(anime.updatedAt).toLocaleString()}
       </div>
 
@@ -465,6 +479,7 @@ function ConfirmDelete({
   onCancel: () => void
   onConfirm: () => void
 }): ReactNode {
+  const { t } = useI18n()
   const [text, setText] = useState('')
   const ok = text.trim().toLowerCase() === 'delete'
   return (
@@ -485,10 +500,10 @@ function ConfirmDelete({
           />
           <div className="modal-actions">
             <button className="btn ghost" onClick={onCancel}>
-              Cancel
+              {t('action.cancel')}
             </button>
             <button className="btn danger" disabled={!ok} onClick={onConfirm}>
-              <IconTrash size={15} /> Delete forever
+              <IconTrash size={15} /> {t('action.delete')}
             </button>
           </div>
         </div>

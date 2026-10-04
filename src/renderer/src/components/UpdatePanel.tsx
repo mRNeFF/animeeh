@@ -1,16 +1,17 @@
 import type { ReactNode } from 'react'
 import type { UpdateStage } from '../../../shared/update'
+import { useI18n, type MessageKey } from '../i18n'
 import { useUpdate } from '../useUpdate'
 import { IconDownload, IconRefresh } from './Icons'
 
-const STAGE_LABELS: Record<UpdateStage, string> = {
-  idle: 'Ready',
-  checking: 'Checking…',
-  available: 'Update available',
-  'not-available': 'Up to date',
-  downloading: 'Downloading…',
-  downloaded: 'Ready to install',
-  error: 'Error'
+const STAGE_KEYS: Record<UpdateStage, MessageKey> = {
+  idle: 'update.stage.idle',
+  checking: 'update.stage.checking',
+  available: 'update.stage.available',
+  'not-available': 'update.stage.not-available',
+  downloading: 'update.stage.downloading',
+  downloaded: 'update.stage.downloaded',
+  error: 'update.stage.error'
 }
 
 function formatBytes(bytes: number | null): string {
@@ -27,12 +28,13 @@ function formatSpeed(bytesPerSecond: number | null): string {
 
 export function UpdatePanel(): ReactNode {
   const { status, checking, downloading, check, download, install } = useUpdate()
+  const { t } = useI18n()
 
   if (!status) {
     return (
       <div className="panel">
-        <h3>Updates</h3>
-        <div className="panel-sub">Reading update status…</div>
+        <h3>{t('update.title')}</h3>
+        <div className="panel-sub">{t('update.reading')}</div>
       </div>
     )
   }
@@ -42,25 +44,25 @@ export function UpdatePanel(): ReactNode {
 
   return (
     <div className="panel">
-      <h3>Updates</h3>
+      <h3>{t('update.title')}</h3>
       <div className="panel-sub">
-        Version <strong>{status.currentVersion}</strong>
+        {t('update.version')} <strong>{status.currentVersion}</strong>
         {status.feed ? (
           <>
             {' '}
             · feed <span className="mono">{status.feed}</span>
           </>
         ) : (
-          ' · no feed configured'
+          ` · ${t('update.noFeed')}`
         )}
       </div>
 
       <div className="upd-row">
-        <span className={`upd-badge stage-${status.stage}`}>{STAGE_LABELS[status.stage]}</span>
+        <span className={`upd-badge stage-${status.stage}`}>{t(STAGE_KEYS[status.stage])}</span>
 
         {status.stage === 'available' && status.availableVersion && (
           <span className="hint">
-            Version <strong>{status.availableVersion}</strong> is available.
+            {t('update.available', { version: status.availableVersion })}
           </span>
         )}
 
@@ -79,7 +81,7 @@ export function UpdatePanel(): ReactNode {
 
         {status.stage === 'downloaded' && (
           <span className="hint">
-            Version <strong>{status.availableVersion}</strong> downloaded. Restart to apply it.
+            {t('update.downloaded', { version: status.availableVersion ?? '' })}
           </span>
         )}
 
@@ -94,25 +96,25 @@ export function UpdatePanel(): ReactNode {
 
       <div className="panel-actions" style={{ marginTop: 14 }}>
         <button className="btn" onClick={() => void check()} disabled={busy || !status.canUpdate}>
-          <IconRefresh size={15} /> {checking ? 'Checking…' : 'Check for updates'}
+          <IconRefresh size={15} /> {checking ? t('update.checking') : t('update.check')}
         </button>
 
         {status.stage === 'available' && (
           <button className="btn primary" onClick={() => void download()} disabled={busy}>
-            <IconDownload size={15} /> {downloading ? 'Starting…' : 'Download update'}
+            <IconDownload size={15} /> {downloading ? t('update.starting') : t('update.download')}
           </button>
         )}
 
         {status.stage === 'downloaded' && (
           <button className="btn primary" onClick={() => void install()}>
-            <IconRefresh size={15} /> Restart and install
+            <IconRefresh size={15} /> {t('update.install')}
           </button>
         )}
       </div>
 
       {!status.canUpdate && (
         <div className="hint" style={{ marginTop: 12 }}>
-          Updates are only available in the installed build, once a release feed is configured.
+          {t('update.notAvailable')}
         </div>
       )}
     </div>

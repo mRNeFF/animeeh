@@ -13,6 +13,7 @@ import {
   IconSettings,
   IconTrophy
 } from './components/Icons'
+import { useI18n, type MessageKey } from './i18n'
 import { useStore } from './store'
 import { useUpdate } from './useUpdate'
 import { applySeasonSpans, buildEpisodes } from './scoring'
@@ -20,22 +21,23 @@ import { createAnime } from './types'
 
 type View = 'library' | 'leaderboard' | 'criteria' | 'settings'
 
-const NAV: { key: View; label: string; icon: (p: { size?: number }) => ReactNode }[] = [
-  { key: 'library', label: 'My Anime', icon: IconLibrary },
-  { key: 'leaderboard', label: 'Leaderboard', icon: IconTrophy },
-  { key: 'criteria', label: 'By Criteria', icon: IconChart },
-  { key: 'settings', label: 'Settings', icon: IconSettings }
+const NAV: { key: View; labelKey: MessageKey; icon: (p: { size?: number }) => ReactNode }[] = [
+  { key: 'library', labelKey: 'nav.library', icon: IconLibrary },
+  { key: 'leaderboard', labelKey: 'nav.leaderboard', icon: IconTrophy },
+  { key: 'criteria', labelKey: 'nav.criteria', icon: IconChart },
+  { key: 'settings', labelKey: 'nav.settings', icon: IconSettings }
 ]
 
-const TITLES: Record<View, { title: string; sub: string }> = {
-  library: { title: 'My Anime', sub: 'Everything you have watched and scored' },
-  leaderboard: { title: 'Global Leaderboard', sub: 'Your anime ranked by weighted score' },
-  criteria: { title: 'Rankings by Criteria', sub: 'Compare shows on a single aspect' },
-  settings: { title: 'Settings', sub: 'Weights, backups and data' }
+const TITLES: Record<View, { title: MessageKey; sub: MessageKey }> = {
+  library: { title: 'title.library', sub: 'subtitle.library' },
+  leaderboard: { title: 'title.leaderboard', sub: 'subtitle.leaderboard' },
+  criteria: { title: 'title.criteria', sub: 'subtitle.criteria' },
+  settings: { title: 'title.settings', sub: 'subtitle.settings' }
 }
 
 export default function App(): ReactNode {
   const { data, loaded, saving, addAnime } = useStore()
+  const { t } = useI18n()
   const [view, setView] = useState<View>('library')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -63,15 +65,15 @@ export default function App(): ReactNode {
           <div className="brand-mark" style={{ margin: '0 auto 14px' }}>
             ア
           </div>
-          Loading your list…
+          {t('shell.loading')}
         </div>
       </div>
     )
   }
 
   const header = inDetail
-    ? { title: 'Anime detail', sub: 'Score episodes and rate every criterion' }
-    : TITLES[view]
+    ? { title: t('title.detail'), sub: t('subtitle.detail') }
+    : { title: t(TITLES[view].title), sub: t(TITLES[view].sub) }
 
   const episodes = data.anime.reduce((sum, a) => sum + a.episodes.length, 0)
 
@@ -82,7 +84,7 @@ export default function App(): ReactNode {
           <div className="brand-mark">ア</div>
           <div className="brand-text">
             <div className="brand-title">ANIMEEH</div>
-            <div className="brand-sub">rate · rank · repeat</div>
+            <div className="brand-sub">{t('brand.tagline')}</div>
           </div>
         </div>
 
@@ -99,7 +101,7 @@ export default function App(): ReactNode {
               }}
             >
               <Icon size={17} />
-              <span className="nav-label">{item.label}</span>
+              <span className="nav-label">{t(item.labelKey)}</span>
               {item.key === 'library' && data.anime.length > 0 && (
                 <span className="nav-count">{data.anime.length}</span>
               )}
@@ -110,11 +112,9 @@ export default function App(): ReactNode {
         <div className="sidebar-foot">
           <div className={`save-dot${saving ? ' saving' : ''}`}>
             <i />
-            {saving ? 'Saving…' : 'Saved locally'}
+            {saving ? t('shell.saving') : t('shell.saved')}
           </div>
-          <div>
-            {data.anime.length} anime · {episodes} episodes
-          </div>
+          <div>{t('shell.summary', { anime: data.anime.length, episodes })}</div>
         </div>
       </aside>
 
@@ -134,18 +134,18 @@ export default function App(): ReactNode {
                 }}
                 title={
                   updateStatus?.stage === 'downloaded'
-                    ? 'Update downloaded — open Settings to install'
-                    : `Version ${updateStatus?.availableVersion} is available`
+                    ? t('update.badgeTitleReady')
+                    : t('update.badgeTitle', { version: updateStatus?.availableVersion ?? '' })
                 }
               >
                 <IconRefresh size={15} />
                 {updateStatus?.stage === 'downloaded'
-                  ? 'Update ready'
-                  : `Update ${updateStatus?.availableVersion ?? ''}`.trim()}
+                  ? t('update.badgeReady')
+                  : t('update.badge', { version: updateStatus?.availableVersion ?? '' }).trim()}
               </button>
             )}
             <button className="btn primary" onClick={() => setAdding(true)}>
-              <IconPlus size={16} /> Add anime
+              <IconPlus size={16} /> {t('action.addAnime')}
             </button>
           </div>
         </header>
@@ -171,7 +171,7 @@ export default function App(): ReactNode {
 
       {adding && (
         <AnimeForm
-          submitLabel="Add anime"
+          submitLabel={t('action.addAnime')}
           onClose={() => setAdding(false)}
           onSubmit={(v) => {
             const planned = v.createEpisodes

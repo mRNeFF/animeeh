@@ -1,39 +1,70 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { useI18n, LANGUAGES, criterionKey } from '../i18n'
 import { useStore } from '../store'
-import { COMPONENTS, DEFAULT_WEIGHTS, type ComponentKey, type StoreData } from '../types'
+import { buildSeedImport, seedCount, seedSource } from '../seed'
+import { COMPONENTS, DEFAULT_WEIGHTS, type ComponentKey, type Language, type StoreData } from '../types'
 import { IconDownload, IconFolder, IconUpload } from './Icons'
 import { UpdatePanel } from './UpdatePanel'
 
 export function SettingsView(): ReactNode {
-  const { data, updateSettings, replaceAll } = useStore()
+  const { data, updateSettings, addAnimeMany, replaceAll } = useStore()
+  const { t, language } = useI18n()
   const [message, setMessage] = useState<string | null>(null)
+
   const weights = data.settings.weights
 
   const setWeight = (key: ComponentKey, value: number): void =>
     updateSettings({ weights: { ...weights, [key]: value } })
 
+  /** Every genre present in the library, most common first. */
+  const genres = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const anime of data.anime) {
+      for (const genre of anime.genres ?? []) {
+        counts.set(genre, (counts.get(genre) ?? 0) + 1)
+      }
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  }, [data.anime])
+
   const onExport = async (): Promise<void> => {
     const path = await window.animeeh.exportData(data)
-    setMessage(path ? `Backup written to ${path}` : 'Export cancelled.')
+    setMessage(path ? `${t('settings.export')} → ${path}` : t('action.cancel'))
   }
 
   const onImport = async (): Promise<void> => {
     try {
       const result = await window.animeeh.importData()
-      if (!result) {
-        setMessage('Import cancelled.')
-        return
-      }
+      if (!result) return
       replaceAll(result.data as StoreData)
-      setMessage(`Imported ${result.path}`)
+      setMessage(result.path)
     } catch (err) {
-      setMessage(`Import failed: ${(err as Error).message}`)
+      setMessage(`${(err as Error).message}`)
     }
   }
 
   const onReveal = async (): Promise<void> => {
     const path = await window.animeeh.reveal()
-    setMessage(`Data file: ${path}`)
+    setMessage(path)
+  }
+
+  /** Merge the bundled N.xlsx list, leaving existing entries untouched. */
+  const onImportSeed = (): void => {
+    const { added, skipped } = buildSeedImport(data.anime)
+
+    if (added.length === 0) {
+      setMessage(t('settings.importNothing', { count: seedCount() }))
+      return
+    }
+
+    addAnimeMany(added)
+    setMessage(
+      t('settings.importDone', {
+        added: added.length,
+        skipped:
+          skipped.length > 0 ? t('settings.importSkipped', { count: skipped.length }) : ''
+      })
+    )
   }
 
   return (
@@ -41,14 +72,28 @@ export function SettingsView(): ReactNode {
       <UpdatePanel />
 
       <div className="panel">
-        <h3>Startup</h3>
-        <div className="panel-sub">Behaviour when the app launches.</div>
+        <h3>{t('settings.language')}</h3>
+        <div className="panel-sub">{t('settings.languageSub')}</div>
+        <div className="chips">
+          {LANGUAGES.map((option) => (
+            <button
+              key={option.key}
+              className={`chip${language === option.key ? ' active' : ''}`}
+              onClick={() => updateSettings({ language: option.key as Language })}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel">
+        <h3>{t('settings.startup')}</h3>
+        <div className="panel-sub">{t('settings.startupSub')}</div>
         <div className="toggle-row">
           <label htmlFor="set-check-startup">
-            <span className="toggle-title">Check for updates on startup</span>
-            <span className="toggle-sub">
-              Looks for a new release a few seconds after launch and shows a badge if one is found.
-            </span>
+            <span className="toggle-title">{t('settings.checkOnStartup')}</span>
+            <span className="toggle-sub">{t('settings.checkOnStartupSub')}</span>
           </label>
           <input
             id="set-check-startup"
@@ -60,17 +105,14 @@ export function SettingsView(): ReactNode {
       </div>
 
       <div className="panel">
-        <h3>Criteria weights</h3>
-        <div className="panel-sub">
-          Each component is scored 0–100. The global score is the weighted mean of the components
-          you have rated. Weight 0 removes a component from the calculation.
-        </div>
+        <h3>{t('settings.weights')}</h3>
+        <div className="panel-sub">{t('settings.weightsSub')}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {COMPONENTS.map((c) => (
             <div className="weights-grid" key={c.key}>
               <div className="criterion-name">
                 <span className="dot" style={{ background: `hsl(${c.hue} 70% 55%)` }} />
-                {c.label}
+                {t(criterionKey(c.key))}
               </div>
               <input
                 className="slider"
@@ -103,30 +145,37 @@ export function SettingsView(): ReactNode {
             className="btn sm"
             onClick={() => updateSettings({ weights: { ...DEFAULT_WEIGHTS } })}
           >
-            Reset to equal weights
+            {t('settings.resetWeights')}
           </button>
           <span className="hint" style={{ alignSelf: 'center' }}>
-            Total weight: {Object.values(weights).reduce((a, b) => a + b, 0).toFixed(2)}
+            {t('settings.totalWeight', {
+              value: Object.values(weights)
+                .reduce((a, b) => a + b, 0)
+                .toFixed(2)
+            })}
           </span>
         </div>
       </div>
 
       <div className="panel">
-        <h3>Backups &amp; data</h3>
-        <div className="panel-sub">
-          Your list is stored locally as JSON in the app&apos;s data folder. Export a copy to move it
-          between machines.
-        </div>
+        <h3>{t('settings.backups')}</h3>
+        <div className="panel-sub">{t('settings.backupsSub')}</div>
         <div className="panel-actions">
+          <button className="btn primary" onClick={onImportSeed}>
+            <IconDownload size={15} /> {t('settings.importList')}
+          </button>
           <button className="btn" onClick={onExport}>
-            <IconDownload size={15} /> Export backup
+            <IconDownload size={15} /> {t('settings.export')}
           </button>
           <button className="btn" onClick={onImport}>
-            <IconUpload size={15} /> Import backup
+            <IconUpload size={15} /> {t('settings.import')}
           </button>
           <button className="btn" onClick={onReveal}>
-            <IconFolder size={15} /> Show data file
+            <IconFolder size={15} /> {t('settings.reveal')}
           </button>
+        </div>
+        <div className="hint" style={{ marginTop: 10 }}>
+          {t('settings.importListSub', { count: seedCount() })} ({seedSource()})
         </div>
         {message && (
           <div className="mono" style={{ marginTop: 14 }}>
@@ -136,16 +185,16 @@ export function SettingsView(): ReactNode {
       </div>
 
       <div className="panel">
-        <h3>Summary</h3>
-        <div className="panel-sub">A quick look at what you have logged so far.</div>
+        <h3>{t('settings.summary')}</h3>
+        <div className="panel-sub">{t('settings.summarySub')}</div>
         <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap' }}>
-          <Stat label="Anime" value={String(data.anime.length)} />
+          <Stat label={t('settings.statAnime')} value={String(data.anime.length)} />
           <Stat
-            label="Episodes scored"
+            label={t('settings.statEpisodes')}
             value={String(data.anime.reduce((sum, a) => sum + a.episodes.length, 0))}
           />
           <Stat
-            label="Criteria ratings"
+            label={t('settings.statCriteria')}
             value={String(
               data.anime.reduce(
                 (sum, a) => sum + Object.values(a.criteria).filter((v) => v !== null).length,
@@ -153,9 +202,26 @@ export function SettingsView(): ReactNode {
               )
             )}
           />
-          <Stat label="Favourites" value={String(data.anime.filter((a) => a.favorite).length)} />
+          <Stat
+            label={t('settings.statFavourites')}
+            value={String(data.anime.filter((a) => a.favorite).length)}
+          />
         </div>
       </div>
+
+      {genres.length > 0 && (
+        <div className="panel">
+          <h3>{t('settings.genres')}</h3>
+          <div className="panel-sub">{t('settings.genresSub')}</div>
+          <div className="chips">
+            {genres.map(([genre, count]) => (
+              <span className="chip" key={genre}>
+                {genre} <span className="hint">{count}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   )
 }

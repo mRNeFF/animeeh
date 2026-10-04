@@ -383,6 +383,10 @@ export function normaliseAnime(input: Partial<Anime>): Anime {
         }
       : undefined
 
+  const genres = Array.isArray(input.genres)
+    ? [...new Set(input.genres.filter((g): g is string => typeof g === 'string' && g.trim() !== ''))]
+    : undefined
+
   const now = new Date().toISOString()
   return {
     id: input.id ?? crypto.randomUUID(),
@@ -400,6 +404,8 @@ export function normaliseAnime(input: Partial<Anime>): Anime {
     favorite: !!input.favorite,
     source,
     seasons,
+    coverImage: typeof input.coverImage === 'string' && input.coverImage ? input.coverImage : undefined,
+    genres: genres && genres.length > 0 ? genres : undefined,
     createdAt: input.createdAt ?? now,
     updatedAt: input.updatedAt ?? now
   }
@@ -413,7 +419,11 @@ export function normaliseStore(input: unknown): StoreData {
     checkForUpdatesOnStartup:
       typeof rawSettings?.checkForUpdatesOnStartup === 'boolean'
         ? rawSettings.checkForUpdatesOnStartup
-        : DEFAULT_SETTINGS.checkForUpdatesOnStartup
+        : DEFAULT_SETTINGS.checkForUpdatesOnStartup,
+    language:
+      rawSettings?.language === 'fr' || rawSettings?.language === 'en'
+        ? rawSettings.language
+        : DEFAULT_SETTINGS.language
   }
   return {
     version: STORE_VERSION,

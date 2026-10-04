@@ -125,6 +125,10 @@ export interface Anime {
    * hand-entered anime and for single-season shows.
    */
   seasons?: AnimeSeason[]
+  /** Cover art URL from the reference source. */
+  coverImage?: string
+  /** Genres from the reference source, used for filtering and tagging. */
+  genres?: string[]
   createdAt: string
   updatedAt: string
 }
@@ -133,7 +137,11 @@ export interface Settings {
   weights: Weights
   /** Check GitHub for a new release shortly after launch. */
   checkForUpdatesOnStartup: boolean
+  /** Interface language. */
+  language: Language
 }
+
+export type Language = 'en' | 'fr'
 
 export interface StoreData {
   version: number
@@ -158,7 +166,8 @@ export const DEFAULT_WEIGHTS: Weights = {
 
 export const DEFAULT_SETTINGS: Settings = {
   weights: { ...DEFAULT_WEIGHTS },
-  checkForUpdatesOnStartup: true
+  checkForUpdatesOnStartup: true,
+  language: 'en'
 }
 
 export const STORE_VERSION = 1

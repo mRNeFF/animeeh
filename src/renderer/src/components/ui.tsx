@@ -28,14 +28,24 @@ export function initials(title: string): string {
 export function Cover({
   title,
   hue,
+  src,
   className,
   style
 }: {
   title: string
   hue: number
+  /** Cover art URL from the reference source; falls back to initials. */
+  src?: string
   className?: string
   style?: CSSProperties
 }): ReactNode {
+  if (src) {
+    return (
+      <div className={`${className ?? ''} cover-img`} style={style}>
+        <img src={src} alt="" loading="lazy" draggable={false} />
+      </div>
+    )
+  }
   return (
     <div className={className} style={{ background: coverGradient(hue), ...style }}>
       {initials(title)}

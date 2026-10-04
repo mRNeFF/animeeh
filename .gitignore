@@ -8,3 +8,5 @@ Thumbs.db
 # Screenshots produced by the smoke tests; the curated ones live in docs/screenshots.
 smoke-*.png
 live-*.png
+.seed-cache.json
+seed-report.json

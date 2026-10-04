@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { AnimeDetails, AnimeSearchResult } from '../../../shared/anilist'
+import { statusKey, useI18n } from '../i18n'
 import { STATUSES, type Anime, type AnimeSeason, type AnimeSource, type Status } from '../types'
 import { IconClose, IconSearch } from './Icons'
 import { Modal } from './ui'
@@ -81,6 +82,7 @@ export function AnimeForm({
   onSubmit: (values: AnimeFormValues) => void
   submitLabel: string
 }): ReactNode {
+  const { t } = useI18n()
   const isNew = !initial
 
   const [values, setValues] = useState<AnimeFormValues>({
@@ -218,7 +220,7 @@ export function AnimeForm({
 
   return (
     <Modal
-      title={initial ? 'Edit anime' : 'Add anime'}
+      title={initial ? t('form.editTitle') : t('form.addTitle')}
       subtitle={
         initial
           ? 'Update the details for this entry.'
@@ -439,7 +441,7 @@ export function AnimeForm({
             >
               {STATUSES.map((s) => (
                 <option key={s.key} value={s.key}>
-                  {s.label}
+                  {t(statusKey(s.key))}
                 </option>
               ))}
             </select>
@@ -473,7 +475,7 @@ export function AnimeForm({
             </span>
           )}
           <button type="button" className="btn ghost" onClick={onClose}>
-            Cancel
+            {t('action.cancel')}
           </button>
           <button type="submit" className="btn primary" disabled={!canSubmit}>
             {submitLabel}

@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { grade, rankAnime, scoreParts } from '../scoring'
 import { useStore } from '../store'
+import { criterionKey, useI18n } from '../i18n'
 import { CRITERIA, type ComponentKey } from '../types'
 import { GradeBadge } from './ui'
 
@@ -9,6 +10,7 @@ type Dir = 'asc' | 'desc'
 
 export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): ReactNode {
   const { data } = useStore()
+  const { t } = useI18n()
   const weights = data.settings.weights
 
   const [sortKey, setSortKey] = useState<SortKey>('rank')
@@ -48,8 +50,8 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
   if (data.anime.length === 0) {
     return (
       <div className="empty">
-        <h3>Your leaderboard is empty</h3>
-        <p style={{ margin: 0 }}>Add anime and rate them to build a ranking.</p>
+        <h3>{t('empty.leaderboard')}</h3>
+        <p style={{ margin: 0 }}>{t('empty.leaderboardBody')}</p>
       </div>
     )
   }
@@ -69,13 +71,13 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
               </th>
               <th className="no-sort">Title</th>
               <th className="no-sort" style={{ width: 54 }}>
-                Eps
+                {t('board.eps')}
               </th>
               <th onClick={() => toggle('episodeAverage')} style={{ width: 62 }}>
                 Avg{arrow('episodeAverage')}
               </th>
               {CRITERIA.map((c) => (
-                <th key={c.key} onClick={() => toggle(c.key)} style={{ width: 58 }} title={c.label}>
+                <th key={c.key} onClick={() => toggle(c.key)} style={{ width: 58 }} title={t(criterionKey(c.key))}>
                   {c.short}
                   {arrow(c.key)}
                 </th>
@@ -84,7 +86,7 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
                 Global{arrow('rank')}
               </th>
               <th className="no-sort" style={{ width: 56 }}>
-                Grade
+                {t('board.grade')}
               </th>
             </tr>
           </thead>

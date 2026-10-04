@@ -1,11 +1,13 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { rankByCriterion } from '../scoring'
 import { useStore } from '../store'
+import { criterionKey, useI18n } from '../i18n'
 import { CRITERIA, EPISODE_AVG_CRITERION, type ComponentKey } from '../types'
 import { Bar } from './ui'
 
 export function CriteriaView({ onOpen }: { onOpen: (id: string) => void }): ReactNode {
   const { data } = useStore()
+  const { t } = useI18n()
   const [key, setKey] = useState<ComponentKey>('characters')
 
   const options = useMemo(
@@ -28,15 +30,15 @@ export function CriteriaView({ onOpen }: { onOpen: (id: string) => void }): Reac
             className={`chip${o.key === key ? ' active' : ''}`}
             onClick={() => setKey(o.key)}
           >
-            {o.label}
+            {t(criterionKey(o.key))}
           </button>
         ))}
       </div>
 
       {data.anime.length === 0 ? (
         <div className="empty">
-          <h3>Nothing to rank yet</h3>
-          <p style={{ margin: 0 }}>Add anime and rate the criteria to see per-category rankings.</p>
+          <h3>{t('empty.criteria')}</h3>
+          <p style={{ margin: 0 }}>{t('empty.criteriaBody')}</p>
         </div>
       ) : (
         <div className="table-wrap" style={{ padding: '8px 0' }}>
@@ -44,7 +46,7 @@ export function CriteriaView({ onOpen }: { onOpen: (id: string) => void }): Reac
             className="hint"
             style={{ padding: '10px 16px 14px' }}
           >
-            Ranking by <strong style={{ color: `hsl(${active.hue} 65% 68%)` }}>{active.label}</strong>{' '}
+            Ranking by <strong style={{ color: `hsl(${active.hue} 65% 68%)` }}>{t(criterionKey(active.key))}</strong>{' '}
             — scored 0–100. Unrated entries are listed last.
           </div>
           {ranking.map((row) => (

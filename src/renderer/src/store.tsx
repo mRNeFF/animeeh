@@ -28,6 +28,8 @@ interface StoreContextValue {
   loaded: boolean
   saving: boolean
   addAnime: (anime: Anime) => void
+  /** Bulk append, used by the bundled list import. */
+  addAnimeMany: (anime: Anime[]) => void
   updateAnime: (id: string, patch: Partial<Anime>) => void
   removeAnime: (id: string) => void
   updateSettings: (patch: Partial<Settings>) => void
@@ -86,6 +88,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setData((prev) => ({ ...prev, anime: [anime, ...prev.anime] }))
   }, [])
 
+  const addAnimeMany = useCallback((list: Anime[]) => {
+    if (list.length === 0) return
+    setData((prev) => ({ ...prev, anime: [...prev.anime, ...list] }))
+  }, [])
+
   const updateAnime = useCallback((id: string, patch: Partial<Anime>) => {
     setData((prev) => ({
       ...prev,
@@ -108,8 +115,18 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   }, [])
 
   const value = useMemo<StoreContextValue>(
-    () => ({ data, loaded, saving, addAnime, updateAnime, removeAnime, updateSettings, replaceAll }),
-    [data, loaded, saving, addAnime, updateAnime, removeAnime, updateSettings, replaceAll]
+    () => ({
+      data,
+      loaded,
+      saving,
+      addAnime,
+      addAnimeMany,
+      updateAnime,
+      removeAnime,
+      updateSettings,
+      replaceAll
+    }),
+    [data, loaded, saving, addAnime, addAnimeMany, updateAnime, removeAnime, updateSettings, replaceAll]
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

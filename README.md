@@ -1,131 +1,131 @@
 # ANIMEEH
 
-Application de bureau pour **noter et classer tous les animés que vous regardez** — épisode par épisode, sur sept critères, avec un score global pondéré.
+A desktop app to **rate and rank every anime you watch** — episode by episode, across seven criteria, with a weighted global score.
 
 [![Electron](https://img.shields.io/badge/Electron-44-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Licence MIT](https://img.shields.io/badge/licence-MIT-green.svg)](LICENSE)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-green.svg)](LICENSE)
 
-![Bibliothèque](docs/screenshots/library.png)
+![Library](docs/screenshots/library.png)
 
 ---
 
-## Sommaire
+## Contents
 
-- [Ce que fait l'application](#ce-que-fait-lapplication)
-- [Le modèle de notation](#le-modèle-de-notation)
-- [Installation](#installation)
-- [Où sont mes données](#où-sont-mes-données)
-- [Scripts disponibles](#scripts-disponibles)
+- [What it does](#what-it-does)
+- [The scoring model](#the-scoring-model)
+- [Install](#install)
+- [Where your data lives](#where-your-data-lives)
+- [Available scripts](#available-scripts)
 - [Architecture](#architecture)
-- [Publier une nouvelle version](#publier-une-nouvelle-version)
-- [Limites connues](#limites-connues)
+- [Releasing a new version](#releasing-a-new-version)
+- [Known limitations](#known-limitations)
 
 ---
 
-## Ce que fait l'application
+## What it does
 
-- **Note chaque épisode de 0 à 100.** Un épisode non noté est simplement ignoré : vous pouvez créer une saison entière puis noter au fil du visionnage sans fausser votre moyenne.
-- **Sept critères par animé** — Personnages, Histoire, Animation, OST, Opening, Key Factor, Originalité.
-- **Score global pondéré**, dont la moyenne des épisodes fait partie intégrante.
-- **Quatre vues** : Bibliothèque, Classement global, Classement par critère, Réglages.
-- **Recherche AniList** : tapez un titre, l'application pré-remplit l'année, le studio, le nombre d'épisodes **et les titres des épisodes**, puis vous laisse tout corriger à la main.
-- **Mise à jour depuis l'application**, via GitHub Releases.
-- **100 % local** : vos notes vivent dans un simple fichier JSON chez vous. Aucun compte, aucun serveur.
+- **Rate every episode from 0 to 100.** An unrated episode is simply ignored, so you can create a whole season up front and score it as you watch, without skewing your average.
+- **Seven criteria per anime** — Characters, Story, Animation, OST, Opening, Key Factor, Originality.
+- **Weighted global score**, with the episode average as a first-class component.
+- **Four views**: Library, Global leaderboard, Rankings by criteria, Settings.
+- **AniList lookup**: type a title and the app pre-fills the year, studio, episode count **and the individual episode titles**, all of which you can still edit by hand.
+- **In-app updates** via GitHub Releases.
+- **Entirely local**: your ratings live in a single JSON file on your machine. No account, no server.
 
-| Bibliothèque | Fiche détaillée |
+| Library | Detail |
 |---|---|
-| ![Bibliothèque](docs/screenshots/library.png) | ![Fiche](docs/screenshots/detail.png) |
+| ![Library](docs/screenshots/library.png) | ![Detail](docs/screenshots/detail.png) |
 
-| Classement global | Classement par critère |
+| Global leaderboard | Rankings by criteria |
 |---|---|
-| ![Classement](docs/screenshots/leaderboard.png) | ![Critères](docs/screenshots/criteria.png) |
+| ![Leaderboard](docs/screenshots/leaderboard.png) | ![Criteria](docs/screenshots/criteria.png) |
 
-| Recherche AniList | Réglages |
+| AniList lookup | Settings |
 |---|---|
-| ![AniList](docs/screenshots/anilist-search.png) | ![Réglages](docs/screenshots/settings.png) |
+| ![AniList](docs/screenshots/anilist-search.png) | ![Settings](docs/screenshots/settings.png) |
 
 ---
 
-## Le modèle de notation
+## The scoring model
 
-C'est le cœur de l'application, donc voici exactement comment le score global est calculé.
+This is the heart of the app, so here is exactly how the global score is computed.
 
-### Les huit composantes
+### The eight components
 
-Sept critères que vous notez vous-même, plus une composante calculée :
+Seven criteria you rate yourself, plus one derived component:
 
-| Composante | Source |
+| Component | Source |
 |---|---|
-| Personnages, Histoire, Animation, OST, Opening, Key Factor, Originalité | Votre note, de 0 à 100 |
-| **Moyenne des épisodes** | Calculée automatiquement à partir des épisodes notés |
+| Characters, Story, Animation, OST, Opening, Key Factor, Originality | Your rating, 0 to 100 |
+| **Episode average** | Computed automatically from your rated episodes |
 
-### La formule
+### The formula
 
 ```
-score global = Σ (valeur × poids) / Σ (poids)
+global score = Σ (value × weight) / Σ (weight)
 ```
 
-La somme ne porte que sur les composantes **effectivement notées** et dont le **poids est supérieur à zéro**.
+The sum only covers components that are **actually rated** and whose **weight is greater than zero**.
 
-Deux conséquences voulues :
+Two deliberate consequences:
 
-- Un critère que vous n'avez pas encore noté est **exclu** du calcul au lieu de compter comme un zéro. Une fiche à moitié remplie n'est donc pas pénalisée.
-- Mettre un poids à `0` revient à retirer complètement la composante du classement, sans effacer la note.
+- A criterion you have not rated yet is **excluded** from the calculation instead of counting as a zero, so a half-filled entry is not penalised.
+- Setting a weight to `0` removes that component from the ranking entirely without erasing the rating.
 
-Les poids se règlent dans **Réglages → Criteria weights** (de `0` à `3`, par pas de `0,25`) et valent `1` par défaut.
+Weights are adjustable in **Settings → Criteria weights** (from `0` to `3`, in steps of `0.25`) and default to `1`.
 
-### Exemple concret
+### A worked example
 
-Voici le résultat réel d'un test sur *Sousou no Frieren*, tous les poids à `1` :
+This is a real result from the test suite for *Sousou no Frieren*, with every weight at `1`:
 
-| Personnages | Histoire | Animation | OST | Opening | Key Factor | Originalité | Moyenne épisodes |
+| Characters | Story | Animation | OST | Opening | Key Factor | Originality | Episode average |
 |---|---|---|---|---|---|---|---|
-| 95 | 96 | 92 | 88 | 90 | 85 | 89 | 95,6 |
+| 95 | 96 | 92 | 88 | 90 | 85 | 89 | 95.6 |
 
 ```
-(95 + 96 + 92 + 88 + 90 + 85 + 89 + 95,6) / 8 = 91,3
+(95 + 96 + 92 + 88 + 90 + 85 + 89 + 95.6) / 8 = 91.3
 ```
 
-→ **91,3**, soit la note **S**.
+→ **91.3**, a grade of **S**.
 
-### Les notes lettrées
+### Letter grades
 
-| Lettre | Seuil |
+| Grade | Threshold |
 |---|---|
-| **S** | 90 et plus |
-| **A** | 80 – 89,9 |
-| **B** | 70 – 79,9 |
-| **C** | 60 – 69,9 |
-| **D** | 50 – 59,9 |
-| **E** | moins de 50 |
+| **S** | 90 and above |
+| **A** | 80 – 89.9 |
+| **B** | 70 – 79.9 |
+| **C** | 60 – 69.9 |
+| **D** | 50 – 59.9 |
+| **E** | below 50 |
 
-### La moyenne des épisodes
+### The episode average
 
-Elle ne porte que sur les épisodes réellement notés :
+It only covers episodes that actually carry a rating:
 
 ```
-moyenne = somme des notes des épisodes notés / nombre d'épisodes notés
+average = sum of rated episode scores / number of rated episodes
 ```
 
-Si aucun épisode n'est noté, la composante est `null` et se retire du calcul — le score global reste défini à partir des seuls critères.
+When no episode is rated the component is `null` and drops out of the calculation, leaving the global score defined by the criteria alone.
 
 ---
 
-## Installation
+## Install
 
-### Depuis les releases
+### From the releases
 
-1. Téléchargez `ANIMEEH-x.y.z-setup.exe` depuis la page [Releases](https://github.com/mRNeFF/animeeh/releases).
-2. Lancez l'installeur, choisissez le dossier d'installation.
-3. Raccourcis créés sur le Bureau et dans le menu Démarrer.
+1. Download `ANIMEEH-x.y.z-setup.exe` from the [Releases](https://github.com/mRNeFF/animeeh/releases) page.
+2. Run the installer and pick an install folder.
+3. Shortcuts are created on the Desktop and in the Start menu.
 
-L'application se met à jour toute seule ensuite : **Réglages → Check for updates**.
+The app updates itself from then on: **Settings → Check for updates**.
 
-### Depuis les sources
+### From source
 
-Prérequis : **Node.js 22 ou plus récent** et **Git**.
+Requires **Node.js 22.12 or newer** (Electron 44's minimum) and **Git**.
 
 ```powershell
 git clone https://github.com/mRNeFF/animeeh.git
@@ -134,116 +134,110 @@ npm install
 npm run dev
 ```
 
-Pour produire un installeur Windows :
+To produce a Windows installer:
 
 ```powershell
-npm run dist        # installeur NSIS dans release/
-npm run dist:dir    # version décompressée, sans installeur (plus rapide)
+npm run dist        # NSIS installer in release/
+npm run dist:dir    # unpacked build, no installer (faster)
 ```
 
 ---
 
-## Où sont mes données
+## Where your data lives
 
-Vos notes sont dans un unique fichier JSON :
+Your ratings are stored in a single JSON file:
 
 ```
 %APPDATA%\ANIMEEH\animeeh-data.json
 ```
 
-> **À savoir :** lancée depuis les sources (`npm run dev`), l'application utilise un dossier distinct, `%APPDATA%\animeeh`. Les deux versions ne partagent donc **pas** la même liste. Copiez le fichier de l'un vers l'autre si besoin.
+> **Worth knowing:** when run from source (`npm run dev`) the app uses a separate folder, `%APPDATA%\animeeh`. The two builds therefore do **not** share a list. Copy the file between them if you need to.
 
-Pour sauvegarder ou transférer votre liste : **Réglages → Export backup** (et **Import backup** dans l'autre sens). Le bouton **Show data file** ouvre le dossier directement.
+To back up or move your list: **Settings → Export backup** (and **Import backup** in the other direction). The **Show data file** button opens the folder directly.
 
-En cas de problème, **Réglages** affiche la version courante et le dossier de données ; les journaux de démarrage sont écrits à côté.
+If something goes wrong, **Settings** shows the current version and the data folder, and startup logs are written alongside it.
 
 ---
 
-## Scripts disponibles
+## Available scripts
 
-| Commande | Rôle |
+| Command | Purpose |
 |---|---|
-| `npm run dev` | Lancement en développement, avec rechargement à chaud |
-| `npm run build` | Compile les trois processus dans `out/` |
-| `npm run typecheck` | Vérification TypeScript, sans émission |
-| `npm run start` | Lance le build compilé |
-| `npm run dist` | Installeur Windows (NSIS) dans `release/` |
-| `npm run dist:dir` | Application packagée non installable dans `release/win-unpacked/` |
-| `npm run icon` | Régénère `build/icon.ico` et les PNG |
-| `npm run release` | Construit **et publie** une release GitHub |
-| `npm run smoke` | Test de bout en bout : parcours complet + capture d'écran |
-| `npm run smoke:offline` | Vérifie le comportement quand AniList est injoignable |
-| `npm run smoke:update` | Teste la mise à jour avec un faux serveur local |
-| `npm run smoke:update:live` | Teste la mise à jour contre les vraies releases GitHub |
+| `npm run dev` | Development mode with hot reload |
+| `npm run build` | Compile all three processes into `out/` |
+| `npm run typecheck` | TypeScript check, no emit |
+| `npm run start` | Run the compiled build |
+| `npm run dist` | Windows installer (NSIS) into `release/` |
+| `npm run dist:dir` | Packaged, non-installable app into `release/win-unpacked/` |
+| `npm run icon` | Regenerate `build/icon.ico` and the PNGs |
+| `npm run release` | Build **and publish** a GitHub release |
+| `npm run smoke` | End-to-end test: full user journey plus screenshots |
+| `npm run smoke:offline` | Checks behaviour when AniList is unreachable |
+| `npm run smoke:update` | Tests updating against a fake local feed |
+| `npm run smoke:update:live` | Tests updating against the real GitHub releases |
 
 ---
 
 ## Architecture
 
-Trois processus Electron, plus des types partagés. **Tout le réseau vit dans le processus principal** ; l'interface n'y a jamais accès directement.
+Three Electron processes plus shared types. **All network access lives in the main process**; the UI never talks to the network directly.
 
 ```
 src/
-├── main/                  Processus principal (Node)
-│   ├── index.ts           Fenêtre, persistance, IPC
-│   ├── anilist.ts         Client GraphQL AniList, avec cache et délais
-│   └── updater.ts         electron-updater : détection, téléchargement, installation
-├── preload/               Pont IPC sécurisé (contextBridge)
-│   └── index.ts           API exposée à l'interface, rien de plus
-├── renderer/              Interface (React)
+├── main/                  Main process (Node)
+│   ├── index.ts           Window, persistence, IPC
+│   ├── anilist.ts         AniList GraphQL client, with cache and timeouts
+│   └── updater.ts         electron-updater: check, download, install
+├── preload/               Secure IPC bridge (contextBridge)
+│   └── index.ts           The API exposed to the UI, nothing more
+├── renderer/              UI (React)
 │   ├── index.html
 │   └── src/
-│       ├── components/    Vues et composants réutilisables
-│       ├── App.tsx        Navigation entre les quatre vues
-│       ├── scoring.ts     ★ Modèle de notation (testé par les smoke tests)
-│       ├── store.tsx      État global + persistance débouncée
-│       ├── types.ts       Modèle de données
-│       └── useUpdate.ts   État de mise à jour côté interface
-└── shared/                Types partagés entre main et renderer
+│       ├── components/    Views and reusable components
+│       ├── App.tsx        Navigation between the four views
+│       ├── scoring.ts     ★ The scoring model (exercised by the smoke tests)
+│       ├── store.tsx      Global state plus debounced persistence
+│       ├── types.ts       Data model
+│       └── useUpdate.ts   Update state on the UI side
+└── shared/                Types shared between main and renderer
 ```
 
-**Stack :** Electron 44 · React 19 · TypeScript 7 · Vite 7 (via `electron-vite`) · `electron-updater`.
+**Stack:** Electron 44 · React 19 · TypeScript 7 · Vite 7 (via `electron-vite`) · `electron-updater`.
 
-### Notes d'implémentation
+### Implementation notes
 
-- **Contexte isolé, pas de `nodeIntegration`.** L'interface passe par `window.animeeh`, une API explicite exposée par le preload.
-- **Le score des épisodes est nullable.** `null` = non noté. C'est ce qui permet de pré-créer des épisodes sans écraser la moyenne à zéro.
-- **Écriture disque débouncée** (350 ms) et ignorée si le contenu n'a pas changé.
-- **Mises à jour pilotées par l'utilisateur** (`autoDownload = false`), et une vérification en arrière-plan ne peut jamais écraser un téléchargement en cours ou terminé.
-- **AniList** sert de source de référence : son API ne demande aucune inscription et chaque entrée porte `idMal`, l'identifiant MyAnimeList officiel.
+- **Context isolation, no `nodeIntegration`.** The UI goes through `window.animeeh`, an explicit API exposed by the preload script.
+- **Episode scores are nullable.** `null` means unrated, which is what lets the app pre-create episodes without dragging the average to zero.
+- **Disk writes are debounced** (350 ms) and skipped when nothing changed.
+- **Updates are user-driven** (`autoDownload = false`), and a background check can never clobber an in-flight or finished download.
+- **AniList** is the reference source: its API needs no registration and every entry carries `idMal`, the official MyAnimeList identifier.
 
 ---
 
-## Publier une nouvelle version
+## Releasing a new version
 
-L'API officielle MyAnimeList exige un OAuth2, et `electron-updater` a besoin d'un fichier `latest.yml` qu'`electron-builder` ne génère pas pour le provider GitHub : `scripts/release.mjs` s'en charge.
+MyAnimeList's own API requires OAuth2, and `electron-updater` needs a `latest.yml` file that `electron-builder` does not generate for the GitHub provider, so `scripts/release.mjs` handles it.
 
 ```powershell
-# 1. Incrémenter la version
-npm version patch     # ou minor / major
+# 1. Bump the version
+npm version patch     # or minor / major
 
-# 2. Construire et publier
+# 2. Build and publish
 npm run release
 ```
 
-Le script compile, crée le tag et la release GitHub, génère `latest.yml` (nom, taille, sha512), puis vérifie que les fichiers sont bien en ligne.
+The script builds, creates the GitHub tag and release, generates `latest.yml` (name, size, sha512), then verifies the files are live.
 
-> Le dépôt **doit rester public** : `electron-updater` interroge GitHub sans authentification, un dépôt privé exigerait d'embarquer un token dans l'application.
+> The repository **must stay public**: `electron-updater` queries GitHub with no authentication, so a private repo would mean shipping a token inside the app.
 
-Le prérequis est [GitHub CLI](https://cli.github.com/) authentifié (`gh auth login`).
-
----
-
-## Limites connues
-
-- **Installeur non signé.** Windows SmartScreen affichera « Éditeur inconnu » au premier lancement chez quelqu'un d'autre que vous. Cela demande un certificat de signature de code payant.
-- **Windows uniquement pour l'instant.** `electron-builder.yml` contient des cibles Linux et macOS, mais rien n'a été testé dessus.
-- **AniList limite à environ 30 requêtes par minute.** L'application applique un anti-rebond de 450 ms et un cache de 30 minutes ; en usage normal vous ne le sentirez pas.
-- **AniList n'est pas MyAnimeList.** Ce sont deux bases distinctes, reliées par `idMal`. Les données sont très proches sur les séries connues, mais peuvent diverger (nombre d'épisodes, studios).
-- **L'interface est en anglais**, les messages de l'application aussi.
+This requires an authenticated [GitHub CLI](https://cli.github.com/) (`gh auth login`).
 
 ---
 
-## Licence
+## Known limitations
 
-[MIT](LICENSE) — faites-en ce que vous voulez.
+- **The installer is not code-signed.** Windows SmartScreen will show "Unknown publisher" on first run for anyone other than you. Fixing that needs a paid code-signing certificate.
+- **Windows only for now.** `electron-builder.yml` contains Linux and macOS targets, but neither has been tested.
+- **AniList rate-limits to roughly 30 requests per minute.** The app applies a 450 ms debounce and a 30-minute cache, so you will not notice it in normal use.
+- **AniList is not MyAnimeList.** They are separate databases linked by `idMal`. Data is very close for well-known series but can diverge (episode counts, studios).
+- **The interface is in English**, as are all in-app messages.

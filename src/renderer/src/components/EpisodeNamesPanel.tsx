@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react'
-import { loadAllEpisodeNames, seasonIdsOf, type BulkProgress } from '../bulkEpisodes'
+import { loadAllEpisodeNames, seasonPartsOf, type BulkProgress } from '../bulkEpisodes'
 import { useI18n } from '../i18n'
 import { useStore } from '../store'
 import { IconDownload } from './Icons'
@@ -10,14 +10,15 @@ export function EpisodeNamesPanel(): ReactNode {
 
   const [progress, setProgress] = useState<BulkProgress | null>(null)
   const [result, setResult] = useState<string | null>(null)
+  const [replace, setReplace] = useState(false)
   const cancelled = useRef(false)
 
-  // Only anime with a reference id can be filled, and only those still missing
-  // names are worth counting.
-  const eligible = data.anime.filter((a) => seasonIdsOf(a).length > 0)
-  const withoutNames = eligible.filter(
-    (a) => !a.episodes.some((e) => (e.title ?? '').trim() !== '')
-  ).length
+  // In fill mode only anime still missing names are worth counting; in replace
+  // mode every anime with a reference is a target.
+  const eligible = data.anime.filter((a) => seasonPartsOf(a).length > 0)
+  const targets = replace
+    ? eligible.length
+    : eligible.filter((a) => !a.episodes.some((e) => (e.title ?? '').trim() !== '')).length
 
   const running = progress?.running ?? false
 
@@ -27,7 +28,8 @@ export function EpisodeNamesPanel(): ReactNode {
 
     const outcome = await loadAllEpisodeNames(data.anime, updateAnime, {
       onProgress: setProgress,
-      shouldCancel: () => cancelled.current
+      shouldCancel: () => cancelled.current,
+      replace
     })
 
     setProgress((prev) => (prev ? { ...prev, running: false, current: null } : prev))
@@ -77,6 +79,19 @@ export function EpisodeNamesPanel(): ReactNode {
         </>
       )}
 
+      <div className="toggle-row" style={{ marginTop: 14 }}>
+        <label htmlFor="names-replace">
+          <span className="toggle-title">{t('settings.episodesReplace')}</span>
+          <span className="toggle-sub">{t('settings.episodesReplaceSub')}</span>
+        </label>
+        <input
+          id="names-replace"
+          type="checkbox"
+          checked={replace}
+          onChange={(e) => setReplace(e.target.checked)}
+        />
+      </div>
+
       <div className="panel-actions" style={{ marginTop: 14 }}>
         <button className="btn primary" onClick={() => void start()} disabled={running}>
           {running ? (
@@ -97,7 +112,7 @@ export function EpisodeNamesPanel(): ReactNode {
       </div>
 
       <div className="hint" style={{ marginTop: 10 }}>
-        {t('settings.episodesCount', { count: withoutNames })}
+        {t('settings.episodesCount', { count: targets })}
       </div>
 
       {result && (

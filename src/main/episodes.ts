@@ -4,12 +4,14 @@
  * AniList is the reference source for titles, but it has no episode list of its
  * own: `streamingEpisodes` mirrors the streaming service and only covered 73%
  * of this library, with nothing at all for Vinland Saga, Cyberpunk or Oshi no
- * Ko. Kitsu keeps a real per-anime episode list and maps to AniList ids, so it
- * is tried first and AniList's list is the fallback.
+ * Ko. Worse, for Re:Zero it returns the same 16 franchise-wide titles
+ * (numbered 63-78) on all three of its seasons. Kitsu keeps a real per-anime
+ * episode list and maps to AniList ids, so it supplies the titles and AniList
+ * supplies the episode counts.
  *
- * Each season of a franchise is a separate entry on both services, so a
- * multi-season entity is filled season by season and renumbered continuously,
- * matching how the app stores episodes.
+ * A season that aired in two cours is two separate AniList and Kitsu entries.
+ * `seasons` therefore arrives as one array of part ids per merged season, and
+ * each part occupies its own stretch of the numbering.
  */
 import type { EpisodeName, EpisodeNamesResult } from '../shared/episodes'
 
@@ -117,8 +119,16 @@ async function kitsuAnimeId(anilistId: number): Promise<string | null> {
   return item?.type === 'anime' ? (item.id ?? null) : null
 }
 
-/** Every titled episode of one Kitsu anime, following pagination. */
-async function kitsuEpisodeNames(kitsuId: string): Promise<{ number: number; title: string }[]> {
+/**
+ * Every titled episode of one Kitsu anime, following pagination.
+ *
+ * Returns the total episode count as well: a part can have 13 episodes while
+ * only one carries a title, and the count is what decides how many slots the
+ * part occupies.
+ */
+async function kitsuEpisodeNames(
+  kitsuId: string
+): Promise<{ titles: Map<number, string>; count: number }> {
   const first = await kitsu<KitsuEpisodes>(
     `/anime/${kitsuId}/episodes?page[limit]=20&page[offset]=0`
   )
@@ -132,24 +142,75 @@ async function kitsuEpisodeNames(kitsuId: string): Promise<{ number: number; tit
     items.push(...(page.data ?? []))
   }
 
-  return items
-    .filter((e) => e.attributes?.canonicalTitle)
-    .map((e, index) => ({
-      // Kitsu leaves `number` null for specials; fall back to arrival order.
-      number: typeof e.attributes?.number === 'number' ? e.attributes.number : index + 1,
-      title: (e.attributes?.canonicalTitle ?? '').trim()
-    }))
-    .filter((e) => e.title !== '')
-    .sort((a, b) => a.number - b.number)
+  const titles = new Map<number, string>()
+  items.forEach((item, index) => {
+    const title = item.attributes?.canonicalTitle?.trim()
+    if (!title) return
+    // Kitsu leaves `number` null for specials; fall back to arrival order.
+    const number =
+      typeof item.attributes?.number === 'number' ? item.attributes.number : index + 1
+    titles.set(number, title)
+  })
+
+  return { titles, count: total }
 }
 
-/* ------------------------------------------------------------------ */
-/* AniList fallback                                                    */
-/* ------------------------------------------------------------------ */
-
+/** AniList media shape for the batched part query. */
 interface AniListMedia {
   episodes?: number | null
   streamingEpisodes?: { title?: string | null }[] | null
+}
+
+/* ------------------------------------------------------------------ */
+/* AniList: declared episode counts, and titles only when trustworthy   */
+/* ------------------------------------------------------------------ */
+
+interface AniListPartInfo {
+  /** Episode count AniList declares for this entry, 0 when unknown. */
+  declared: number
+  /** Titles, already parsed, in their local numbering. */
+  titles: { number: number; title: string }[]
+}
+
+const EMPTY_PART: AniListPartInfo = { declared: 0, titles: [] }
+
+/**
+ * One batched request for every part's episode count and streamed titles.
+ *
+ * The counts are the important part: they decide how many episode slots a part
+ * occupies, and getting that wrong shifts every following season.
+ */
+async function fetchAniListParts(ids: number[]): Promise<Map<number, AniListPartInfo>> {
+  const result = new Map<number, AniListPartInfo>()
+  const unique = [...new Set(ids.filter((n) => Number.isSafeInteger(n) && n > 0))]
+  if (unique.length === 0) return result
+
+  // GraphQL alias batching: one request for the whole franchise.
+  const aliases = unique.map((id, i) => `p${i}: Media(id: ${id}) { episodes streamingEpisodes { title } }`)
+
+  try {
+    const response = await fetch(ANILIST, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ query: `query {\n${aliases.join('\n')}\n}` }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+    })
+    if (!response.ok) return result
+
+    const payload = (await response.json()) as {
+      data?: Record<string, AniListMedia | null>
+    }
+
+    unique.forEach((id, index) => {
+      const media = payload.data?.[`p${index}`]
+      const declared = typeof media?.episodes === 'number' && media.episodes > 0 ? media.episodes : 0
+      result.set(id, { declared, titles: parseTitles(media?.streamingEpisodes) })
+    })
+  } catch {
+    // Counts fall back to Kitsu below.
+  }
+
+  return result
 }
 
 /** Strip the "Episode 7 - " prefix AniList adds. */
@@ -170,44 +231,6 @@ function parseTitles(list: { title?: string | null }[] | null | undefined): {
   return out
 }
 
-interface AniListEpisodeNames {
-  list: { number: number; title: string }[]
-  /** Episode count AniList declares for this season, 0 when unknown. */
-  declared: number
-}
-
-async function anilistEpisodeNames(anilistId: number): Promise<AniListEpisodeNames> {
-  const key = `anilist:${anilistId}`
-  const cached = cacheGet<AniListEpisodeNames>(key)
-  if (cached) return cached
-
-  const response = await fetch(ANILIST, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({
-      query: 'query ($id: Int) { Media(id: $id) { episodes streamingEpisodes { title } } }',
-      variables: { id: anilistId }
-    }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
-  })
-  if (!response.ok) throw new Error(`AniList responded with ${response.status}`)
-
-  const payload = (await response.json()) as { data?: { Media?: AniListMedia | null } }
-  const media = payload.data?.Media
-  const titles = parseTitles(media?.streamingEpisodes)
-  const declared = typeof media?.episodes === 'number' && media.episodes > 0 ? media.episodes : 0
-
-  // AniList repeats the whole franchise on every season, so a list whose length
-  // disagrees with this season's episode count cannot be trusted for it.
-  const result: AniListEpisodeNames = {
-    list: declared > 0 && titles.length !== declared ? [] : titles,
-    declared
-  }
-
-  cacheSet(key, result)
-  return result
-}
-
 /* ------------------------------------------------------------------ */
 /* Public API                                                          */
 /* ------------------------------------------------------------------ */
@@ -215,13 +238,19 @@ async function anilistEpisodeNames(anilistId: number): Promise<AniListEpisodeNam
 /**
  * Collect episode names for a franchise, in season order.
  *
- * `seasons` are the AniList ids of each season, earliest first. A single-season
- * entity passes one entry. Each season is resolved independently so a season
- * Kitsu does not know about still gets its AniList fallback.
+ * `seasons` is one array of part ids per merged season: a season split into two
+ * cours has two ids. Each part occupies its own stretch of the numbering, sized
+ * by AniList's declared episode count rather than by how many titles came back
+ * — a part with 13 episodes but a single titled row still takes 13 slots.
  */
-export async function loadEpisodeNames(seasons: number[]): Promise<EpisodeNamesResult> {
-  const unique = [...new Set(seasons.filter((n) => Number.isSafeInteger(n) && n > 0))]
-  if (unique.length === 0) throw new Error('No reference id for this anime')
+export async function loadEpisodeNames(seasons: number[][]): Promise<EpisodeNamesResult> {
+  const clean = seasons
+    .map((parts) => parts.filter((n) => Number.isSafeInteger(n) && n > 0))
+    .filter((parts) => parts.length > 0)
+
+  if (clean.length === 0) throw new Error('No reference id for this anime')
+
+  const anilistParts = await fetchAniListParts(clean.flat())
 
   const episodes: EpisodeName[] = []
   const missingSeasons: number[] = []
@@ -229,49 +258,65 @@ export async function loadEpisodeNames(seasons: number[]): Promise<EpisodeNamesR
   let usedAniList = false
   let absolute = 1
 
-  for (const [index, anilistId] of unique.entries()) {
-    const seasonNumber = index + 1
-    let found: { number: number; title: string }[] = []
-    let declared = 0
+  for (const [seasonIndex, parts] of clean.entries()) {
+    const seasonNumber = seasonIndex + 1
+    let namedInSeason = 0
 
-    // Kitsu first: its list is a real per-season episode list.
-    try {
-      const kitsuId = await kitsuAnimeId(anilistId)
-      if (kitsuId) {
-        found = await kitsuEpisodeNames(kitsuId)
-        if (found.length > 0) usedKitsu = true
-      }
-    } catch {
-      // fall through to AniList
-    }
+    for (const partId of parts) {
+      const info = anilistParts.get(partId) ?? EMPTY_PART
 
-    // AniList fallback when Kitsu has nothing for this season.
-    if (found.length === 0) {
+      // Titles per part, in that part's own 1-based numbering.
+      const titles = new Map<number, string>()
+
+      // Kitsu is the reliable source for titles.
+      let kitsuCount = 0
       try {
-        const fallback = await anilistEpisodeNames(anilistId)
-        found = fallback.list
-        declared = fallback.declared
-        if (found.length > 0) usedAniList = true
+        const kitsuId = await kitsuAnimeId(partId)
+        if (kitsuId) {
+          const kitsu = await kitsuEpisodeNames(kitsuId)
+          kitsuCount = kitsu.count
+          for (const [number, title] of kitsu.titles) titles.set(number, title)
+          if (kitsu.titles.size > 0) usedKitsu = true
+        }
       } catch {
-        // leave this season empty
+        // fall through to AniList titles
+      }
+
+      // How many slots this part occupies, most reliable source first.
+      let declared = info.declared
+      if (declared === 0) declared = kitsuCount
+      if (declared === 0 && titles.size > 0) declared = Math.max(...titles.keys())
+
+      // AniList titles are only used when the list matches this part exactly.
+      // It repeats the whole franchise otherwise: Re:Zero returns the same 16
+      // titles numbered 63-78 on all three of its early seasons, which would
+      // otherwise be stamped onto season 1.
+      if (info.titles.length > 0 && declared > 0 && info.titles.length === declared) {
+        let added = false
+        for (const entry of info.titles) {
+          if (entry.number < 1 || entry.number > declared) continue
+          if (!titles.has(entry.number)) {
+            titles.set(entry.number, entry.title)
+            added = true
+          }
+        }
+        if (added) usedAniList = true
+      }
+
+      // A stray high number must never inflate the part's length.
+      const count = Math.max(declared, titles.size > 0 ? Math.max(...titles.keys()) : 0)
+
+      for (let n = 1; n <= count; n += 1) {
+        const title = titles.get(n)
+        if (title) {
+          episodes.push({ number: absolute, season: seasonNumber, title })
+          namedInSeason += 1
+        }
+        absolute += 1
       }
     }
 
-    if (found.length === 0) {
-      missingSeasons.push(seasonNumber)
-      // Still advance the counter so later seasons keep their real numbers.
-      absolute += declared
-      continue
-    }
-
-    const byNumber = new Map(found.map((e) => [e.number, e.title]))
-    const count = Math.max(declared, ...found.map((e) => e.number))
-
-    for (let n = 1; n <= count; n += 1) {
-      const title = byNumber.get(n)
-      if (title) episodes.push({ number: absolute, season: seasonNumber, title })
-      absolute += 1
-    }
+    if (namedInSeason === 0) missingSeasons.push(seasonNumber)
   }
 
   if (episodes.length === 0) {

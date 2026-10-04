@@ -26,14 +26,36 @@ export interface BulkOptions {
   onProgress?: (progress: BulkProgress) => void
   /** Return true to stop the run. */
   shouldCancel?: () => boolean
+  /**
+   * Overwrite titles that are already present. Used to repair titles written at
+   * the wrong positions by an earlier version.
+   */
+  replace?: boolean
 }
 
-/** Season ids to query for one anime, earliest first. */
-export function seasonIdsOf(anime: Anime): number[] {
+/**
+ * AniList ids to query for one anime, grouped by merged season.
+ *
+ * A season that aired in two cours is two AniList entries, and they must both
+ * be queried: using only the first would leave the season short by a whole
+ * cours, shifting every episode title after it. The outer index is the season
+ * number, the inner list is that season's parts in broadcast order.
+ */
+export function seasonPartsOf(anime: Anime): number[][] {
   if (anime.seasons && anime.seasons.length > 0) {
-    return anime.seasons.map((s) => s.anilistId)
+    return [...anime.seasons]
+      .sort((a, b) => a.season - b.season)
+      .map((season) => {
+        // Prefer the parts list: a merged season knows all of its AniList ids.
+        if (season.parts && season.parts.length > 0) {
+          return season.parts.map((p) => p.anilistId)
+        }
+        return [season.anilistId]
+      })
+      .filter((parts) => parts.length > 0)
   }
-  return anime.source ? [anime.source.anilistId] : []
+
+  return anime.source ? [[anime.source.anilistId]] : []
 }
 
 /** True when at least one episode already carries a name. */
@@ -44,14 +66,17 @@ function hasNames(anime: Anime): boolean {
 /**
  * Merge fetched names into an anime, creating any missing episodes.
  *
- * Titles are only written where the episode has none, so anything typed by hand
- * survives, and ratings are never touched. Episode numbers are preserved so an
- * existing score stays attached to its episode.
+ * By default a title is only written where the episode has none, so anything
+ * typed by hand survives. `replace` overwrites existing titles too, which is
+ * what repairs an entry whose names were written at the wrong positions by an
+ * earlier version. Ratings and episode numbers are never touched either way.
  */
 export function mergeEpisodeNames(
   anime: Anime,
-  names: { number: number; season: number; title: string }[]
+  names: { number: number; season: number; title: string }[],
+  options: { replace?: boolean } = {}
 ): Episode[] {
+  const replace = options.replace ?? false
   const byNumber = new Map(names.map((n) => [n.number, n]))
   const highest = names.reduce((max, n) => Math.max(max, n.number), 0)
   const target = Math.max(highest, anime.episodes.length)
@@ -64,8 +89,8 @@ export function mergeEpisodeNames(
     if (current) {
       merged.push({
         ...current,
-        title: current.title ?? found?.title,
-        season: current.season ?? found?.season
+        title: replace ? (found?.title ?? current.title) : (current.title ?? found?.title),
+        season: found?.season ?? current.season
       })
     } else if (found) {
       merged.push({
@@ -102,8 +127,10 @@ export async function loadAllEpisodeNames(
 
   const eligible: Anime[] = []
   for (const item of anime) {
-    if (seasonIdsOf(item).length === 0) continue
-    if (hasNames(item)) {
+    if (seasonPartsOf(item).length === 0) continue
+    // In replace mode everything eligible is retried, since the point is to
+    // repair names that are already there but wrong.
+    if (!options.replace && hasNames(item)) {
       result.alreadyDone += 1
       continue
     }
@@ -135,13 +162,15 @@ export async function loadAllEpisodeNames(
     })
 
     try {
-      const outcome = await window.animeeh.loadEpisodeNames(seasonIdsOf(item))
+      const outcome = await window.animeeh.loadEpisodeNames(seasonPartsOf(item))
       if (!outcome.ok) {
         result.failed += 1
       } else if (outcome.data.episodes.length === 0) {
         result.empty += 1
       } else {
-        const episodes = mergeEpisodeNames(item, outcome.data.episodes)
+        const episodes = mergeEpisodeNames(item, outcome.data.episodes, {
+          replace: options.replace
+        })
         const gained = episodes.filter((e) => (e.title ?? '').trim() !== '').length
         apply(item.id, {
           episodes,

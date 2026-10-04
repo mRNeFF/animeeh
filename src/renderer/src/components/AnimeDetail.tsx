@@ -21,6 +21,7 @@ import {
 } from '../types'
 import { AnimeForm } from './AnimeForm'
 import { EpisodeSeasons } from './EpisodeSeasons'
+import { mergeEpisodeNames, seasonPartsOf } from '../bulkEpisodes'
 import { Bar, Cover, ScoreControl } from './ui'
 import { IconArrowLeft, IconDownload, IconEpisode, IconPlus, IconTrash } from './Icons'
 
@@ -122,14 +123,9 @@ export function AnimeDetail({
    * created to match the source count.
    */
   const loadEpisodeNames = async (): Promise<void> => {
-    const seasonIds =
-      anime.seasons && anime.seasons.length > 0
-        ? anime.seasons.map((s) => s.anilistId)
-        : anime.source
-          ? [anime.source.anilistId]
-          : []
+    const seasons = seasonPartsOf(anime)
 
-    if (seasonIds.length === 0) {
+    if (seasons.length === 0) {
       setNamesMessage({ kind: 'error', text: t('diff.noReference') })
       return
     }
@@ -137,44 +133,18 @@ export function AnimeDetail({
     setLoadingNames(true)
     setNamesMessage(null)
     try {
-      const outcome = await window.animeeh.loadEpisodeNames(seasonIds)
+      const outcome = await window.animeeh.loadEpisodeNames(seasons)
       if (!outcome.ok) {
         setNamesMessage({ kind: 'error', text: t('diff.namesFailed', { error: outcome.error }) })
         return
       }
 
       const { episodes: names, missingSeasons } = outcome.data
-      const byNumber = new Map(names.map((e) => [e.number, e]))
-      const highest = names.reduce((max, e) => Math.max(max, e.number), 0)
-      const target = Math.max(highest, anime.episodes.length)
-
-      const merged: Episode[] = []
-      const existing = new Map(anime.episodes.map((e) => [e.number, e]))
-
-      for (let n = 1; n <= target; n += 1) {
-        const current = existing.get(n)
-        const found = byNumber.get(n)
-        if (current) {
-          merged.push({
-            ...current,
-            // Never overwrite a title the user wrote.
-            title: current.title ?? found?.title,
-            season: current.season ?? found?.season
-          })
-        } else if (found || n <= target) {
-          merged.push({
-            id: crypto.randomUUID(),
-            number: n,
-            title: found?.title,
-            season: found?.season,
-            score: null
-          })
-        }
-      }
+      const merged = mergeEpisodeNames(anime, names)
 
       patch({
         episodes: merged,
-        totalEpisodes: anime.totalEpisodes ?? (highest > 0 ? highest : undefined)
+        totalEpisodes: anime.totalEpisodes ?? (merged.length > 0 ? merged.length : undefined)
       })
 
       setNamesMessage({

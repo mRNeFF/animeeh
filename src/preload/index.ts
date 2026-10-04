@@ -21,9 +21,12 @@ const api = {
   animeFranchise: (anilistId: number): Promise<AniListOutcome<AnimeDetails>> =>
     ipcRenderer.invoke('anilist:franchise', anilistId),
 
-  /** Episode names for a franchise, in season order. */
-  loadEpisodeNames: (seasonIds: number[]): Promise<EpisodeNamesOutcome> =>
-    ipcRenderer.invoke('episodes:load', seasonIds),
+  /**
+   * Episode names for a franchise. One array of part ids per merged season, so
+   * a season split into two cours passes both ids.
+   */
+  loadEpisodeNames: (seasons: number[][]): Promise<EpisodeNamesOutcome> =>
+    ipcRenderer.invoke('episodes:load', seasons),
 
   /* ---- in-app updates ---- */
   updateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:status'),

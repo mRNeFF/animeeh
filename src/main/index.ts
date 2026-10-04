@@ -164,13 +164,16 @@ ipcMain.handle(
 
 ipcMain.handle(
   'episodes:load',
-  async (_event, seasonIds: unknown): Promise<EpisodeNamesOutcome> => {
-    if (!Array.isArray(seasonIds) || seasonIds.length === 0) {
+  async (_event, seasons: unknown): Promise<EpisodeNamesOutcome> => {
+    // One array of part ids per merged season.
+    if (!Array.isArray(seasons) || seasons.length === 0) {
       return { ok: false, error: 'This anime has no reference id to look episodes up by.' }
     }
     try {
-      const ids = seasonIds.filter((n): n is number => typeof n === 'number')
-      return { ok: true, data: await loadEpisodeNames(ids) }
+      const parts = seasons.map((season) =>
+        Array.isArray(season) ? season.filter((n): n is number => typeof n === 'number') : []
+      )
+      return { ok: true, data: await loadEpisodeNames(parts) }
     } catch (err) {
       console.error('Episode lookup failed', err)
       return { ok: false, error: (err as Error).message }

@@ -210,6 +210,9 @@ const en = {
   'settings.episodesStopped': 'Stopped at {done}/{total}.',
   'settings.episodesStop': 'Stop',
   'settings.episodesCount': '{count} anime can be filled.',
+  'settings.episodesReplace': 'Replace existing titles',
+  'settings.episodesReplaceSub':
+    'Overwrites titles that are already there. Use this once to repair names written at the wrong episode by an earlier version.',
   'settings.episodesNothing': 'Nothing to do — every anime already has its episode names.',
   'settings.episodesDone': '{count} anime filled',
   'settings.episodesEmpty': '{count} with no names available',
@@ -472,6 +475,9 @@ const fr: Record<MessageKey, string> = {
   'settings.episodesStopped': 'Arrêté à {done}/{total}.',
   'settings.episodesStop': 'Arrêter',
   'settings.episodesCount': '{count} animés peuvent être remplis.',
+  'settings.episodesReplace': 'Remplacer les titres existants',
+  'settings.episodesReplaceSub':
+    'Écrase les titres déjà présents. À utiliser une fois pour réparer les noms placés sur le mauvais épisode par une version précédente.',
   'settings.episodesNothing': 'Rien à faire — tous les animés ont déjà leurs noms d’épisodes.',
   'settings.episodesDone': '{count} animés remplis',
   'settings.episodesEmpty': '{count} sans noms disponibles',

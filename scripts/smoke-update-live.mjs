@@ -11,7 +11,7 @@
  * the test can inspect the final state without upgrading the machine.
  */
 import { _electron as electron } from 'playwright-core'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -21,7 +21,10 @@ const installedExe =
   process.env.ANIMEEH_INSTALLED_EXE ??
   join(process.env.LOCALAPPDATA ?? '', 'Programs', 'ANIMEEH', 'ANIMEEH.exe')
 
-const expectVersion = process.env.ANIMEEH_EXPECT_VERSION ?? '0.1.1'
+/** What the installed app should find. Defaults to the current package version. */
+const expectVersion =
+  process.env.ANIMEEH_EXPECT_VERSION ??
+  JSON.parse(readFileSync(join(root, 'package.json'), 'utf-8')).version
 
 if (!existsSync(installedExe)) {
   console.error(`Installed app not found: ${installedExe}`)

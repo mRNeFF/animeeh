@@ -20,7 +20,8 @@ import {
   type Status
 } from '../types'
 import { AnimeForm } from './AnimeForm'
-import { Bar, Cover, GradeBadge, ScoreControl } from './ui'
+import { EpisodeSeasons } from './EpisodeSeasons'
+import { Bar, Cover, ScoreControl } from './ui'
 import { IconArrowLeft, IconDownload, IconEpisode, IconPlus, IconTrash } from './Icons'
 
 export function AnimeDetail({
@@ -339,7 +340,9 @@ export function AnimeDetail({
                 </span>
               ))}
             </div>
-          )}          {multiSeason && (
+          )}
+
+          {multiSeason && (
             <div className="season-strip">
               {anime.seasons?.map((s) => {
                 const partCount = s.parts?.length ?? 1
@@ -504,69 +507,19 @@ export function AnimeDetail({
         </div>
       )}
 
-      {ordered.length === 0 ? (
+      {ordered.length === 0 && (anime.seasons?.length ?? 0) === 0 ? (
         <div className="empty" style={{ padding: '40px 20px' }}>
-          <h3>No episodes yet</h3>
-          <p style={{ margin: 0, maxWidth: 400 }}>
-            Add episodes and score each one from 0 to 100. Unrated episodes are ignored by the
-            average, so you can add a whole season first and rate as you watch.
-          </p>
+          <h3>{t('empty.noEpisodes.title')}</h3>
+          <p style={{ margin: 0, maxWidth: 420 }}>{t('empty.noEpisodes.body')}</p>
         </div>
       ) : (
-        <div className="table-wrap">
-          <div className="ep-row" style={{ background: 'var(--panel-2)' }}>
-            <div className="hint" style={{ fontWeight: 700 }}>
-              EP
-            </div>
-            <div className="hint" style={{ fontWeight: 700 }}>
-              TITLE (optional)
-            </div>
-            <div className="hint" style={{ fontWeight: 700 }}>
-              SCORE
-            </div>
-            <div className="hint" style={{ fontWeight: 700, textAlign: 'center' }}>
-              0–100
-            </div>
-            <div />
-          </div>
-          {ordered.map((ep) => (
-            <div className="ep-row" key={ep.id}>
-              <div className="ep-num">
-                {ep.number}
-                {multiSeason && ep.season !== undefined && (
-                  <span className="ep-season" title={`Season ${ep.season}`}>
-                    S{ep.season}
-                  </span>
-                )}
-              </div>
-              <input
-                className="ep-title"
-                placeholder={t('form.episodePlaceholder', { number: ep.number })}
-                value={ep.title ?? ''}
-                onChange={(e) => updateEpisode(ep.id, { title: e.target.value || undefined })}
-              />
-              <ScoreControl
-                hue={hue}
-                value={ep.score}
-                onChange={(v) => updateEpisode(ep.id, { score: v })}
-              />
-              <div style={{ textAlign: 'center' }}>
-                <GradeBadge
-                  letter={grade(ep.score).letter}
-                  hue={grade(ep.score).hue}
-                  style={{ width: 28, height: 28, borderRadius: 8, fontSize: 13, margin: '0 auto' }}
-                />
-              </div>
-              <button
-                className="btn ghost sm"
-                title={t('action.remove')}
-                onClick={() => removeEpisode(ep.id)}
-              >
-                <IconTrash size={14} />
-              </button>
-            </div>
-          ))}
-        </div>
+        <EpisodeSeasons
+          anime={anime}
+          ordered={ordered}
+          hue={hue}
+          onUpdateEpisode={updateEpisode}
+          onRemoveEpisode={removeEpisode}
+        />
       )}
 
       {/* ---------------- Notes ---------------- */}

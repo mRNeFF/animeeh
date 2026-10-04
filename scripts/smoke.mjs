@@ -167,23 +167,36 @@ try {
   await win.locator('.modal button[type=submit]').click()
   await sleep(1800)
 
-  // The header row also carries .ep-row, hence the -1.
-  const epRows = (await win.locator('.ep-row').count()) - 1
+  // Episodes now live inside collapsible season panels. Expand them all so the
+  // whole franchise is in the DOM, then read from the blocks.
+  await win.locator('.season-block').first().waitFor({ state: 'visible', timeout: 20000 })
+  await win.locator('.seasons-toolbar button').click()
+  await sleep(700)
+
+  const seasons = await win.locator('.season-block').count()
+  // Count episode numbers: only real episode rows carry one, so this is immune
+  // to a season rendering an empty state instead of a header row.
+  const epRows = await win.locator('.season-body .ep-num').count()
   const epSummary = (await win.locator('.section-title .hint').last().innerText()).replace(/\s+/g, ' ')
   const episodesField = await win.locator('.detail-fields .field').last().locator('input').inputValue()
-  const firstEpScore = await win.locator('.ep-row .score-input').nth(1).inputValue()
-  const firstEpTitle = await win.locator('.ep-row .ep-title').nth(1).inputValue()
-  // Episode 29 is the first of season 2 (season 1 has 28 episodes).
-  const s2Title = await win.locator('.ep-row .ep-title').nth(29).inputValue()
-  const seasonBadges = await win.locator('.ep-season').count()
+  const firstEpScore = await win.locator('.season-body .score-input').first().inputValue()
+  const firstEpTitle = await win.locator('.season-body .ep-title').first().inputValue()
+
+  // Season 1 holds 28 episodes, so season 2's first episode is number 29.
+  const secondBlock = win.locator('.season-block').nth(1)
+  const s2Number = (await secondBlock.locator('.ep-num').first().innerText()).trim()
+  const s2Title = await secondBlock.locator('.ep-title').first().inputValue()
+  const seasonBadges = await win.locator('.season-badge').count()
+  const badgesInBlocks = await win.locator('.season-block .ep-season').count()
   const seasonStrip = await win.locator('.season-chip').count()
   const anilistLink = (await win.locator('.al-link').first().innerText()).replace(/\s+/g, ' ')
 
-  console.log(`ANILIST created: ${epRows} episode rows, field="${episodesField}"`)
+  console.log(`ANILIST created: ${epRows} episode rows across ${seasons} season panels, field="${episodesField}"`)
   console.log(`ANILIST summary: ${epSummary}`)
   console.log(`ANILIST first episode: title="${firstEpTitle}" score="${firstEpScore}" (empty = unrated)`)
-  console.log(`ANILIST season badges rendered: ${seasonBadges}, season chips: ${seasonStrip}`)
-  console.log(`ANILIST episode 29 (start of S2): title="${s2Title}"`)
+  console.log(`ANILIST season badges: ${seasonBadges} in headers, ${badgesInBlocks} left in rows (expected 0)`)
+  console.log(`ANILIST season chips: ${seasonStrip}`)
+  console.log(`ANILIST start of S2: #${s2Number} title="${s2Title}" (expected #29)`)
   console.log(`ANILIST link: ${anilistLink}`)
   await shot('10-anilist-created')
 
@@ -226,13 +239,17 @@ try {
   await win.locator('.card', { hasText: 'Sousou no Frieren' }).first().click()
   await sleep(900)
   const unratedGlobal = await win.locator('.gauge-score').innerText()
-  const persistedEpisodes = await win.locator('.ep-row').count()
-  const persistedTitle = await win.locator('.ep-row .ep-title').nth(1).inputValue()
+  // Episodes live in collapsed panels; expand so the counts are complete.
+  await win.locator('.seasons-toolbar button').click()
+  await sleep(600)
+  const persistedSeasons = await win.locator('.season-block').count()
+  const persistedEpisodes = await win.locator('.season-body .ep-num').count()
+  const persistedTitle = await win.locator('.season-body .ep-title').first().inputValue()
   console.log(
     `PERSISTENCE: Frieren TV global=${unratedGlobal} (— expected: nothing rated yet), ` +
-      `${persistedEpisodes - 1} episodes kept`
+      `${persistedEpisodes} episodes kept across ${persistedSeasons} seasons`
   )
-  console.log(`PERSISTENCE: episode title kept = "${persistedTitle}"`)
+  console.log(`PERSISTENCE: first episode title kept = "${persistedTitle}"`)
 
   console.log('SMOKE OK')
 } catch (err) {

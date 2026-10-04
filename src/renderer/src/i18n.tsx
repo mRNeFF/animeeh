@@ -201,8 +201,31 @@ const en = {
   'settings.genres': 'Genres',
   'settings.genresSub': 'Genres present in your library, from the reference source.',
 
-  'settings.danger': 'Danger zone',
-  'settings.dangerSub': 'Irreversible actions. Export a backup first if you might change your mind.',
+  'settings.episodes': 'Episode names',
+  'settings.episodesSub':
+    'Episode names come from Kitsu, with AniList as a fallback. This fills every anime that has a reference and no names yet, creating the episode rows as it goes. Titles you wrote yourself and all your ratings are left untouched.',
+  'settings.episodesLoad': 'Load all episode names',
+  'settings.episodesRunningShort': 'Loading…',
+  'settings.episodesRunning': 'Loading {done}/{total}…',
+  'settings.episodesStopped': 'Stopped at {done}/{total}.',
+  'settings.episodesStop': 'Stop',
+  'settings.episodesCount': '{count} anime can be filled.',
+  'settings.episodesNothing': 'Nothing to do — every anime already has its episode names.',
+  'settings.episodesDone': '{count} anime filled',
+  'settings.episodesEmpty': '{count} with no names available',
+  'settings.episodesFailed': '{count} failed',
+  'settings.episodesSkipped': '{count} already had names',
+
+  'season.count': '{count} seasons',
+  'season.expandAll': 'Expand all',
+  'season.collapseAll': 'Collapse all',
+  'season.label': 'Season {number}',
+  'season.declared': '{count} eps',
+  'season.rated': '{rated}/{total} rated',
+  'season.avg': 'avg {value}',
+  'season.noEpisodes': 'No episodes in this season yet.',
+
+  'settings.danger': 'Danger zone',  'settings.dangerSub': 'Irreversible actions. Export a backup first if you might change your mind.',
   'settings.clear': 'Clear the entire ranking',
   'settings.clearHint':
     'Removes every anime, episode score and criterion rating. Your language and weights are kept.',
@@ -431,8 +454,31 @@ const fr: Record<MessageKey, string> = {
   'settings.genres': 'Genres',
   'settings.genresSub': 'Genres présents dans votre liste, issus de la source de référence.',
 
-  'settings.danger': 'Zone de danger',
-  'settings.dangerSub':
+  'season.count': '{count} saisons',
+  'season.expandAll': 'Tout déplier',
+  'season.collapseAll': 'Tout replier',
+  'season.label': 'Saison {number}',
+  'season.declared': '{count} ép.',
+  'season.rated': '{rated}/{total} notés',
+  'season.avg': 'moy. {value}',
+  'season.noEpisodes': 'Aucun épisode dans cette saison pour le moment.',
+
+  'settings.episodes': 'Noms des épisodes',
+  'settings.episodesSub':
+    'Les noms viennent de Kitsu, avec AniList en secours. Ceci remplit tous les animés ayant une référence mais pas encore de noms, en créant les épisodes au passage. Vos titres saisis et toutes vos notes sont préservés.',
+  'settings.episodesLoad': 'Charger tous les noms d’épisodes',
+  'settings.episodesRunningShort': 'Chargement…',
+  'settings.episodesRunning': 'Chargement {done}/{total}…',
+  'settings.episodesStopped': 'Arrêté à {done}/{total}.',
+  'settings.episodesStop': 'Arrêter',
+  'settings.episodesCount': '{count} animés peuvent être remplis.',
+  'settings.episodesNothing': 'Rien à faire — tous les animés ont déjà leurs noms d’épisodes.',
+  'settings.episodesDone': '{count} animés remplis',
+  'settings.episodesEmpty': '{count} sans noms disponibles',
+  'settings.episodesFailed': '{count} en échec',
+  'settings.episodesSkipped': '{count} avaient déjà des noms',
+
+  'settings.danger': 'Zone de danger',  'settings.dangerSub':
     'Actions irréversibles. Exportez une sauvegarde avant, au cas où vous changeriez d’avis.',
   'settings.clear': 'Vider tout le classement',
   'settings.clearHint':

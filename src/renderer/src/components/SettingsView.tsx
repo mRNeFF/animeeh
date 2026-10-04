@@ -4,6 +4,7 @@ import { useStore } from '../store'
 import { buildSeedImport, seedCount, seedSource } from '../seed'
 import { COMPONENTS, DEFAULT_WEIGHTS, type ComponentKey, type Language, type StoreData } from '../types'
 import { IconDownload, IconFolder, IconTrash, IconUpload } from './Icons'
+import { EpisodeNamesPanel } from './EpisodeNamesPanel'
 import { Modal } from './ui'
 import { UpdatePanel } from './UpdatePanel'
 
@@ -72,6 +73,8 @@ export function SettingsView(): ReactNode {
   return (
     <>
       <UpdatePanel />
+
+      <EpisodeNamesPanel />
 
       {message && (
         <div className="panel" style={{ padding: '12px 18px' }}>

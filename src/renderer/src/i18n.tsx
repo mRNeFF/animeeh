@@ -113,6 +113,14 @@ const en = {
   'diff.addBatch': 'Add batch',
   'diff.fillMissing': 'Fill {count} missing',
   'diff.favouriteEpisodeOf': 'Episode {number}',
+  'diff.loadNames': 'Load episode names',
+  'diff.loadingNames': 'Loading…',
+  'diff.loadNamesHint':
+    'Episode names come from Kitsu, with AniList as a fallback. Existing ratings and titles you edited yourself are never overwritten.',
+  'diff.namesLoaded': 'Loaded {count} episode names.',
+  'diff.namesPartial': 'Loaded {count} episode names; nothing found for season(s) {seasons}.',
+  'diff.namesFailed': 'Could not load episode names: {error}',
+  'diff.noReference': 'Add this anime from the AniList search to be able to load episode names.',
 
   'form.addTitle': 'Add anime',
   'form.addSubtitle':
@@ -192,6 +200,17 @@ const en = {
   'settings.statFavourites': 'Favourites',
   'settings.genres': 'Genres',
   'settings.genresSub': 'Genres present in your library, from the reference source.',
+
+  'settings.danger': 'Danger zone',
+  'settings.dangerSub': 'Irreversible actions. Export a backup first if you might change your mind.',
+  'settings.clear': 'Clear the entire ranking',
+  'settings.clearHint':
+    'Removes every anime, episode score and criterion rating. Your language and weights are kept.',
+  'settings.clearConfirmTitle': 'Clear the entire ranking?',
+  'settings.clearConfirmBody':
+    'This permanently deletes all {count} anime, with every episode score and criterion rating. This cannot be undone. Type {word} to confirm.',
+  'settings.clearWord': 'clear all',
+  'settings.clearDone': 'Ranking cleared.',
 
   'update.title': 'Updates',
   'update.reading': 'Reading update status…',
@@ -322,6 +341,15 @@ const fr: Record<MessageKey, string> = {
   'diff.addBatch': 'Ajouter par lot',
   'diff.fillMissing': 'Compléter {count} manquants',
   'diff.favouriteEpisodeOf': 'Épisode {number}',
+  'diff.loadNames': 'Charger les noms des épisodes',
+  'diff.loadingNames': 'Chargement…',
+  'diff.loadNamesHint':
+    'Les noms viennent de Kitsu, avec AniList en secours. Vos notes existantes et les titres que vous avez saisis ne sont jamais écrasés.',
+  'diff.namesLoaded': '{count} noms d’épisodes chargés.',
+  'diff.namesPartial': '{count} noms chargés ; rien trouvé pour la/les saison(s) {seasons}.',
+  'diff.namesFailed': 'Impossible de charger les noms : {error}',
+  'diff.noReference':
+    'Ajoutez cet animé via la recherche AniList pour pouvoir charger les noms d’épisodes.',
 
   'form.addTitle': 'Ajouter un animé',
   'form.addSubtitle':
@@ -402,6 +430,18 @@ const fr: Record<MessageKey, string> = {
   'settings.statFavourites': 'Favoris',
   'settings.genres': 'Genres',
   'settings.genresSub': 'Genres présents dans votre liste, issus de la source de référence.',
+
+  'settings.danger': 'Zone de danger',
+  'settings.dangerSub':
+    'Actions irréversibles. Exportez une sauvegarde avant, au cas où vous changeriez d’avis.',
+  'settings.clear': 'Vider tout le classement',
+  'settings.clearHint':
+    'Supprime tous les animés, leurs notes d’épisodes et leurs critères. Votre langue et vos pondérations sont conservées.',
+  'settings.clearConfirmTitle': 'Vider tout le classement ?',
+  'settings.clearConfirmBody':
+    'Cela supprime définitivement les {count} animés, avec chaque note d’épisode et chaque critère. C’est irréversible. Tapez {word} pour confirmer.',
+  'settings.clearWord': 'tout effacer',
+  'settings.clearDone': 'Classement vidé.',
 
   'update.title': 'Mises à jour',
   'update.reading': 'Lecture de l’état de mise à jour…',

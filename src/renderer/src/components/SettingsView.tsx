@@ -3,13 +3,15 @@ import { useI18n, LANGUAGES, criterionKey } from '../i18n'
 import { useStore } from '../store'
 import { buildSeedImport, seedCount, seedSource } from '../seed'
 import { COMPONENTS, DEFAULT_WEIGHTS, type ComponentKey, type Language, type StoreData } from '../types'
-import { IconDownload, IconFolder, IconUpload } from './Icons'
+import { IconDownload, IconFolder, IconTrash, IconUpload } from './Icons'
+import { Modal } from './ui'
 import { UpdatePanel } from './UpdatePanel'
 
 export function SettingsView(): ReactNode {
-  const { data, updateSettings, addAnimeMany, replaceAll } = useStore()
+  const { data, updateSettings, addAnimeMany, replaceAll, clearAnime } = useStore()
   const { t, language } = useI18n()
   const [message, setMessage] = useState<string | null>(null)
+  const [clearing, setClearing] = useState(false)
 
   const weights = data.settings.weights
 
@@ -70,6 +72,12 @@ export function SettingsView(): ReactNode {
   return (
     <>
       <UpdatePanel />
+
+      {message && (
+        <div className="panel" style={{ padding: '12px 18px' }}>
+          <div className="mono">{message}</div>
+        </div>
+      )}
 
       <div className="panel">
         <h3>{t('settings.language')}</h3>
@@ -177,11 +185,6 @@ export function SettingsView(): ReactNode {
         <div className="hint" style={{ marginTop: 10 }}>
           {t('settings.importListSub', { count: seedCount() })} ({seedSource()})
         </div>
-        {message && (
-          <div className="mono" style={{ marginTop: 14 }}>
-            {message}
-          </div>
-        )}
       </div>
 
       <div className="panel">
@@ -222,7 +225,78 @@ export function SettingsView(): ReactNode {
           </div>
         </div>
       )}
+
+      <div className="panel danger-panel">
+        <h3>{t('settings.danger')}</h3>
+        <div className="panel-sub">{t('settings.dangerSub')}</div>
+        <div className="panel-actions">
+          <button
+            className="btn danger"
+            disabled={data.anime.length === 0}
+            onClick={() => setClearing(true)}
+          >
+            <IconTrash size={15} /> {t('settings.clear')}
+          </button>
+          <span className="hint" style={{ alignSelf: 'center', maxWidth: 420 }}>
+            {t('settings.clearHint')}
+          </span>
+        </div>
+      </div>
+
+      {clearing && (
+        <ClearConfirm
+          count={data.anime.length}
+          onCancel={() => setClearing(false)}
+          onConfirm={() => {
+            clearAnime()
+            setClearing(false)
+            setMessage(t('settings.clearDone'))
+          }}
+        />
+      )}
     </>
+  )
+}
+
+/**
+ * Typed confirmation for the destructive reset. The word is localised, so a
+ * French user types "tout effacer" rather than an English word.
+ */
+function ClearConfirm({
+  count,
+  onCancel,
+  onConfirm
+}: {
+  count: number
+  onCancel: () => void
+  onConfirm: () => void
+}): ReactNode {
+  const { t } = useI18n()
+  const [text, setText] = useState('')
+  const word = t('settings.clearWord')
+  const ok = text.trim().toLowerCase() === word.toLowerCase()
+
+  return (
+    <Modal title={t('settings.clearConfirmTitle')} onClose={onCancel}>
+      <div className="modal-sub">{t('settings.clearConfirmBody', { count, word })}</div>
+      <div className="modal-form">
+        <input
+          className="input"
+          autoFocus
+          value={text}
+          placeholder={word}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <div className="modal-actions">
+          <button className="btn ghost" onClick={onCancel}>
+            {t('action.cancel')}
+          </button>
+          <button className="btn danger" disabled={!ok} onClick={onConfirm}>
+            <IconTrash size={15} /> {t('settings.clear')}
+          </button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

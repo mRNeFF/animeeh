@@ -32,6 +32,8 @@ interface StoreContextValue {
   addAnimeMany: (anime: Anime[]) => void
   updateAnime: (id: string, patch: Partial<Anime>) => void
   removeAnime: (id: string) => void
+  /** Wipe every anime while keeping weights, language and preferences. */
+  clearAnime: () => void
   updateSettings: (patch: Partial<Settings>) => void
   replaceAll: (data: StoreData) => void
 }
@@ -106,6 +108,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setData((prev) => ({ ...prev, anime: prev.anime.filter((a) => a.id !== id) }))
   }, [])
 
+  /**
+   * Removes every anime but keeps `settings`, so language, weights and
+   * preferences survive a reset of the ranking.
+   */
+  const clearAnime = useCallback(() => {
+    setData((prev) => ({ ...prev, anime: [] }))
+  }, [])
+
   const updateSettings = useCallback((patch: Partial<Settings>) => {
     setData((prev) => ({ ...prev, settings: { ...prev.settings, ...patch } }))
   }, [])
@@ -123,10 +133,22 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       addAnimeMany,
       updateAnime,
       removeAnime,
+      clearAnime,
       updateSettings,
       replaceAll
     }),
-    [data, loaded, saving, addAnime, addAnimeMany, updateAnime, removeAnime, updateSettings, replaceAll]
+    [
+      data,
+      loaded,
+      saving,
+      addAnime,
+      addAnimeMany,
+      updateAnime,
+      removeAnime,
+      clearAnime,
+      updateSettings,
+      replaceAll
+    ]
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

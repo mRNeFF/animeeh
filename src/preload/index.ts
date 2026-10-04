@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AnimeDetails, AnimeSearchResult, AniListOutcome } from '../shared/anilist'
+import type { EpisodeNamesOutcome } from '../shared/episodes'
 import type { UpdateStatus } from '../shared/update'
 
 const api = {
@@ -19,6 +20,10 @@ const api = {
    */
   animeFranchise: (anilistId: number): Promise<AniListOutcome<AnimeDetails>> =>
     ipcRenderer.invoke('anilist:franchise', anilistId),
+
+  /** Episode names for a franchise, in season order. */
+  loadEpisodeNames: (seasonIds: number[]): Promise<EpisodeNamesOutcome> =>
+    ipcRenderer.invoke('episodes:load', seasonIds),
 
   /* ---- in-app updates ---- */
   updateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:status'),

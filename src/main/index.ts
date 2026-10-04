@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { getAnimeDetails, MIN_QUERY_LENGTH, searchAnime } from './anilist'
+import { loadEpisodeNames } from './episodes'
 import {
   checkForUpdates,
   downloadUpdate,
@@ -11,6 +12,7 @@ import {
   updateEvents
 } from './updater'
 import type { AnimeDetails, AnimeSearchResult, AniListOutcome } from '../shared/anilist'
+import type { EpisodeNamesOutcome } from '../shared/episodes'
 import type { UpdateStatus } from '../shared/update'
 
 /** In dev, electron-vite injects this so we can load the Vite dev server. */
@@ -151,6 +153,26 @@ ipcMain.handle(
       return { ok: true, data: await getAnimeDetails(anilistId) }
     } catch (err) {
       console.error('AniList franchise lookup failed', err)
+      return { ok: false, error: (err as Error).message }
+    }
+  }
+)
+
+/* ------------------------------------------------------------------ */
+/* IPC: episode names                                                  */
+/* ------------------------------------------------------------------ */
+
+ipcMain.handle(
+  'episodes:load',
+  async (_event, seasonIds: unknown): Promise<EpisodeNamesOutcome> => {
+    if (!Array.isArray(seasonIds) || seasonIds.length === 0) {
+      return { ok: false, error: 'This anime has no reference id to look episodes up by.' }
+    }
+    try {
+      const ids = seasonIds.filter((n): n is number => typeof n === 'number')
+      return { ok: true, data: await loadEpisodeNames(ids) }
+    } catch (err) {
+      console.error('Episode lookup failed', err)
       return { ok: false, error: (err as Error).message }
     }
   }

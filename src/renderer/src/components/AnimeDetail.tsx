@@ -21,7 +21,7 @@ import {
 } from '../types'
 import { AnimeForm } from './AnimeForm'
 import { Bar, Cover, GradeBadge, ScoreControl } from './ui'
-import { IconArrowLeft, IconEpisode, IconPlus, IconTrash } from './Icons'
+import { IconArrowLeft, IconDownload, IconEpisode, IconPlus, IconTrash } from './Icons'
 
 export function AnimeDetail({
   animeId,
@@ -37,6 +37,10 @@ export function AnimeDetail({
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [bulk, setBulk] = useState('5')
+  const [loadingNames, setLoadingNames] = useState(false)
+  const [namesMessage, setNamesMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(
+    null
+  )
 
   const weights = data.settings.weights
 
@@ -67,6 +71,90 @@ export function AnimeDetail({
     patch({ criteria: { ...anime.criteria, [key]: value } })
 
   const setEpisodes = (episodes: Episode[]): void => patch({ episodes })
+
+  /**
+   * Fetch episode names and merge them in.
+   *
+   * Season ids come from the assembled franchise when available, otherwise from
+   * the single AniList entry. Titles are only written where the episode has
+   * none, so anything you typed yourself survives, and missing episodes are
+   * created to match the source count.
+   */
+  const loadEpisodeNames = async (): Promise<void> => {
+    const seasonIds =
+      anime.seasons && anime.seasons.length > 0
+        ? anime.seasons.map((s) => s.anilistId)
+        : anime.source
+          ? [anime.source.anilistId]
+          : []
+
+    if (seasonIds.length === 0) {
+      setNamesMessage({ kind: 'error', text: t('diff.noReference') })
+      return
+    }
+
+    setLoadingNames(true)
+    setNamesMessage(null)
+    try {
+      const outcome = await window.animeeh.loadEpisodeNames(seasonIds)
+      if (!outcome.ok) {
+        setNamesMessage({ kind: 'error', text: t('diff.namesFailed', { error: outcome.error }) })
+        return
+      }
+
+      const { episodes: names, missingSeasons } = outcome.data
+      const byNumber = new Map(names.map((e) => [e.number, e]))
+      const highest = names.reduce((max, e) => Math.max(max, e.number), 0)
+      const target = Math.max(highest, anime.episodes.length)
+
+      const merged: Episode[] = []
+      const existing = new Map(anime.episodes.map((e) => [e.number, e]))
+
+      for (let n = 1; n <= target; n += 1) {
+        const current = existing.get(n)
+        const found = byNumber.get(n)
+        if (current) {
+          merged.push({
+            ...current,
+            // Never overwrite a title the user wrote.
+            title: current.title ?? found?.title,
+            season: current.season ?? found?.season
+          })
+        } else if (found || n <= target) {
+          merged.push({
+            id: crypto.randomUUID(),
+            number: n,
+            title: found?.title,
+            season: found?.season,
+            score: null
+          })
+        }
+      }
+
+      patch({
+        episodes: merged,
+        totalEpisodes: anime.totalEpisodes ?? (highest > 0 ? highest : undefined)
+      })
+
+      setNamesMessage({
+        kind: 'ok',
+        text:
+          missingSeasons.length > 0
+            ? t('diff.namesPartial', {
+                count: names.length,
+                seasons: missingSeasons.join(', ')
+              })
+            : t('diff.namesLoaded', { count: names.length })
+      })
+    } catch (err) {
+      setNamesMessage({
+        kind: 'error',
+        text: t('diff.namesFailed', { error: (err as Error).message })
+      })
+    } finally {
+      setLoadingNames(false)
+    }
+  }
 
   const addEpisodes = (count: number): void => {
     // Unrated by default — an unrated episode must not count as a zero.
@@ -324,6 +412,22 @@ export function AnimeDetail({
         </span>
         <div className="spacer" />
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            className="btn sm"
+            onClick={() => void loadEpisodeNames()}
+            disabled={loadingNames}
+            title={t('diff.loadNamesHint')}
+          >
+            {loadingNames ? (
+              <>
+                <span className="spinner" /> {t('diff.loadingNames')}
+              </>
+            ) : (
+              <>
+                <IconDownload size={14} /> {t('diff.loadNames')}
+              </>
+            )}
+          </button>
           {missing.length > 0 && (
             <button
               className="btn sm"
@@ -353,6 +457,12 @@ export function AnimeDetail({
           </button>
         </div>
       </div>
+
+      {namesMessage && (
+        <div className={`names-message${namesMessage.kind === 'error' ? ' error' : ''}`}>
+          {namesMessage.text}
+        </div>
+      )}
 
       {ordered.length === 0 ? (
         <div className="empty" style={{ padding: '40px 20px' }}>

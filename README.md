@@ -60,9 +60,12 @@ Searching a franchise used to return every season as a separate row. Now the app
 
 1. **Search** groups hits by a normalised title. "Sousou no Frieren", "…2nd Season" and "…3rd Season" collapse into a single row showing `3 seasons · 2023–2027`. Punctuation, `Season N`, `Part N`, `Cour N`, `Final Season` and trailing roman numerals are stripped for the comparison, and a `●` in a title is treated as a separator like any other.
 2. **Picking** walks AniList's `SEQUEL` / `PREQUEL` links outwards until the chain ends, then sorts the seasons into broadcast order with a topological sort. This catches seasons the search page did not show and does not depend on title matching.
-3. **Episodes** are numbered continuously across the chain (season 2 starts where season 1 ended) and each one is tagged with its season, shown as an `S2` badge.
+3. **Broadcast parts are folded back into their season.** A season that aired in two cours ("…2nd Season" + "…2nd Season Part 2", "…Season 3" + "…Season 3 Part 2") becomes **one** season whose episode count is the sum of its parts, flagged `2 parts merged`. Re:Zero reports 4 seasons out of 5 AniList entries this way, and Attack on Titan 4 out of 6.
+4. **Episodes** are numbered continuously across the chain (season 2 starts where season 1 ended) and each one is tagged with its season, shown as an `S2` badge.
 
 Deliberate choices:
+
+![Merged season parts](docs/screenshots/season-parts.png)
 
 - **Only series formats join a chain** (`TV`, `TV_SHORT`, `ONA`). This is what keeps Attack on Titan's `PREQUEL` link to the *Kuinaki Sentaku* OVA, and Frieren's `SIDE_STORY` link to its *● no Mahou* spin-off, out of the season list. Films and OVAs stay separate entries.
 - **Episode titles are only trusted when the count matches the season.** AniList's `streamingEpisodes` mirrors the streaming service, and Crunchyroll reports the whole franchise: Attack on Titan's Seasons 2 and 3 each return Season 1's 25 episodes. Titles whose length disagrees with the season, or which duplicate an earlier season verbatim, are dropped, and those episodes are created with a placeholder title you can fill in.

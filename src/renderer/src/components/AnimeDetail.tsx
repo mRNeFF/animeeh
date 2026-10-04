@@ -199,13 +199,25 @@ export function AnimeDetail({
           </div>
           {multiSeason && (
             <div className="season-strip">
-              {anime.seasons?.map((s) => (
-                <span className="season-chip" key={s.anilistId} title={s.title}>
-                  <strong>S{s.season}</strong>
-                  <span>{s.year ?? '—'}</span>
-                  <span>{s.episodes ? `${s.episodes} eps` : '—'}</span>
-                </span>
-              ))}
+              {anime.seasons?.map((s) => {
+                const partCount = s.parts?.length ?? 1
+                return (
+                  <span
+                    className="season-chip"
+                    key={s.anilistId}
+                    title={
+                      partCount > 1
+                        ? `${s.title} — ${s.parts?.map((p) => p.title).join(' + ')}`
+                        : s.title
+                    }
+                  >
+                    <strong>S{s.season}</strong>
+                    <span>{s.year ?? '—'}</span>
+                    <span>{s.episodes ? `${s.episodes} eps` : '—'}</span>
+                    {partCount > 1 && <span className="season-parts">{partCount} parts</span>}
+                  </span>
+                )
+              })}
             </div>
           )}
         </div>

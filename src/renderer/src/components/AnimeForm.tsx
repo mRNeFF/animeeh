@@ -49,7 +49,13 @@ function seasonsFrom(result: AnimeDetails | AnimeSearchResult): AnimeSeason[] {
     malId: s.malId,
     title: s.title,
     year: s.year ?? undefined,
-    episodes: s.episodes ?? undefined
+    episodes: s.episodes ?? undefined,
+    parts: s.parts.map((p) => ({
+      anilistId: p.anilistId,
+      title: p.title,
+      year: p.year ?? undefined,
+      episodes: p.episodes ?? undefined
+    }))
   }))
 }
 
@@ -332,17 +338,27 @@ export function AnimeForm({
 
                 {showSeasons && (
                   <ol className="al-season-list">
-                    {values.seasons.map((s) => (
-                      <li key={s.anilistId}>
-                        <span className="al-season-num">S{s.season}</span>
-                        <span className="al-season-title">{s.title}</span>
-                        <span className="al-season-meta">
-                          {[s.year, s.episodes ? `${s.episodes} eps` : null]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </span>
-                      </li>
-                    ))}
+                    {values.seasons.map((s) => {
+                      const partCount = s.parts?.length ?? 1
+                      return (
+                        <li key={s.anilistId}>
+                          <span className="al-season-num">S{s.season}</span>
+                          <span className="al-season-title">
+                            {s.title}
+                            {partCount > 1 && (
+                              <span className="al-season-parts">
+                                {partCount} parts merged
+                              </span>
+                            )}
+                          </span>
+                          <span className="al-season-meta">
+                            {[s.year, s.episodes ? `${s.episodes} eps` : null]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        </li>
+                      )
+                    })}
                   </ol>
                 )}
               </>

@@ -73,8 +73,9 @@ for (const query of queries) {
   console.log(`  identity     : [${details.anilistId}] ${details.title}`)
   console.log(`  seasons      : ${details.seasons.length}`)
   for (const s of details.seasons) {
+    const parts = (s.parts?.length ?? 1) > 1 ? `  [${s.parts.map((p) => p.title).join(' + ')}]` : ''
     console.log(
-      `      S${s.season} [${s.anilistId}] ${s.title} | ${s.format} | ${s.year} | ${s.episodes ?? '?'} eps`
+      `      S${s.season} [${s.anilistId}] ${s.title} | ${s.format} | ${s.year} | ${s.episodes ?? '?'} eps${parts}`
     )
   }
 
@@ -141,6 +142,41 @@ for (const query of queries) {
     signatures.set(titles, season.season)
   }
   check('no two seasons share an identical title list', duplicated, false)
+
+  // A season must never be reported as two rows just because it aired in two
+  // cours ("2nd Season" + "2nd Season Part 2").
+  const repeated = new Map()
+  let splitSeason = false
+  for (const season of details.seasons) {
+    const base = season.title
+      .toLowerCase()
+      .replace(/\b\d+(?:st|nd|rd|th)\s+cour\b/g, '')
+      .replace(/\b(?:part|cour|partie)\s+\d+\b/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    const seen = repeated.get(base)
+    if (seen !== undefined) {
+      splitSeason = true
+      console.log(`   note: S${seen} and S${season.season} share the base "${base}"`)
+    }
+    repeated.set(base, season.season)
+  }
+  check('no season split into separate rows', splitSeason, false)
+
+  // The parts of a merged season must add up to its episode count.
+  let partsMismatch = null
+  for (const season of details.seasons) {
+    if ((season.parts?.length ?? 1) < 2) continue
+    const partsTotal = season.parts
+      .map((p) => p.episodes)
+      .filter((n) => typeof n === 'number')
+      .reduce((sum, n) => sum + n, 0)
+    if (typeof season.episodes === 'number' && partsTotal !== season.episodes) {
+      partsMismatch = `S${season.season}: parts=${partsTotal} total=${season.episodes}`
+    }
+  }
+  check('merged season totals equal the sum of its parts', partsMismatch, null)
 }
 
 console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : `${failures} CHECK(S) FAILED`}`)

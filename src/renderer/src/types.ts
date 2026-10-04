@@ -70,6 +70,14 @@ export interface Episode {
   season?: number
 }
 
+/** One broadcast part (cour) inside a season. */
+export interface AnimeSeasonPart {
+  anilistId: number
+  title: string
+  year?: number
+  episodes?: number
+}
+
 /** One season of a grouped franchise, kept for reference. */
 export interface AnimeSeason {
   season: number
@@ -77,7 +85,13 @@ export interface AnimeSeason {
   malId: number | null
   title: string
   year?: number
+  /** Episode count for the whole season, summed across its parts. */
   episodes?: number
+  /**
+   * Broadcast parts merged into this season. A season split into cours
+   * ("2nd Season" + "2nd Season Part 2") has two; most have one.
+   */
+  parts?: AnimeSeasonPart[]
 }
 
 /** Where an entry's reference data came from. */

@@ -187,8 +187,37 @@ try {
   console.log(`ANILIST link: ${anilistLink}`)
   await shot('10-anilist-created')
 
-  // ---- Confirm persistence: reload and check the data survived ----
-  await win.reload()
+  // ---- Season parts must merge (Re:Zero 2nd Season + Part 2 = one season) ----
+  await win.getByRole('button', { name: 'My Anime' }).click()
+  await sleep(400)
+  await win.getByRole('button', { name: 'Add anime' }).first().click()
+  await sleep(400)
+
+  await win.locator('.al-block input.input').fill('re:zero')
+  await win.locator('.al-result').first().waitFor({ state: 'visible', timeout: 25000 })
+  const rezeroRow = (await win.locator('.al-result').first().innerText()).replace(/\s+/g, ' ').trim()
+  console.log(`PARTS: re:zero first row = ${rezeroRow}`)
+
+  await win.locator('.al-result').first().click()
+  await sleep(4000)
+
+  await win.locator('.al-selected .pill-button').click()
+  await sleep(400)
+  const rezeroSeasons = (await win.locator('.al-season-list').innerText())
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join(' | ')
+    .replace(/\s+/g, ' ')
+  const mergedBadges = await win.locator('.al-season-parts').count()
+  console.log(`PARTS: merged seasons text = ${rezeroSeasons}`)
+  console.log(`PARTS: seasons flagged as merged = ${mergedBadges} (expected 1, for 2nd Season)`)
+  await shot('11-season-parts-merged')
+
+  await win.getByRole('button', { name: 'Cancel' }).click()
+  await sleep(300)
+
+  // ---- Confirm persistence: reload and check the data survived ----  await win.reload()
   await sleep(1500)
   const cardCount = await win.locator('.card').count()
   console.log(`PERSISTENCE: ${cardCount} cards after reload (expected 3)`)

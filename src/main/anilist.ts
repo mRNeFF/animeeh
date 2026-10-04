@@ -15,6 +15,7 @@
 import type {
   AnimeDetails,
   AnimeSearchResult,
+  AnimeSeasonPart,
   AnimeSeasonRef,
   AniListEpisode
 } from '../shared/anilist'
@@ -164,24 +165,43 @@ function byYearThenId(a: RawMedia, b: RawMedia): number {
   return a.id - b.id
 }
 
-function toSeasonRef(media: RawMedia, position: number): AnimeSeasonRef {
+function sumEpisodes(counts: (number | null)[]): number | null {
+  const known = counts.filter((n): n is number => typeof n === 'number' && n > 0)
+  if (known.length === 0) return null
+  return known.reduce((total, n) => total + n, 0)
+}
+
+/** Episode count of one entry, or null when AniList does not know it. */
+function episodeCountOf(media: RawMedia): number | null {
+  return typeof media.episodes === 'number' && media.episodes > 0 ? media.episodes : null
+}
+
+function toPart(media: RawMedia): AnimeSeasonPart {
   return {
-    season: position,
     anilistId: media.id,
     malId: media.idMal ?? null,
     title: pickTitle(media),
     year: yearOf(media),
-    format: media.format ?? null,
-    episodes: typeof media.episodes === 'number' ? media.episodes : null
+    episodes: episodeCountOf(media)
   }
 }
 
-function sumEpisodes(seasons: AnimeSeasonRef[]): number | null {
-  const known = seasons
-    .map((s) => s.episodes)
-    .filter((n): n is number => typeof n === 'number' && n > 0)
-  if (known.length === 0) return null
-  return known.reduce((total, n) => total + n, 0)
+/**
+ * Build one season from the broadcast parts merged into it. The first part
+ * names the season and its episode count is the sum across all parts.
+ */
+function toSeasonRef(parts: RawMedia[], position: number): AnimeSeasonRef {
+  const first = parts[0]
+  return {
+    season: position,
+    anilistId: first.id,
+    malId: first.idMal ?? null,
+    title: pickTitle(first),
+    year: yearOf(first),
+    format: first.format ?? null,
+    episodes: sumEpisodes(parts.map(episodeCountOf)),
+    parts: parts.map(toPart)
+  }
 }
 
 /** Build a search result around the franchise's earliest season. */
@@ -193,7 +213,7 @@ function toSearchResult(root: RawMedia, seasons: AnimeSeasonRef[]): AnimeSearchR
     englishTitle: root.title?.english?.trim() || null,
     format: root.format ?? null,
     year: yearOf(root),
-    episodes: sumEpisodes(seasons),
+    episodes: sumEpisodes(seasons.map((s) => s.episodes)),
     studio: firstStudio(root),
     coverImage: root.coverImage?.large ?? null,
     siteUrl: root.siteUrl ?? `https://anilist.co/anime/${root.id}`,
@@ -204,6 +224,58 @@ function toSearchResult(root: RawMedia, seasons: AnimeSeasonRef[]): AnimeSearchR
 /* ------------------------------------------------------------------ */
 /* Franchise grouping                                                  */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Reduce a title to a key shared by the broadcast parts of the *same* season,
+ * so "…2nd Season" and "…2nd Season Part 2" collapse together while
+ * "…2nd Season" and "…3rd Season" stay apart.
+ *
+ * Unlike franchiseKey, season numbers are deliberately kept: only the
+ * part/cour markers are removed.
+ */
+export function seasonPartKey(title: string): string {
+  let s = title
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+
+  // Parenthesised part markers, e.g. "Title (Part 2)".
+  s = s.replace(/\(\s*(?:part|cour|partie)\s*\d+\s*\)/g, ' ')
+  s = s.replace(/\[\s*(?:part|cour|partie)\s*\d+\s*\]/g, ' ')
+
+  // Bare part markers, including the two-cour form "2nd Cour".
+  s = s
+    .replace(/\b\d+(?:st|nd|rd|th)\s+cour\b/g, ' ')
+    .replace(/\b(?:part|cour|partie)\s+\d+\b/g, ' ')
+
+  s = s.replace(/[^a-z0-9]+/g, ' ')
+  return s.replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Merge the broadcast parts of a season by walking the ordered chain and
+ * folding consecutive entries that share a season key. Parts are always
+ * adjacent, so this never joins two unrelated seasons.
+ */
+export function groupSeasonParts(chain: RawMedia[]): RawMedia[][] {
+  const groups: RawMedia[][] = []
+  let current: RawMedia[] = []
+  let currentKey = ''
+
+  for (const media of chain) {
+    const key = seasonPartKey(pickTitle(media))
+    if (current.length > 0 && key === currentKey) {
+      current.push(media)
+      continue
+    }
+    if (current.length > 0) groups.push(current)
+    current = [media]
+    currentKey = key
+  }
+
+  if (current.length > 0) groups.push(current)
+  return groups
+}
 
 /**
  * Reduce a title to a key shared by its seasons, so "Sousou no Frieren",
@@ -258,7 +330,7 @@ export function groupSearchResults(media: RawMedia[]): AnimeSearchResult[] {
 
   return [...groups.values()].map((members) => {
     const ordered = [...members].sort(byYearThenId)
-    const seasons = ordered.map((m, index) => toSeasonRef(m, index + 1))
+    const seasons = groupSeasonParts(ordered).map((parts, index) => toSeasonRef(parts, index + 1))
     return toSearchResult(ordered[0], seasons)
   })
 }
@@ -456,11 +528,17 @@ function parseSeasonTitles(
  * Fetch every season's episode titles in a single request using GraphQL
  * aliases, then renumber them across the franchise.
  */
-async function fetchEpisodeTitles(chain: RawMedia[]): Promise<AniListEpisode[]> {
-  const safe = chain.filter((m) => Number.isSafeInteger(m.id))
-  if (safe.length === 0) return []
+async function fetchEpisodeTitles(groups: RawMedia[][]): Promise<AniListEpisode[]> {
+  const flat = groups.flat().filter((m) => Number.isSafeInteger(m.id))
+  if (flat.length === 0) return []
 
-  const aliases = safe.map((m, i) => `s${i}: Media(id: ${m.id}) { streamingEpisodes { title } }`)
+  // AniList id -> unified season number.
+  const seasonOf = new Map<number, number>()
+  groups.forEach((parts, index) => {
+    for (const part of parts) seasonOf.set(part.id, index + 1)
+  })
+
+  const aliases = flat.map((m, i) => `s${i}: Media(id: ${m.id}) { streamingEpisodes { title } }`)
   let data: Record<string, { streamingEpisodes?: { title?: string | null }[] | null }> = {}
   try {
     data = await graphql<typeof data>(`query {\n${aliases.join('\n')}\n}`, {})
@@ -473,14 +551,14 @@ async function fetchEpisodeTitles(chain: RawMedia[]): Promise<AniListEpisode[]> 
   const usedSignatures = new Set<string>()
   let absolute = 1
 
-  safe.forEach((media, index) => {
-    const declared = typeof media.episodes === 'number' && media.episodes > 0 ? media.episodes : 0
+  flat.forEach((media, index) => {
+    const declared = episodeCountOf(media) ?? 0
     const parsed = parseSeasonTitles(data[`s${index}`]?.streamingEpisodes)
 
     // AniList's streamingEpisodes reflects the streaming service, and Crunchyroll
     // reports the whole franchise: Attack on Titan's Seasons 2 and 3 each return
-    // Season 1's 25 episodes. Only trust a list whose length matches the season
-    // and which has not already been used for an earlier one.
+    // Season 1's 25 episodes. Only trust a list whose length matches the part
+    // and which has not already been used.
     const signature = parsed.map((p) => p.title).join('|')
     const alreadyUsed = signature !== '' && usedSignatures.has(signature)
     const countMismatch = declared > 0 && parsed.length !== declared
@@ -491,10 +569,11 @@ async function fetchEpisodeTitles(chain: RawMedia[]): Promise<AniListEpisode[]> 
     const titles = trusted ? parsed : []
     const count = Math.max(declared, titles.length)
     const byNumber = new Map(titles.map((p) => [p.number, p.title]))
+    const season = seasonOf.get(media.id) ?? 1
 
     for (let n = 1; n <= count; n += 1) {
       const title = byNumber.get(n)
-      if (title) out.push({ number: absolute, season: index + 1, title })
+      if (title) out.push({ number: absolute, season, title })
       absolute += 1
     }
   })
@@ -536,8 +615,11 @@ export async function getAnimeDetails(anilistId: number): Promise<AnimeDetails> 
   const chain = await assembleFranchise(anilistId)
   if (chain.length === 0) throw new Error(`AniList has no anime #${anilistId}`)
 
-  const seasons = chain.map((media, index) => toSeasonRef(media, index + 1))
-  const episodeTitles = await fetchEpisodeTitles(chain)
+  // Fold the broadcast parts of a season together ("2nd Season" + "2nd Season
+  // Part 2") so a split season counts once.
+  const groups = groupSeasonParts(chain)
+  const seasons = groups.map((parts, index) => toSeasonRef(parts, index + 1))
+  const episodeTitles = await fetchEpisodeTitles(groups)
 
   // chain[0] is the earliest season, so it becomes the entry's identity even
   // when the user picked a later one.

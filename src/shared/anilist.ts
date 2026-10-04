@@ -5,23 +5,37 @@
  * Types only — no runtime code, so both builds can import it safely.
  */
 
+/** One broadcast part (cour) inside a season. */
+export interface AnimeSeasonPart {
+  anilistId: number
+  malId: number | null
+  title: string
+  year: number | null
+  episodes: number | null
+}
+
 /** One season of a franchise. */
 export interface AnimeSeasonRef {
   /** 1-based position in the franchise chain. */
   season: number
+  /** AniList id of the season's first part — the season's identity. */
   anilistId: number
-  /** MyAnimeList id (AniList links to it) — null when AniList has none. */
   malId: number | null
   title: string
   year: number | null
   format: string | null
-  /** Episode count for this season, or null when AniList does not know. */
+  /** Episode count for the whole season, summed across its parts. */
   episodes: number | null
+  /**
+   * Broadcast parts merged into this season. A season split into cours
+   * ("2nd Season" + "2nd Season Part 2") has two; most have one.
+   */
+  parts: AnimeSeasonPart[]
 }
 
 /**
  * A single entry in the search list. Sequels of the same franchise are merged
- * into one result, so `seasons` holds every season gathered under it.
+ * into one result, and the parts of a split season are merged into one season.
  */
 export interface AnimeSearchResult {
   /** AniList id of the earliest season — the franchise's identity. */

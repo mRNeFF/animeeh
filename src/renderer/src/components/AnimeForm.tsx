@@ -59,6 +59,7 @@ function seasonsFrom(result: AnimeDetails | AnimeSearchResult): AnimeSeason[] {
     title: s.title,
     year: s.year ?? undefined,
     episodes: s.episodes ?? undefined,
+    runtimeMinutes: s.duration ?? undefined,
     parts: s.parts.map((p) => ({
       anilistId: p.anilistId,
       title: p.title,

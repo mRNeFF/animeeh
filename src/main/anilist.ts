@@ -210,6 +210,16 @@ function episodeCountOf(media: RawMedia): number | null {
   return typeof media.episodes === 'number' && media.episodes > 0 ? media.episodes : null
 }
 
+/**
+ * Minutes for one episode, or the total runtime for a film.
+ *
+ * AniList's `duration` is per episode for a series and the whole runtime for a
+ * film, which is exactly what the statistics need in both cases.
+ */
+function episodeDurationOf(media: RawMedia): number | null {
+  return typeof media.duration === 'number' && media.duration > 0 ? media.duration : null
+}
+
 function toPart(media: RawMedia): AnimeSeasonPart {
   return {
     anilistId: media.id,
@@ -234,6 +244,7 @@ function toSeasonRef(parts: RawMedia[], position: number): AnimeSeasonRef {
     year: yearOf(first),
     format: first.format ?? null,
     episodes: sumEpisodes(parts.map(episodeCountOf)),
+    duration: episodeDurationOf(first),
     parts: parts.map(toPart)
   }
 }

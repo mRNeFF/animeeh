@@ -87,6 +87,8 @@ export interface AnimeSeason {
   year?: number
   /** Episode count for the whole season, summed across its parts. */
   episodes?: number
+  /** AniList minutes per episode for this season. */
+  runtimeMinutes?: number
   /**
    * Broadcast parts merged into this season. A season split into cours
    * ("2nd Season" + "2nd Season Part 2") has two; most have one.

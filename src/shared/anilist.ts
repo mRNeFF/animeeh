@@ -27,6 +27,11 @@ export interface AnimeSeasonRef {
   /** Episode count for the whole season, summed across its parts. */
   episodes: number | null
   /**
+   * AniList duration in minutes for one episode of this season. Seasons of the
+   * same franchise can differ, so the watch time uses each season's own value.
+   */
+  duration: number | null
+  /**
    * Broadcast parts merged into this season. A season split into cours
    * ("2nd Season" + "2nd Season Part 2") has two; most have one.
    */

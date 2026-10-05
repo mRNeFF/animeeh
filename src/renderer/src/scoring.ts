@@ -373,6 +373,7 @@ export function normaliseAnime(input: Partial<Anime>): Anime {
           title: s.title ?? `Season ${index + 1}`,
           year: Number.isFinite(s.year) ? Number(s.year) : undefined,
           episodes: Number.isFinite(s.episodes) ? Number(s.episodes) : undefined,
+          runtimeMinutes: Number.isFinite(s.runtimeMinutes) ? Number(s.runtimeMinutes) : undefined,
           parts: Array.isArray(s.parts)
             ? s.parts
                 .filter((p) => !!p && typeof p.anilistId === 'number')

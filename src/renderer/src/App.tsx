@@ -25,13 +25,31 @@ import { createAnime, type Anime } from './types'
 type View = 'library' | 'films' | 'leaderboard' | 'criteria' | 'stats' | 'settings'
 
 /**
- * Silently fill in missing cover art and genres for entries that have a
- * reference id but no artwork — which is how entries added by older builds look.
+ * Silently fill in missing metadata for entries that have a reference id.
  *
- * Runs once per launch, sequentially and paced, and capped so a large library
- * cannot hammer the API. Failures are swallowed: artwork is cosmetic.
+ * Covers cover art, genres, format and the per-episode duration. The duration
+ * matters most: without it the statistics cannot state a watch time, only guess
+ * one. Entries added by an older build have none of these.
+ *
+ * Paced to stay under AniList's ~30 requests/minute, and capped per launch so a
+ * large library does not turn into a burst. Failures are swallowed: this is
+ * cosmetic metadata, not user data.
  */
-const MAX_BACKFILL = 25
+const MAX_BACKFILL = 40
+const BACKFILL_PACING_MS = 2200
+
+function needsMetadata(anime: {
+  coverImage?: string
+  format?: string
+  genres?: string[]
+  runtimeMinutes?: number
+  seasons?: { runtimeMinutes?: number }[]
+}): boolean {
+  if (!anime.coverImage || !anime.format || (anime.genres?.length ?? 0) === 0) return true
+  if (anime.runtimeMinutes === undefined) return true
+  // A season without its own duration falls back to the entry's, so fetch it.
+  return (anime.seasons ?? []).some((s) => s.runtimeMinutes === undefined)
+}
 
 function useMetadataBackfill(): void {
   const { data, updateAnime } = useStore()
@@ -41,7 +59,7 @@ function useMetadataBackfill(): void {
     if (started.current || data.anime.length === 0) return
 
     const targets = data.anime
-      .filter((a) => !a.coverImage || !a.format || (a.genres?.length ?? 0) === 0)
+      .filter((a) => needsMetadata(a))
       .filter((a) => !!(a.source?.anilistId ?? a.seasons?.[0]?.anilistId))
       .slice(0, MAX_BACKFILL)
 
@@ -68,12 +86,33 @@ function useMetadataBackfill(): void {
             if (anime.runtimeMinutes === undefined && outcome.data.duration) {
               next.runtimeMinutes = outcome.data.duration
             }
+
+            // Refresh the stored seasons so each carries its own duration and
+            // episode count, which the statistics use for accuracy.
+            if (outcome.data.seasons.length > 0) {
+              next.seasons = outcome.data.seasons.map((s) => ({
+                season: s.season,
+                anilistId: s.anilistId,
+                malId: s.malId,
+                title: s.title,
+                year: s.year ?? undefined,
+                episodes: s.episodes ?? undefined,
+                runtimeMinutes: s.duration ?? undefined,
+                parts: s.parts.map((p) => ({
+                  anilistId: p.anilistId,
+                  title: p.title,
+                  year: p.year ?? undefined,
+                  episodes: p.episodes ?? undefined
+                }))
+              }))
+            }
+
             if (Object.keys(next).length > 0) updateAnime(anime.id, next)
           }
         } catch {
           // cosmetic only
         }
-        await new Promise((r) => setTimeout(r, 250))
+        await new Promise((r) => setTimeout(r, BACKFILL_PACING_MS))
       }
     })()
   }, [data.anime, updateAnime])

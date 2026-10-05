@@ -6,22 +6,46 @@ import { CRITERIA, isFilm, type Anime, type CriterionKey } from '../types'
 import { GradeBadge } from './ui'
 
 /**
- * Fallback minutes when the reference source has no duration for an entry.
+ * Minutes to assume when the reference source reports no duration.
  *
- * A TV episode is almost always 24 minutes; a film runs much longer. Guessing is
- * unavoidable for entries added by hand, so the estimate is labelled as such
- * rather than presented as fact.
+ * A TV episode is almost always 24 minutes, but a TV_SHORT runs 3 to 12, so
+ * using 24 for those would inflate the total. These are guesses and the panel
+ * says so, listing how many entries relied on one.
  */
-const DEFAULT_EPISODE_MINUTES = 24
-const DEFAULT_FILM_MINUTES = 105
+const FALLBACK_MINUTES: Record<string, number> = {
+  TV_SHORT: 12,
+  MOVIE: 105
+}
+const FALLBACK_EPISODE_MINUTES = 24
+
+function minutesPerEpisode(
+  entry: { format?: string; runtimeMinutes?: number },
+  season: { runtimeMinutes?: number } | undefined
+): { minutes: number; fromSource: boolean } {
+  // A season's own duration wins: seasons of one franchise can differ.
+  if (season?.runtimeMinutes && season.runtimeMinutes > 0) {
+    return { minutes: season.runtimeMinutes, fromSource: true }
+  }
+  if (entry.runtimeMinutes && entry.runtimeMinutes > 0) {
+    return { minutes: entry.runtimeMinutes, fromSource: true }
+  }
+  const format = entry.format ?? ''
+  return {
+    minutes: FALLBACK_MINUTES[format] ?? FALLBACK_EPISODE_MINUTES,
+    fromSource: false
+  }
+}
 
 interface Totals {
   seriesCount: number
   filmCount: number
   episodesRated: number
   episodesListed: number
-  minutes: number
-  minutesEstimated: boolean
+  /** Minutes for episodes that carry a rating. */
+  minutesRated: number
+  /** Minutes if every listed episode were counted — an upper bound. */
+  minutesListed: number
+  entriesWithoutDuration: number
   averageScore: number | null
   best: { anime: Anime; score: number } | null
   worst: { anime: Anime; score: number } | null
@@ -41,8 +65,9 @@ function computeTotals(anime: Anime[], weights: Parameters<typeof globalScore>[1
   let filmCount = 0
   let episodesRated = 0
   let episodesListed = 0
-  let minutes = 0
-  let minutesEstimated = false
+  let minutesRated = 0
+  let minutesListed = 0
+  let entriesWithoutDuration = 0
   let favourites = 0
   let withNames = 0
   let oldestYear: number | null = null
@@ -73,7 +98,10 @@ function computeTotals(anime: Anime[], weights: Parameters<typeof globalScore>[1
       genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1)
     }
     if (item.studio) {
-      for (const studio of item.studio.split(',').map((s) => s.trim()).filter(Boolean)) {
+      for (const studio of item.studio
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)) {
         studioCounts.set(studio, (studioCounts.get(studio) ?? 0) + 1)
       }
     }
@@ -82,21 +110,40 @@ function computeTotals(anime: Anime[], weights: Parameters<typeof globalScore>[1
       // A film is one sitting, counted only once it has been rated.
       const rated = CRITERIA.some((c) => item.criteria[c.key] !== null)
       if (rated) {
-        if (item.runtimeMinutes && item.runtimeMinutes > 0) minutes += item.runtimeMinutes
-        else {
-          minutes += DEFAULT_FILM_MINUTES
-          minutesEstimated = true
-        }
+        const per = minutesPerEpisode(item, undefined)
+        if (!per.fromSource) entriesWithoutDuration += 1
+        minutesRated += per.minutes
+        minutesListed += per.minutes
       }
     } else {
-      // Only rated episodes count as watched. Unrated rows are placeholders.
+      const listed = item.episodes.length
       const rated = scoredEpisodeCount(item)
       episodesRated += rated
-      episodesListed += item.episodes.length
+      episodesListed += listed
 
-      const perEpisode = item.runtimeMinutes && item.runtimeMinutes > 0 ? item.runtimeMinutes : null
-      if (perEpisode === null) minutesEstimated = true
-      minutes += rated * (perEpisode ?? DEFAULT_EPISODE_MINUTES)
+      // Group by season so each season can use its own duration.
+      const bySeason = new Map<number, number>()
+      for (const episode of item.episodes) {
+        const key = episode.season ?? 1
+        bySeason.set(key, (bySeason.get(key) ?? 0) + 1)
+      }
+
+      let coveredBySource = true
+      for (const [seasonNumber, count] of bySeason) {
+        const season = (item.seasons ?? []).find((s) => s.season === seasonNumber)
+        const per = minutesPerEpisode(item, season)
+        if (!per.fromSource) coveredBySource = false
+
+        const ratedInSeason = item.episodes.filter(
+          (e) => (e.season ?? 1) === seasonNumber && e.score !== null && Number.isFinite(e.score)
+        ).length
+        minutesRated += ratedInSeason * per.minutes
+        minutesListed += count * per.minutes
+      }
+
+      // An entry with no episodes yet still has no duration to speak of.
+      if (bySeason.size === 0 && !item.runtimeMinutes) coveredBySource = false
+      if (!coveredBySource) entriesWithoutDuration += 1
 
       if (item.episodes.length > (longest?.episodes.length ?? 0)) longest = item
 
@@ -136,8 +183,9 @@ function computeTotals(anime: Anime[], weights: Parameters<typeof globalScore>[1
     filmCount,
     episodesRated,
     episodesListed,
-    minutes,
-    minutesEstimated,
+    minutesRated,
+    minutesListed,
+    entriesWithoutDuration,
     averageScore: scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null,
     best,
     worst,
@@ -212,8 +260,8 @@ export function StatsView(): ReactNode {
     { label: t('stats.films'), value: String(totals.filmCount) },
     {
       label: t('stats.watchTime'),
-      value: formatHours(totals.minutes),
-      sub: formatDays(totals.minutes) || undefined
+      value: formatHours(totals.minutesRated),
+      sub: formatDays(totals.minutesRated) || undefined
     },
     {
       label: t('stats.averageScore'),
@@ -235,7 +283,42 @@ export function StatsView(): ReactNode {
         ))}
       </div>
 
-      <div className="panel">
+      <div className="panel stats-watchtime">
+        <h3>{t('stats.watchTimeDetail')}</h3>
+        <div className="panel-sub">{t('stats.watchTimeSub')}</div>
+        <div className="stat-list">
+          <PlainRow
+            label={t('stats.ratedOnly')}
+            value={`${formatHours(totals.minutesRated)} · ${t('stats.minutes', {
+              count: Math.round(totals.minutesRated)
+            })}`}
+          />
+          <PlainRow
+            label={t('stats.listedUpper')}
+            value={`${formatHours(totals.minutesListed)} · ${t('stats.minutes', {
+              count: Math.round(totals.minutesListed)
+            })}`}
+          />
+          <PlainRow
+            label={t('stats.ratedEpisodesShort')}
+            value={String(totals.episodesRated)}
+          />
+          <PlainRow
+            label={t('stats.listedEpisodesShort')}
+            value={String(totals.episodesListed)}
+          />
+        </div>
+        <div className="hint" style={{ marginTop: 12 }}>
+          {totals.entriesWithoutDuration > 0
+            ? t('stats.partialDuration', {
+                count: totals.entriesWithoutDuration,
+                episode: FALLBACK_EPISODE_MINUTES
+              })
+            : t('stats.fullDuration')}
+        </div>
+      </div>
+
+      <div className="panel stats-episodes">
         <h3>{t('stats.episodes')}</h3>
         <div className="panel-sub">
           {t('stats.episodesSub', { rated: totals.episodesRated, listed: totals.episodesListed })}
@@ -384,9 +467,7 @@ export function StatsView(): ReactNode {
               }
             />
           )}
-          <PlainRow
-            label={t('stats.averages')}
-            value={(() => {
+          <PlainRow label={t('stats.averages')} value={(() => {
               const avg = data.anime
                 .map((a) => episodeAverage(a))
                 .filter((v): v is number => v !== null)
@@ -396,11 +477,6 @@ export function StatsView(): ReactNode {
             })()}
           />
         </div>
-        {totals.minutesEstimated && (
-          <div className="hint" style={{ marginTop: 12 }}>
-            {t('stats.estimateNote', { episode: DEFAULT_EPISODE_MINUTES, film: DEFAULT_FILM_MINUTES })}
-          </div>
-        )}
       </div>
     </>
   )

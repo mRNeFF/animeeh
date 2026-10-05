@@ -174,11 +174,22 @@ try {
   // 3 rated episodes x 24 min + 120 min film = 192 min = 3.2 h
   check('estimated watch time', byLabel('Temps')?.value, '3.2 h')
 
-  const episodesPanel = await win.locator('.panel', { hasText: 'Épisodes notés' }).innerText()
+  const episodesPanel = await win.locator('.stats-episodes').innerText()
   const ratedMatch = /(\d+) épisodes portent une note sur (\d+)/.exec(episodesPanel.replace(/\s+/g, ' '))
   console.log(`   rated-episode line: ${ratedMatch ? ratedMatch[0] : '(not found)'}`)
   check('real rated episode count is 3, not 4', ratedMatch?.[1], '3')
   check('listed episode count is 4', ratedMatch?.[2], '4')
+
+  // The two watch-time figures must differ: 3 rated episodes plus a 120-minute
+  // film is 192 minutes, while all 4 episodes plus the film is 216.
+  const watchPanel = (await win.locator('.stats-watchtime').innerText()).replace(/\s+/g, ' ')
+  console.log(`   watch time panel: ${watchPanel}`)
+  // Labels are uppercased by CSS, and the value reads "3.2 h · 192 min".
+  const ratedMinutes = /ÉPISODES NOTÉS SEULEMENT [\d.]+ h · (\d+) min/.exec(watchPanel)
+  const listedMinutes = /TOUS LES ÉPISODES LISTÉS [\d.]+ h · (\d+) min/.exec(watchPanel)
+  console.log(`   rated minutes=${ratedMinutes?.[1]} listed minutes=${listedMinutes?.[1]}`)
+  check('rated watch time is 192 min', ratedMinutes?.[1], '192')
+  check('listed watch time is 216 min', listedMinutes?.[1], '216')
 
   const highlights = (await win.locator('.panel', { hasText: 'Points marquants' }).innerText())
     .replace(/\s+/g, ' ')

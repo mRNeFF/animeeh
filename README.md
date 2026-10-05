@@ -230,6 +230,9 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run smoke:offline` | Checks behaviour when AniList is unreachable |
 | `npm run smoke:update` | Tests updating against a fake local feed |
 | `npm run smoke:update:live` | Tests updating against the real GitHub releases |
+| `npm run smoke:films` | Films tab, leaderboard scopes and grade thresholds |
+| `npm run smoke:bugfix` | Guards the fixed bugs: delete wording, button label, film picking |
+| `npm run audit:i18n` | Fails if any user-facing English text bypasses the dictionaries |
 | `npm run check:franchise "query"` | Prints how a franchise is grouped and ordered, against the live AniList API |
 | `npm run check:numbering` | Asserts episode titles land on the correct episode numbers |
 | `npm run diagnose:episodes` | Reports episode-name coverage and gaps for your data file |

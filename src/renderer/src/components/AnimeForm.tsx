@@ -168,6 +168,9 @@ export function AnimeForm({
   const pick = async (result: AnimeSearchResult): Promise<void> => {
     setPicked(result)
     setShowSeasons(false)
+
+    const isFilm = (result.format ?? '') === 'MOVIE'
+
     setValues((prev) => ({
       ...prev,
       title: result.title,
@@ -175,18 +178,28 @@ export function AnimeForm({
       year: result.year ? String(result.year) : '',
       studio: result.studio ?? '',
       source: sourceFrom(result),
-      totalEpisodes: result.episodes ?? undefined,
+      totalEpisodes: isFilm ? undefined : (result.episodes ?? undefined),
       episodeBlueprint: [],
-      seasons: seasonsFrom(result),
+      seasons: isFilm ? [] : seasonsFrom(result),
       coverImage: result.coverImage ?? undefined,
       genres: result.genres ?? [],
       format: result.format ?? undefined,
-      createEpisodes: true
+      // A film is rated as a whole: there are no episodes to create.
+      createEpisodes: !isFilm
     }))
 
-    // The search row already carries the grouped seasons; this call walks the
-    // relations to make sure the chain is complete and correctly ordered, and
-    // brings back the per-episode titles.
+    // A film is a single work. Walking its relations would drag in the TV
+    // series it belongs to — picking "Chainsaw Man: Reze-hen" used to return
+    // the whole Chainsaw Man franchise — so films stop here and use the search
+    // data, which already carries everything the app stores.
+    if (isFilm || kind === 'film') {
+      setLoadingDetails(false)
+      return
+    }
+
+    // For a series, the search row carries the grouped seasons; this call walks
+    // the relations to make sure the chain is complete and correctly ordered,
+    // and brings back the per-episode titles.
     setLoadingDetails(true)
     try {
       const outcome = await window.animeeh.animeFranchise(result.anilistId)
@@ -234,6 +247,7 @@ export function AnimeForm({
   }
 
   const canSubmit = values.title.trim().length > 0
+  const isFilmPicked = (picked?.format ?? '') === 'MOVIE' || kind === 'film'
   const plannedEpisodes = values.createEpisodes
     ? (values.totalEpisodes ?? values.episodeBlueprint.length)
     : 0
@@ -264,7 +278,7 @@ export function AnimeForm({
               <input
                 className="input"
                 autoFocus
-                placeholder={t('form.search')}
+                placeholder={t(kind === 'film' ? 'form.searchFilm' : 'form.search')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -272,15 +286,15 @@ export function AnimeForm({
 
             {searching && (
               <div className="al-state">
-                <span className="spinner" /> Searching AniList…
+                <span className="spinner" /> {t('form.searching')}
               </div>
             )}
 
             {!searching && searchError && (
               <div className="al-state error">
-                AniList unreachable: {searchError}
+                {t('form.unreachable', { error: searchError })}
                 <div className="hint" style={{ marginTop: 4 }}>
-                  You can still fill in the details manually below.
+                  {t('form.manualFallback')}
                 </div>
               </div>
             )}
@@ -288,7 +302,8 @@ export function AnimeForm({
             {!searching && !searchError && results.length > 0 && (
               <div className="al-results">
                 {results.map((r) => {
-                  const summary = seasonSummary(r)
+                  const isFilmResult = (r.format ?? '') === 'MOVIE'
+                  const summary = isFilmResult ? null : seasonSummary(r)
                   return (
                     <button
                       type="button"
@@ -308,9 +323,18 @@ export function AnimeForm({
                         )}
                         {summary && <div className="al-seasons">{summary}</div>}
                         <div className="al-tags">
+                          {/* A film's format and episode count are noise: it is
+                              one work, so only the year and studio are useful. */}
+                          {isFilmResult && <span className="al-film">{t('form.film')}</span>}
                           {r.year && <span>{r.year}</span>}
-                          {r.format && <span>{r.format}</span>}
-                          <span>{r.episodes ? `${r.episodes} eps` : 'eps unknown'}</span>
+                          {!isFilmResult && r.format && <span>{r.format}</span>}
+                          {!isFilmResult && (
+                            <span>
+                              {r.episodes
+                                ? t('form.episodeCount', { count: r.episodes })
+                                : t('form.episodesUnknown')}
+                            </span>
+                          )}
                           {r.studio && <span className="al-studio">{r.studio}</span>}
                         </div>
                       </div>
@@ -324,30 +348,36 @@ export function AnimeForm({
               !searchError &&
               query.trim().length >= MIN_QUERY &&
               results.length === 0 && (
-                <div className="al-state">No results for “{query.trim()}”.</div>
+                <div className="al-state">
+                  {t('form.noResults', { query: query.trim() })}
+                </div>
               )}
 
             {picked && (
               <>
                 <div className="al-selected">
                   <div>
-                    {multiSeason ? (
+                    {/* A film has no seasons, so the season pill is noise. */}
+                    {isFilmPicked ? (
+                      <span className="pill">{t('form.film')}</span>
+                    ) : multiSeason ? (
                       <button
                         type="button"
                         className="pill pill-button"
                         onClick={() => setShowSeasons((v) => !v)}
                       >
-                        {values.seasons.length} seasons {showSeasons ? '▴' : '▾'}
+                        {t('form.seasons', { count: values.seasons.length })}{' '}
+                        {showSeasons ? '▴' : '▾'}
                       </button>
                     ) : (
-                      <span className="pill">1 season</span>
+                      <span className="pill">{t('form.oneSeason')}</span>
                     )}{' '}
                     {picked.malId ? (
                       <span className="pill">MAL {picked.malId}</span>
                     ) : (
                       <span className="pill">{t('form.noMalId')}</span>
                     )}
-                    {loadingDetails && <span className="hint"> · assembling seasons…</span>}
+                    {loadingDetails && <span className="hint">{t('form.assembling')}</span>}
                   </div>
                   <button
                     type="button"
@@ -359,7 +389,7 @@ export function AnimeForm({
                   </button>
                 </div>
 
-                {showSeasons && (
+                {showSeasons && !isFilmPicked && (
                   <ol className="al-season-list">
                     {values.seasons.map((s) => {
                       const partCount = s.parts?.length ?? 1
@@ -370,7 +400,7 @@ export function AnimeForm({
                             {s.title}
                             {partCount > 1 && (
                               <span className="al-season-parts">
-                                {partCount} parts merged
+                                {t('form.partsMerged', { count: partCount })}
                               </span>
                             )}
                           </span>
@@ -387,17 +417,17 @@ export function AnimeForm({
               </>
             )}
 
-            {picked && (values.totalEpisodes ?? 0) > 0 && (
+            {picked && !isFilmPicked && (values.totalEpisodes ?? 0) > 0 && (
               <label className="al-check">
                 <input
                   type="checkbox"
                   checked={values.createEpisodes}
                   onChange={(e) => set('createEpisodes', e.target.checked)}
                 />
-                Create all <strong>{values.totalEpisodes}</strong> episodes automatically
+                {t('form.createAll', { count: values.totalEpisodes ?? 0 })}
                 {values.episodeBlueprint.length > 0 &&
-                  ` (${values.episodeBlueprint.length} with titles)`}
-                {multiSeason && ', numbered continuously across seasons'}
+                  t('form.withTitles', { count: values.episodeBlueprint.length })}
+                {multiSeason && t('form.acrossSeasons')}
               </label>
             )}
           </div>
@@ -405,11 +435,13 @@ export function AnimeForm({
 
         {/* ---------------- Manual fields ---------------- */}
         <div className="field">
-          <label htmlFor="af-title">Title *</label>
+          <label htmlFor="af-title">{t('form.title')}</label>
           <input
             id="af-title"
             className="input"
-            placeholder="e.g. Frieren: Beyond Journey's End"
+            placeholder={
+              kind === 'film' ? t('form.filmTitlePlaceholder') : t('form.titlePlaceholder')
+            }
             value={values.title}
             onChange={(e) => set('title', e.target.value)}
           />
@@ -447,7 +479,7 @@ export function AnimeForm({
             <input
               id="af-studio"
               className="input"
-              placeholder="e.g. Madhouse"
+                placeholder={t('form.studioPlaceholder')}
               value={values.studio}
               onChange={(e) => set('studio', e.target.value)}
             />
@@ -486,8 +518,8 @@ export function AnimeForm({
             checked={values.favorite}
             onChange={(e) => set('favorite', e.target.checked)}
           />
-          Mark as a personal favourite
-        </label>
+            {t('form.favourite')}
+          </label>
 
         <div className="modal-actions">
           {plannedEpisodes > 0 && (

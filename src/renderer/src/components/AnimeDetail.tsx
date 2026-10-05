@@ -21,6 +21,7 @@ import {
 } from '../types'
 import { AnimeForm } from './AnimeForm'
 import { EpisodeSeasons } from './EpisodeSeasons'
+import { isFilm } from './AnimeLibrary'
 import { mergeEpisodeNames, seasonPartsOf } from '../bulkEpisodes'
 import { Bar, Cover, ScoreControl } from './ui'
 import { IconArrowLeft, IconDownload, IconEpisode, IconPlus, IconTrash } from './Icons'
@@ -196,7 +197,7 @@ export function AnimeDetail({
     <>
       <div className="toolbar">
         <button className="btn ghost" onClick={onBack}>
-          <IconArrowLeft size={16} /> Library
+          <IconArrowLeft size={16} /> {t('action.backToLibrary')}
         </button>
         <div className="spacer" />
         <button className="btn" onClick={() => setEditing(true)}>
@@ -374,9 +375,9 @@ export function AnimeDetail({
           ))}
           <div className="criterion">
             <div className="criterion-name">
-              <span className="dot" style={{ background: 'hsl(292 70% 60%)' }} />
-              Episode average
-            </div>
+                <span className="dot" style={{ background: 'hsl(292 70% 60%)' }} />
+                {t('criteria.episodeAverage')}
+              </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ flex: 1 }}>
                 <Bar value={avg} hue={292} />
@@ -413,6 +414,10 @@ export function AnimeDetail({
       </div>
 
       {/* ---------------- Episodes ---------------- */}
+      {/* A film is one work: it is rated as a whole on its criteria, so an
+          episode list would be meaningless. */}
+      {!isFilm(anime) && (
+      <>
       <div className="section-title">
         <IconEpisode size={17} />
         <h2>{t('detail.section.episodes')}</h2>
@@ -462,12 +467,12 @@ export function AnimeDetail({
           <button
             className="btn sm"
             onClick={() => addEpisodes(Math.max(1, Math.min(500, Number(bulk) || 1)))}
-          >
-            Add batch
-          </button>
-          <button className="btn primary sm" onClick={() => addEpisodes(1)}>
-            <IconPlus size={14} /> Episode
-          </button>
+            >
+              {t('diff.addBatch')}
+            </button>
+            <button className="btn primary sm" onClick={() => addEpisodes(1)}>
+              <IconPlus size={14} /> {t('diff.addEpisode')}
+            </button>
         </div>
       </div>
 
@@ -490,6 +495,8 @@ export function AnimeDetail({
           onUpdateEpisode={updateEpisode}
           onRemoveEpisode={removeEpisode}
         />
+      )}
+      </>
       )}
 
       {/* ---------------- Notes ---------------- */}
@@ -554,15 +561,13 @@ function ConfirmDelete({
 }): ReactNode {
   const { t } = useI18n()
   const [text, setText] = useState('')
-  const ok = text.trim().toLowerCase() === 'delete'
+  const word = t('detail.deleteWord')
+  const ok = text.trim().toLowerCase() === word.toLowerCase()
   return (
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
       <div className="modal" style={{ maxWidth: 420 }}>
-        <h3>Delete “{title}”?</h3>
-        <div className="modal-sub">
-          This permanently removes the anime, all its episode scores and criteria. Type{' '}
-          <strong>{t('detail.deleteWord')}</strong>
-        </div>
+        <h3>{t('delete.confirm', { title })}</h3>
+        <div className="modal-sub">{t('delete.body', { word })}</div>
         <div className="modal-form">
           <input
             className="input"

@@ -46,9 +46,12 @@ export function CriteriaView({ onOpen }: { onOpen: (id: string) => void }): Reac
             className="hint"
             style={{ padding: '10px 16px 14px' }}
           >
-            Ranking by <strong style={{ color: `hsl(${active.hue} 65% 68%)` }}>{t(criterionKey(active.key))}</strong>{' '}
-            — scored 0–100. Unrated entries are listed last.
-          </div>
+              {t('criteria.rankingBy')}{' '}
+              <strong style={{ color: `hsl(${active.hue} 65% 68%)` }}>
+                {t(criterionKey(active.key))}
+              </strong>{' '}
+              {t('criteria.scoredHint')}
+            </div>
           {ranking.map((row) => (
             <div
               key={row.anime.id}

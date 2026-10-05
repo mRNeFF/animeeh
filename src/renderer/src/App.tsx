@@ -205,8 +205,8 @@ export default function App(): ReactNode {
               className="btn primary"
               onClick={() => (view === 'films' ? setAddingFilm(true) : setAdding(true))}
             >
-              <IconPlus size={16} /> {t('action.addAnime')}
-            </button>
+                <IconPlus size={16} /> {t(view === 'films' ? 'form.addFilm' : 'action.addAnime')}
+              </button>
           </div>
         </header>
 

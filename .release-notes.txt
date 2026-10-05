@@ -1,0 +1,7 @@
+New Statistics tab (Statistiques), which replaces the summary panel that was in Settings. It shows your series and film counts, the estimated time you have spent watching, and the real number of episodes you have rated - the old figure counted every episode row, including the ones you had not rated yet, so it was well above reality. It also breaks down your grades, your average per criterion, your top genres and studios, your best and worst rated, and your longest series. Watch time is estimated from the durations AniList reports, and falls back to 24 minutes per episode or 105 minutes for a film when it has none, which the panel states.
+
+Films are now rated on six criteria instead of seven: Opening is gone, because a film has no opening sequence. The Opening column is also hidden in the Films leaderboard.
+
+Every message that used to come from the app's internals in English is now translated, so a French interface no longer shows half-English text when AniList is unreachable or an episode lookup fails.
+
+The library tab is renamed from Mes animés to Animé, to match the Films tab.

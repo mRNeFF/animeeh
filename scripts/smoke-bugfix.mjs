@@ -140,7 +140,38 @@ try {
   check('the form knows it is adding a film', formTitle, 'Ajouter un film')
 
   await win.locator('.al-block input.input').fill('chainsaw man')
-  await win.locator('.al-result').first().waitFor({ state: 'visible', timeout: 30000 })
+
+  /**
+   * Wait for results, retrying once.
+   *
+   * Running this suite after the others can hit AniList's rate limit, in which
+   * case the search returns an error rather than rows. Report it and try again
+   * instead of timing out with no explanation.
+   */
+  const waitForResults = async (timeout) => {
+    const deadline = Date.now() + timeout
+    while (Date.now() < deadline) {
+      if (await win.locator('.al-result').first().isVisible().catch(() => false)) return true
+      const error = await win.locator('.al-state.error').first().innerText().catch(() => '')
+      if (error) {
+        console.log(`\nSEARCH ERROR: ${error.replace(/\s+/g, ' ').trim()}`)
+        return false
+      }
+      await sleep(1000)
+    }
+    return false
+  }
+
+  let haveResults = await waitForResults(30000)
+  if (!haveResults) {
+    console.log('   retrying the search after a pause (likely a rate limit)…')
+    await sleep(30000)
+    await win.locator('.al-block input.input').fill('')
+    await sleep(400)
+    await win.locator('.al-block input.input').fill('chainsaw man')
+    haveResults = await waitForResults(45000)
+  }
+  if (!haveResults) throw new Error('the film search never returned results')
   await sleep(600)
 
   const rows = await win.locator('.al-result').evaluateAll((els) =>

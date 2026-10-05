@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { getAnimeDetails, MIN_QUERY_LENGTH, searchAnime, type SearchKind } from './anilist'
 import { loadEpisodeNames } from './episodes'
+import { buildSchedule } from './schedule'
 import { CodedError, type ErrorCode, type ServiceName } from '../shared/errors'
 import {
   checkForUpdates,
@@ -14,6 +15,7 @@ import {
 } from './updater'
 import type { AnimeDetails, AnimeSearchResult, AniListOutcome } from '../shared/anilist'
 import type { EpisodeNamesOutcome } from '../shared/episodes'
+import { SCHEDULE_TTL_MS, type ScheduleOutcome, type ScheduleResult } from '../shared/schedule'
 import type { UpdateStatus } from '../shared/update'
 
 /** In dev, electron-vite injects this so we can load the Vite dev server. */
@@ -211,6 +213,116 @@ ipcMain.handle(
     }
   }
 )
+
+
+/* ------------------------------------------------------------------ */
+/* IPC: release calendar                                               */
+/* ------------------------------------------------------------------ */
+
+function scheduleCachePath(): string {
+  return join(app.getPath('userData'), 'airing-cache.json')
+}
+
+async function readScheduleCache(): Promise<ScheduleResult | null> {
+  try {
+    const raw = await fs.readFile(scheduleCachePath(), 'utf-8')
+    return JSON.parse(raw) as ScheduleResult
+  } catch {
+    return null
+  }
+}
+
+async function writeScheduleCache(result: ScheduleResult): Promise<void> {
+  try {
+    await fs.mkdir(app.getPath('userData'), { recursive: true })
+    await fs.writeFile(scheduleCachePath(), JSON.stringify(result, null, 2), 'utf-8')
+  } catch (err) {
+    console.error('Could not write the schedule cache', err)
+  }
+}
+
+/**
+ * Refresh the calendar, or serve the cache when it is still fresh.
+ *
+ * `force` comes from the Refresh button. Without it a cache younger than six
+ * hours is returned untouched, which is what keeps a launch cheap: AniList
+ * allows about 30 requests a minute and this is not worth spending on every
+ * startup.
+ */
+ipcMain.handle('schedule:get', async (_event, force: unknown): Promise<ScheduleOutcome> => {
+  try {
+    if (force !== true) {
+      const cached = await readScheduleCache()
+      if (cached) {
+        const age = Date.now() - new Date(cached.fetchedAt).getTime()
+        if (Number.isFinite(age) && age < SCHEDULE_TTL_MS) return { ok: true, data: cached }
+      }
+    }
+
+    const raw = await fs.readFile(dataFilePath(), 'utf-8').catch(() => null)
+    if (!raw) {
+      return { ok: true, data: emptySchedule() }
+    }
+
+    const parsed = JSON.parse(raw) as {
+      anime?: {
+        title?: string
+        status?: string
+        source?: { anilistId?: number }
+        seasons?: {
+          anilistId?: number
+          parts?: { anilistId?: number }[]
+        }[]
+      }[]
+    }
+
+    // Every id an entry covers is sent, not just its first season. A library
+    // entry stores the first season's id, and a later season's announcement is
+    // only reachable from the season it follows. Asking for season 1 alone hid
+    // the fact that a new season of a followed show was about to air.
+    const entries: { anilistId: number; title: string; status: string; seasonIds: number[] }[] = []
+    for (const item of parsed.anime ?? []) {
+      const primary = item.source?.anilistId ?? item.seasons?.[0]?.anilistId
+      if (typeof primary !== 'number' || !Number.isSafeInteger(primary) || primary <= 0) continue
+
+      const seasonIds = new Set<number>()
+      for (const season of item.seasons ?? []) {
+        if (typeof season.anilistId === 'number') seasonIds.add(season.anilistId)
+        for (const part of season.parts ?? []) {
+          if (typeof part.anilistId === 'number') seasonIds.add(part.anilistId)
+        }
+      }
+
+      entries.push({
+        anilistId: primary,
+        title: item.title ?? '',
+        status: item.status ?? 'completed',
+        seasonIds: [...seasonIds]
+      })
+    }
+
+    const result = await buildSchedule(entries)
+    await writeScheduleCache(result)
+    return { ok: true, data: result }
+  } catch (err) {
+    console.error('Schedule refresh failed', err)
+    // Serve a stale cache rather than nothing when the network is down.
+    const cached = await readScheduleCache()
+    if (cached) return { ok: true, data: cached }
+    return toFailure(err)
+  }
+})
+
+function emptySchedule(): ScheduleResult {
+  return {
+    fetchedAt: new Date().toISOString(),
+    windowDays: 21,
+    episodes: [],
+    seasons: [],
+    discovery: [],
+    counts: { libraryEntries: 0, airingEntries: 0, upcomingSeasons: 0, skipped: 0 }
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /* IPC: in-app updates                                                 */

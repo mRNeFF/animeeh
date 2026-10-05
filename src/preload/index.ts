@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AnimeDetails, AnimeSearchResult, AniListOutcome } from '../shared/anilist'
 import type { EpisodeNamesOutcome } from '../shared/episodes'
+import type { ScheduleOutcome } from '../shared/schedule'
 import type { UpdateStatus } from '../shared/update'
 
 const api = {
@@ -29,6 +30,13 @@ const api = {
    */
   loadEpisodeNames: (seasons: number[][]): Promise<EpisodeNamesOutcome> =>
     ipcRenderer.invoke('episodes:load', seasons),
+
+  /**
+   * Release calendar: upcoming episodes, announced continuations and new shows
+   * this season. Served from a six-hour cache unless `force` is true.
+   */
+  schedule: (force = false): Promise<ScheduleOutcome> =>
+    ipcRenderer.invoke('schedule:get', force),
 
   /* ---- in-app updates ---- */
   updateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:status'),

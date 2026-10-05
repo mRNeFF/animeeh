@@ -30,7 +30,8 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - **Rate every episode from 0 to 100.** An unrated episode is simply ignored, so you can create a whole season up front and score it as you watch, without skewing your average.
 - **Seven criteria per anime** — Characters, Story, Animation, OST, Opening, Key Factor, Originality.
 - **Weighted global score**, with the episode average as a first-class component.
-- **Six views**: Anime (series), Films, Leaderboard, Rankings by criteria, Statistics, Settings.
+- **Seven views**: Anime (series), Films, Leaderboard, Rankings by criteria, Calendar, Statistics, Settings.
+- **Release calendar.** Upcoming episodes of shows you follow, announced continuations of shows you already have, and the season's new shows kept in a separate section so your own tracking stays clean.
 - **Series and films are kept apart.** Searching series never returns films, films have their own tab, and the leaderboard ranks them separately so a film is never placed against a series. A film is rated on six criteria rather than seven, since it has no opening sequence.
 - **AniList lookup**: type a title and the app pre-fills the year, studio, episode count **and the individual episode titles**, all of which you can still edit by hand.
 - **Seasons are merged into one entry.** Search "shingeki no kyojin" and you get one row, not seventeen: the app follows AniList's sequel links and creates a single entry holding all six TV seasons, with episodes numbered continuously and tagged by season.
@@ -232,6 +233,8 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run smoke:update:live` | Tests updating against the real GitHub releases |
 | `npm run smoke:films` | Films tab, leaderboard scopes and grade thresholds |
 | `npm run smoke:stats` | Statistics figures and the film criteria set |
+| `npm run smoke:schedule` | Release calendar end to end, against the live API |
+| `npm run check:schedule` | Prints the calendar for your own data, with sanity checks |
 | `npm run smoke:bugfix` | Guards the fixed bugs: delete wording, button label, film picking |
 | `npm run audit:i18n` | Fails if any user-facing English text bypasses the dictionaries |
 | `npm run audit:translations` | Reports values identical in both languages, and English raised in the main process |

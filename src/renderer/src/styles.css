@@ -1596,3 +1596,101 @@ tbody tr.clickable {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+
+/* ------------------------------------------------------------------ */
+/* Release calendar                                                    */
+/* ------------------------------------------------------------------ */
+
+.sched-day {
+  margin-bottom: 16px;
+}
+.sched-day:last-child {
+  margin-bottom: 0;
+}
+
+.sched-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 2px 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+
+.sched-day-name {
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: capitalize;
+}
+
+.sched-day-rel {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sched-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 2px;
+  border-bottom: 1px solid rgba(44, 36, 64, 0.45);
+}
+.sched-row:last-child {
+  border-bottom: none;
+}
+
+.sched-time {
+  width: 46px;
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.sched-cover {
+  width: 34px;
+  height: 46px;
+  flex: none;
+  border-radius: 5px;
+  object-fit: cover;
+  background: var(--panel-3);
+}
+.sched-cover.placeholder {
+  display: block;
+}
+
+.sched-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sched-after {
+  color: var(--muted-2);
+  font-size: 11.5px;
+}
+
+.sched-date {
+  flex: none;
+  min-width: 120px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.sched-date.vague {
+  color: var(--muted-2);
+  font-style: italic;
+}
+
+.pill.good {
+  color: var(--good);
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.1);
+}

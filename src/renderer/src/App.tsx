@@ -5,6 +5,7 @@ import { AnimeLibrary } from './components/AnimeLibrary'
 import { CriteriaView } from './components/CriteriaView'
 import { Leaderboard } from './components/Leaderboard'
 import { SettingsView } from './components/SettingsView'
+import { ScheduleView } from './components/ScheduleView'
 import { StatsView } from './components/StatsView'
 import {
   IconChart,
@@ -12,6 +13,7 @@ import {
   IconLibrary,
   IconPlus,
   IconRefresh,
+  IconCalendar,
   IconSettings,
   IconStats,
   IconTrophy
@@ -22,7 +24,7 @@ import { useUpdate } from './useUpdate'
 import { applySeasonSpans, buildEpisodes } from './scoring'
 import { createAnime, type Anime } from './types'
 
-type View = 'library' | 'films' | 'leaderboard' | 'criteria' | 'stats' | 'settings'
+type View = 'library' | 'films' | 'leaderboard' | 'criteria' | 'schedule' | 'stats' | 'settings'
 
 /**
  * Silently fill in missing metadata for entries that have a reference id.
@@ -123,6 +125,7 @@ const NAV: { key: View; labelKey: MessageKey; icon: (p: { size?: number }) => Re
   { key: 'films', labelKey: 'nav.films', icon: IconFilm },
   { key: 'leaderboard', labelKey: 'nav.leaderboard', icon: IconTrophy },
   { key: 'criteria', labelKey: 'nav.criteria', icon: IconChart },
+  { key: 'schedule', labelKey: 'nav.schedule', icon: IconCalendar },
   { key: 'stats', labelKey: 'nav.stats', icon: IconStats },
   { key: 'settings', labelKey: 'nav.settings', icon: IconSettings }
 ]
@@ -132,6 +135,7 @@ const TITLES: Record<View, { title: MessageKey; sub: MessageKey }> = {
   films: { title: 'title.films', sub: 'subtitle.films' },
   leaderboard: { title: 'title.leaderboard', sub: 'subtitle.leaderboard' },
   criteria: { title: 'title.criteria', sub: 'subtitle.criteria' },
+  schedule: { title: 'title.schedule', sub: 'subtitle.schedule' },
   stats: { title: 'title.stats', sub: 'subtitle.stats' },
   settings: { title: 'title.settings', sub: 'subtitle.settings' }
 }
@@ -287,6 +291,7 @@ export default function App(): ReactNode {
             setView('library')
             setSelectedId(id)
           }} />}
+          {view === 'schedule' && <ScheduleView />}
           {view === 'stats' && <StatsView />}
           {view === 'settings' && <SettingsView />}
         </div>

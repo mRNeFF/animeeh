@@ -1,0 +1,35 @@
+Add a Statistics tab, drop Opening for films, and translate the main process
+
+Films are rated on six criteria instead of seven. A film has no opening
+sequence, so 'Opening' was asking for a number with no meaning. The component is
+removed from scoreParts, so it is neither rated, weighted, nor shown in the
+breakdown, and the leaderboard hides the OP column when ranking films. The
+criteria set now lives in types.ts as applicableCriteria() rather than being
+repeated in each view.
+
+Statistics tab, replacing the Settings summary panel. It reports things the
+summary could not: series and film counts, estimated watch time, and the real
+number of rated episodes. The old summary counted episode rows, which included
+every unrated placeholder, so it reported a figure well above what the user had
+actually watched. Rated episodes are now counted directly.
+
+Watch time needs durations, so AniList's duration field is fetched and stored as
+runtimeMinutes: per episode for a series, total runtime for a film. Entries
+without one fall back to 24 minutes per episode or 105 minutes for a film, and
+the panel says so rather than presenting a guess as fact. Also reported: grade
+distribution, average per criterion, top genres and studios, highest and lowest
+rated, longest series, favourites, years covered.
+
+Translation of the main process. The error strings raised in src/main are shown
+inside the UI, so a French user was reading a half-French, half-English message
+when AniList was unreachable. The main process cannot translate, so it now
+reports an ErrorCode and the renderer turns it into localised text, keeping the
+English detail only for codes it does not know. Same for the updater messages.
+audit-translations.mjs checks for values identical in both dictionaries and for
+English raised in the main process. Its own first version missed double-quoted
+entries, which made four correctly translated keys look missing.
+
+The library tab is renamed from Mes animés to Animé, for symmetry with Films.
+Test selectors followed, and now target the sidebar's first item rather than
+matching a label, because the count badge is part of the button's accessible
+name.

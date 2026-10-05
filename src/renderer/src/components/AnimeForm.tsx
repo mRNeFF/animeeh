@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { AnimeDetails, AnimeSearchResult } from '../../../shared/anilist'
-import { statusKey, useI18n } from '../i18n'
+import { describeFailure, statusKey, useI18n } from '../i18n'
 import { STATUSES, type Anime, type AnimeSeason, type AnimeSource, type Status } from '../types'
 import { IconClose, IconSearch } from './Icons'
 import { Modal } from './ui'
@@ -33,6 +33,8 @@ export interface AnimeFormValues {
   genres: string[]
   /** AniList format, so films can be told apart from series. */
   format?: string
+  /** AniList duration in minutes, for the watch-time estimate. */
+  duration?: number
   /** Whether the caller should pre-create the episode rows. */
   createEpisodes: boolean
 }
@@ -109,6 +111,7 @@ export function AnimeForm({
     coverImage: initial?.coverImage,
     genres: initial?.genres ?? [],
     format: initial?.format,
+    duration: initial?.runtimeMinutes,
     createEpisodes: true
   })
 
@@ -149,12 +152,12 @@ export function AnimeForm({
           setSearchError(null)
         } else {
           setResults([])
-          setSearchError(outcome.error)
+          setSearchError(describeFailure(t, outcome))
         }
       } catch (err) {
         if (id === requestId.current) {
           setResults([])
-          setSearchError((err as Error).message)
+          setSearchError(describeFailure(t, { detail: (err as Error).message }))
         }
       } finally {
         if (id === requestId.current) setSearching(false)
@@ -184,6 +187,7 @@ export function AnimeForm({
       coverImage: result.coverImage ?? undefined,
       genres: result.genres ?? [],
       format: result.format ?? undefined,
+      duration: result.duration ?? undefined,
       // A film is rated as a whole: there are no episodes to create.
       createEpisodes: !isFilm
     }))
@@ -218,6 +222,7 @@ export function AnimeForm({
           coverImage: details.coverImage ?? prev.coverImage,
           genres: details.genres.length > 0 ? details.genres : prev.genres,
           format: details.format ?? prev.format,
+          duration: details.duration ?? prev.duration,
           episodeBlueprint: details.episodeTitles.map((e) => ({
             number: e.number,
             title: e.title,
@@ -242,7 +247,8 @@ export function AnimeForm({
       seasons: [],
       coverImage: undefined,
       genres: [],
-      format: undefined
+      format: undefined,
+      duration: undefined
     }))
   }
 

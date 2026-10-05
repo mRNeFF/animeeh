@@ -30,8 +30,8 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - **Rate every episode from 0 to 100.** An unrated episode is simply ignored, so you can create a whole season up front and score it as you watch, without skewing your average.
 - **Seven criteria per anime** — Characters, Story, Animation, OST, Opening, Key Factor, Originality.
 - **Weighted global score**, with the episode average as a first-class component.
-- **Five views**: My Anime (series), Films, Leaderboard, Rankings by criteria, Settings.
-- **Series and films are kept apart.** Searching series never returns films, films have their own tab, and the leaderboard ranks them separately so a film is never placed against a series.
+- **Six views**: Anime (series), Films, Leaderboard, Rankings by criteria, Statistics, Settings.
+- **Series and films are kept apart.** Searching series never returns films, films have their own tab, and the leaderboard ranks them separately so a film is never placed against a series. A film is rated on six criteria rather than seven, since it has no opening sequence.
 - **AniList lookup**: type a title and the app pre-fills the year, studio, episode count **and the individual episode titles**, all of which you can still edit by hand.
 - **Seasons are merged into one entry.** Search "shingeki no kyojin" and you get one row, not seventeen: the app follows AniList's sequel links and creates a single entry holding all six TV seasons, with episodes numbered continuously and tagged by season.
 - **In-app updates** via GitHub Releases.
@@ -231,8 +231,10 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run smoke:update` | Tests updating against a fake local feed |
 | `npm run smoke:update:live` | Tests updating against the real GitHub releases |
 | `npm run smoke:films` | Films tab, leaderboard scopes and grade thresholds |
+| `npm run smoke:stats` | Statistics figures and the film criteria set |
 | `npm run smoke:bugfix` | Guards the fixed bugs: delete wording, button label, film picking |
 | `npm run audit:i18n` | Fails if any user-facing English text bypasses the dictionaries |
+| `npm run audit:translations` | Reports values identical in both languages, and English raised in the main process |
 | `npm run check:franchise "query"` | Prints how a franchise is grouped and ordered, against the live AniList API |
 | `npm run check:numbering` | Asserts episode titles land on the correct episode numbers |
 | `npm run diagnose:episodes` | Reports episode-name coverage and gaps for your data file |

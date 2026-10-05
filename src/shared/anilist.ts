@@ -48,6 +48,11 @@ export interface AnimeSearchResult {
   year: number | null
   /** Sum of the known per-season episode counts; null when none are known. */
   episodes: number | null
+  /**
+   * AniList duration in minutes: per episode for a series, total runtime for a
+   * film. Used to estimate watch time.
+   */
+  duration: number | null
   studio: string | null
   coverImage: string | null
   /** Genres from the reference source. */
@@ -71,6 +76,6 @@ export interface AnimeDetails extends AnimeSearchResult {
   episodeTitles: AniListEpisode[]
 }
 
-export type AniListOutcome<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string }
+import type { Failure } from './errors'
+
+export type AniListOutcome<T> = { ok: true; data: T } | Failure

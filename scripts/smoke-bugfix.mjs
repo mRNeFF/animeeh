@@ -113,12 +113,14 @@ try {
   check('the back button is translated', backLabel, 'Bibliothèque')
 
   // Leave the detail view via the sidebar, which is always present.
-  await win.locator('.sidebar .nav-item', { hasText: 'Mes animés' }).click()
+  // The sidebar's first nav item is the library. Matching on its label is
+  // fragile because the count badge is part of the button's text.
+  await win.locator('.sidebar .nav-item').first().click()
   await sleep(700)
 
   /* ---- 2. Top-right button label follows the tab ---- */
   console.log('\nBUG 2: add button label')
-  await win.getByRole('button', { name: /^Mes animés/ }).click()
+  await win.locator('.sidebar .nav-item').first().click()
   await sleep(600)
   const seriesLabel = (await win.locator('.topbar-actions .btn.primary').innerText()).trim()
   await win.getByRole('button', { name: /^Films/ }).click()

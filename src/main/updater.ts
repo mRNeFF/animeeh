@@ -179,9 +179,8 @@ export async function checkForUpdates(): Promise<UpdateStatus> {
   if (!status.canUpdate) {
     emitStatus({
       stage: 'error',
-      message: app.isPackaged
-        ? 'No update feed is configured for this build.'
-        : 'Updates only work in the installed app, not in development.'
+      message: null,
+      messageCode: app.isPackaged ? 'noFeed' : 'noFeed'
     })
     return status
   }
@@ -202,7 +201,7 @@ export async function downloadUpdate(): Promise<UpdateStatus> {
   wire()
 
   if (status.stage !== 'available' && status.stage !== 'error') {
-    emitStatus({ stage: 'error', message: 'No update available to download.' })
+    emitStatus({ stage: 'error', message: null, messageCode: 'noUpdateToDownload' })
     return status
   }
 

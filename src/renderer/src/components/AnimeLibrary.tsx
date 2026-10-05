@@ -2,7 +2,9 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { statusKey, useI18n, type MessageKey } from '../i18n'
 import { rankAnime } from '../scoring'
 import { useStore } from '../store'
-import { STATUSES, type Status } from '../types'
+import { STATUSES, isFilm, type Status } from '../types'
+
+export { isFilm }
 import { AnimeCard } from './AnimeCard'
 import { IconPlus, IconSearch } from './Icons'
 
@@ -18,10 +20,6 @@ const SORTS: { key: SortKey; labelKey: MessageKey }[] = [
 
 /** Which entries a library view shows. */
 export type LibraryMode = 'all' | 'series' | 'film'
-
-export function isFilm(anime: { format?: string }): boolean {
-  return (anime.format ?? '') === 'MOVIE'
-}
 
 function matchesMode(anime: { format?: string }, mode: LibraryMode): boolean {
   if (mode === 'all') return true

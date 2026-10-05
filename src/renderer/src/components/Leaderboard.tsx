@@ -38,6 +38,9 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
 
   const ranked = useMemo(() => rankAnime(pool, weights), [pool, weights])
 
+  // A film has no opening, so that column is hidden when ranking films.
+  const columns = scope === 'film' ? CRITERIA.filter((c) => c.key !== 'opening') : CRITERIA
+
   const rows = useMemo(() => {
     const withValues = ranked.map((entry) => {
       const parts = new Map(scoreParts(entry.anime, weights).map((p) => [p.key, p]))
@@ -121,7 +124,7 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
                     {t('board.avg')}
                     {arrow('episodeAverage')}
                   </th>
-                  {CRITERIA.map((c) => (
+                  {columns.map((c) => (
                     <th
                       key={c.key}
                       onClick={() => toggle(c.key)}
@@ -166,7 +169,7 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
                       </td>
                       <td className="num">{entry.anime.episodes.length}</td>
                       <td className="num">{epAvg === null ? '—' : epAvg.toFixed(1)}</td>
-                      {CRITERIA.map((c) => {
+                      {columns.map((c) => {
                         const value = parts.get(c.key)?.value ?? null
                         return (
                           <td key={c.key} className="num" style={{ color: `hsl(${c.hue} 65% 68%)` }}>

@@ -19,6 +19,6 @@ export interface EpisodeNamesResult {
   missingSeasons: number[]
 }
 
-export type EpisodeNamesOutcome =
-  | { ok: true; data: EpisodeNamesResult }
-  | { ok: false; error: string }
+import type { Failure } from './errors'
+
+export type EpisodeNamesOutcome = { ok: true; data: EpisodeNamesResult } | Failure

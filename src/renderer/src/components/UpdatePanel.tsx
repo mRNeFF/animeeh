@@ -85,7 +85,15 @@ export function UpdatePanel(): ReactNode {
           </span>
         )}
 
-        {status.stage === 'error' && <span className="hint error-text">{status.message}</span>}
+        {status.stage === 'error' && (
+          <span className="hint error-text">
+            {status.messageCode === 'noFeed'
+              ? t('error.noFeed')
+              : status.messageCode === 'noUpdateToDownload'
+                ? t('error.noUpdateToDownload')
+                : status.message}
+          </span>
+        )}
       </div>
 
       {percent !== null && (status.stage === 'downloading' || status.stage === 'downloaded') && (

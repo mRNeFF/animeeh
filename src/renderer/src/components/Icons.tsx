@@ -120,6 +120,16 @@ export const IconClose = (p: IconProps) => (
   </svg>
 )
 
+export const IconStats = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M3 20h18" />
+    <rect x="5" y="11" width="3.5" height="6" rx="1" />
+    <rect x="10.2" y="7" width="3.5" height="10" rx="1" />
+    <rect x="15.5" y="13" width="3.5" height="4" rx="1" />
+    <path d="M12 4.2v1.4" />
+  </svg>
+)
+
 export const IconFilm = (p: IconProps) => (
   <svg {...base(p)}>
     <rect x="2.5" y="5" width="19" height="14" rx="2" />

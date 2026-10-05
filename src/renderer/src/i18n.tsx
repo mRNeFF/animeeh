@@ -13,11 +13,43 @@ export const LANGUAGES: { key: Language; label: string }[] = [
  * than a blank label at runtime.
  */
 const en = {
-  'nav.library': 'My Anime',
+  'nav.library': 'Anime',
   'nav.films': 'Films',
   'nav.leaderboard': 'Leaderboard',
   'nav.criteria': 'By Criteria',
   'nav.settings': 'Settings',
+
+  'nav.stats': 'Statistics',
+  'title.stats': 'Statistics',
+  'subtitle.stats': 'What your library adds up to',
+  'stats.empty.title': 'Nothing to measure yet',
+  'stats.empty.body': 'Add and rate some anime, and your statistics will appear here.',
+  'stats.series': 'Series',
+  'stats.films': 'Films',
+  'stats.watchTime': 'Estimated watch time',
+  'stats.averageScore': 'Average score',
+  'stats.episodesRatedSub': '{rated} of {listed} episodes rated',
+  'stats.episodes': 'Rated episodes',
+  'stats.episodesSub':
+    '{rated} episodes carry a rating out of {listed} listed. Only rated episodes count as watched, so this is the real figure rather than the number of rows.',
+  'stats.coverage': '{percent}% of listed episodes rated',
+  'stats.named': '{count} of {total} series have episode names',
+  'stats.grades': 'Grade distribution',
+  'stats.gradesSub': 'Every rated entry, by letter grade.',
+  'stats.criteria': 'Average per criterion',
+  'stats.criteriaSub': 'Where your ratings sit on average, across everything you have rated.',
+  'stats.topGenres': 'Top genres',
+  'stats.topStudios': 'Most watched studios',
+  'stats.highlights': 'Highlights',
+  'stats.best': 'Highest rated',
+  'stats.worst': 'Lowest rated',
+  'stats.longest': 'Longest series',
+  'stats.favourites': 'Favourites',
+  'stats.yearSpan': 'Years covered',
+  'stats.averages': 'Average episode score',
+  'stats.episodeUnit': '{count} episodes',
+  'stats.estimateNote':
+    'Watch time is estimated: unrated episodes are not counted, and entries with no duration from AniList are assumed to be {episode} minutes per episode or {film} minutes for a film.',
 
   'brand.tagline': 'rate · rank · repeat',
   'shell.loading': 'Loading your list…',
@@ -25,7 +57,7 @@ const en = {
   'shell.saving': 'Saving…',
   'shell.summary': '{anime} anime · {episodes} episodes',
 
-  'title.library': 'My Anime',
+  'title.library': 'Anime',
   'subtitle.library': 'Everything you have watched and scored',
   'title.leaderboard': 'Global Leaderboard',
   'subtitle.leaderboard': 'Your anime ranked by weighted score',
@@ -232,12 +264,6 @@ const en = {
   'settings.importDone': 'Imported {added} anime{skipped}.',
   'settings.importNothing': 'Nothing to import — all {count} entries are already in your library.',
   'settings.importSkipped': ' ({count} already present)',
-  'settings.summary': 'Summary',
-  'settings.summarySub': 'A quick look at what you have logged so far.',
-  'settings.statAnime': 'Anime',
-  'settings.statEpisodes': 'Episodes scored',
-  'settings.statCriteria': 'Criteria ratings',
-  'settings.statFavourites': 'Favourites',
   'settings.genres': 'Genres',
   'settings.genresSub': 'Genres present in your library, from the reference source.',
 
@@ -278,6 +304,19 @@ const en = {
   'settings.clearWord': 'clear all',
   'settings.clearDone': 'Ranking cleared.',
 
+  'service.anilist': 'AniList',
+  'service.kitsu': 'Kitsu',
+  'error.unreachable': 'Could not reach {service}. Check your connection.',
+  'error.timeout': '{service} did not respond in time.',
+  'error.rateLimit': 'Too many requests to {service}. Wait a moment and try again.',
+  'error.http': '{service} replied with an error{status}.',
+  'error.empty': '{service} returned an empty response.',
+  'error.noReference': 'This entry has no AniList reference to look episodes up by.',
+  'error.noEpisodeNames': 'The sources have no episode names for this anime.',
+  'error.noFeed': 'No update feed is configured for this build.',
+  'error.noUpdateToDownload': 'No update available to download.',
+  'error.unknown': 'Something went wrong: {detail}',
+
   'update.title': 'Updates',
   'update.reading': 'Reading update status…',
   'update.version': 'Version',
@@ -307,11 +346,44 @@ const en = {
 export type MessageKey = keyof typeof en
 
 const fr: Record<MessageKey, string> = {
-  'nav.library': 'Mes animés',
+  'nav.library': 'Animé',
   'nav.films': 'Films',
   'nav.leaderboard': 'Classement',
   'nav.criteria': 'Par critère',
   'nav.settings': 'Réglages',
+
+  'nav.stats': 'Statistiques',
+  'title.stats': 'Statistiques',
+  'subtitle.stats': 'Ce que votre liste représente',
+  'stats.empty.title': 'Rien à mesurer pour le moment',
+  'stats.empty.body': 'Ajoutez et notez des animés, vos statistiques apparaîtront ici.',
+  'stats.series': 'Séries',
+  'stats.films': 'Films',
+  'stats.watchTime': 'Temps de visionnage estimé',
+  'stats.averageScore': 'Score moyen',
+  'stats.episodesRatedSub': '{rated} épisodes notés sur {listed}',
+  'stats.episodes': 'Épisodes notés',
+  'stats.episodesSub':
+    '{rated} épisodes portent une note sur {listed} listés. Seuls les épisodes notés comptent comme vus : c’est donc le chiffre réel, et non le nombre de lignes.',
+  'stats.coverage': '{percent}% des épisodes listés sont notés',
+  'stats.named': '{count} séries sur {total} ont leurs noms d’épisodes',
+  'stats.grades': 'Répartition des notes',
+  'stats.gradesSub': 'Toutes vos fiches notées, par lettre.',
+  'stats.criteria': 'Moyenne par critère',
+  'stats.criteriaSub':
+    'Où se situent vos notes en moyenne, sur tout ce que vous avez noté.',
+  'stats.topGenres': 'Genres principaux',
+  'stats.topStudios': 'Studios les plus vus',
+  'stats.highlights': 'Points marquants',
+  'stats.best': 'Mieux noté',
+  'stats.worst': 'Moins bien noté',
+  'stats.longest': 'Série la plus longue',
+  'stats.favourites': 'Favoris',
+  'stats.yearSpan': 'Années couvertes',
+  'stats.averages': 'Note moyenne des épisodes',
+  'stats.episodeUnit': '{count} épisodes',
+  'stats.estimateNote':
+    'Le temps de visionnage est une estimation : les épisodes non notés ne sont pas comptés, et les fiches sans durée AniList sont supposées durer {episode} minutes par épisode ou {film} minutes pour un film.',
 
   'brand.tagline': 'noter · classer · répéter',
   'shell.loading': 'Chargement de votre liste…',
@@ -319,7 +391,7 @@ const fr: Record<MessageKey, string> = {
   'shell.saving': 'Enregistrement…',
   'shell.summary': '{anime} animés · {episodes} épisodes',
 
-  'title.library': 'Mes animés',
+  'title.library': 'Animé',
   'subtitle.library': 'Tout ce que vous avez vu et noté',
   'title.leaderboard': 'Classement global',
   'subtitle.leaderboard': 'Vos animés classés par score pondéré',
@@ -529,12 +601,6 @@ const fr: Record<MessageKey, string> = {
   'settings.importDone': '{added} animés importés{skipped}.',
   'settings.importNothing': 'Rien à importer — les {count} fiches sont déjà dans votre liste.',
   'settings.importSkipped': ' ({count} déjà présents)',
-  'settings.summary': 'Résumé',
-  'settings.summarySub': 'Un aperçu de ce que vous avez enregistré.',
-  'settings.statAnime': 'Animés',
-  'settings.statEpisodes': 'Épisodes notés',
-  'settings.statCriteria': 'Critères notés',
-  'settings.statFavourites': 'Favoris',
   'settings.genres': 'Genres',
   'settings.genresSub': 'Genres présents dans votre liste, issus de la source de référence.',
 
@@ -575,6 +641,19 @@ const fr: Record<MessageKey, string> = {
     'Cela supprime définitivement les {count} animés, avec chaque note d’épisode et chaque critère. C’est irréversible. Tapez {word} pour confirmer.',
   'settings.clearWord': 'tout effacer',
   'settings.clearDone': 'Classement vidé.',
+
+  'service.anilist': 'AniList',
+  'service.kitsu': 'Kitsu',
+  'error.unreachable': 'Impossible de joindre {service}. Vérifiez votre connexion.',
+  'error.timeout': '{service} n’a pas répondu à temps.',
+  'error.rateLimit': 'Trop de requêtes vers {service}. Patientez un instant puis réessayez.',
+  'error.http': '{service} a renvoyé une erreur{status}.',
+  'error.empty': '{service} a renvoyé une réponse vide.',
+  'error.noReference': 'Cette fiche n’a pas de référence AniList pour récupérer les épisodes.',
+  'error.noEpisodeNames': 'Les sources n’ont pas les noms d’épisodes de cet animé.',
+  'error.noFeed': 'Aucun flux de mise à jour n’est configuré pour ce build.',
+  'error.noUpdateToDownload': 'Aucune mise à jour à télécharger.',
+  'error.unknown': 'Une erreur est survenue : {detail}',
 
   'update.title': 'Mises à jour',
   'update.reading': 'Lecture de l’état de mise à jour…',
@@ -666,4 +745,49 @@ export function statusKey(status: string): MessageKey {
 /** Map a criterion key to its translation key. */
 export function criterionKey(key: string): MessageKey {
   return `criteria.${key}` as MessageKey
+}
+
+/** A Failure coming back from the main process. */
+export interface FailureLike {
+  code?: string
+  detail?: string
+  status?: number
+  service?: 'anilist' | 'kitsu'
+  error?: string
+}
+
+/**
+ * Turn a failure from the main process into localised text.
+ *
+ * The main process cannot translate, so it sends a code plus an English detail.
+ * Known codes become a proper sentence; anything else falls back to the raw
+ * message rather than showing nothing.
+ */
+export function describeFailure(
+  t: Translate,
+  failure: FailureLike | string | null | undefined
+): string {
+  if (!failure) return ''
+  const f: FailureLike = typeof failure === 'string' ? { error: failure } : failure
+  const code = f.code
+  const service = f.service === 'kitsu' ? t('service.kitsu') : t('service.anilist')
+
+  switch (code) {
+    case 'unreachable':
+      return t('error.unreachable', { service })
+    case 'timeout':
+      return t('error.timeout', { service })
+    case 'rateLimit':
+      return t('error.rateLimit', { service })
+    case 'http':
+      return t('error.http', { service, status: f.status ? ` ${f.status}` : '' })
+    case 'empty':
+      return t('error.empty', { service })
+    case 'noReference':
+      return t('error.noReference')
+    case 'noEpisodeNames':
+      return t('error.noEpisodeNames')
+    default:
+      return t('error.unknown', { detail: f.detail ?? f.error ?? '' })
+  }
 }

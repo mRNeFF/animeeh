@@ -132,6 +132,11 @@ export interface Anime {
   seasons?: AnimeSeason[]
   /** Cover art URL from the reference source. */
   coverImage?: string
+  /**
+   * Minutes from the reference source: per episode for a series, total runtime
+   * for a film. Lets the statistics estimate watch time.
+   */
+  runtimeMinutes?: number
   /** Genres from the reference source, used for filtering and tagging. */
   genres?: string[]
   createdAt: string
@@ -183,6 +188,36 @@ export function emptyCriteria(): CriterionScores {
     {} as CriterionScores
   )
 }
+
+/** AniList format of a film. */
+export const FILM_FORMAT = 'MOVIE'
+
+export function isFilm(anime: { format?: string }): boolean {
+  return (anime.format ?? '') === FILM_FORMAT
+}
+
+/**
+ * Criteria that do not apply to a film.
+ *
+ * A film has no opening sequence to speak of, so asking for an Opening rating
+ * would be asking for a number with no meaning. Episode average is already
+ * meaningless for a film because it has no episodes.
+ */
+const FILM_EXCLUDED: ReadonlySet<CriterionKey> = new Set<CriterionKey>(['opening'])
+
+/** The criteria worth rating for this entry, in display order. */
+export function applicableCriteria(
+  anime: { format?: string }
+): readonly (typeof CRITERIA)[number][] {
+  if (!isFilm(anime)) return CRITERIA
+  return CRITERIA.filter((c) => !FILM_EXCLUDED.has(c.key))
+}
+
+/** True when this criterion should be offered for this entry. */
+export function criterionApplies(anime: { format?: string }, key: CriterionKey): boolean {
+  return applicableCriteria(anime).some((c) => c.key === key)
+}
+
 
 export function createAnime(partial: Partial<Anime> = {}): Anime {
   const now = new Date().toISOString()

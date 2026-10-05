@@ -5,6 +5,7 @@ import { AnimeLibrary } from './components/AnimeLibrary'
 import { CriteriaView } from './components/CriteriaView'
 import { Leaderboard } from './components/Leaderboard'
 import { SettingsView } from './components/SettingsView'
+import { StatsView } from './components/StatsView'
 import {
   IconChart,
   IconFilm,
@@ -12,6 +13,7 @@ import {
   IconPlus,
   IconRefresh,
   IconSettings,
+  IconStats,
   IconTrophy
 } from './components/Icons'
 import { useI18n, type MessageKey } from './i18n'
@@ -20,7 +22,7 @@ import { useUpdate } from './useUpdate'
 import { applySeasonSpans, buildEpisodes } from './scoring'
 import { createAnime, type Anime } from './types'
 
-type View = 'library' | 'films' | 'leaderboard' | 'criteria' | 'settings'
+type View = 'library' | 'films' | 'leaderboard' | 'criteria' | 'stats' | 'settings'
 
 /**
  * Silently fill in missing cover art and genres for entries that have a
@@ -63,6 +65,9 @@ function useMetadataBackfill(): void {
             if (!anime.format && outcome.data.format) {
               next.format = outcome.data.format
             }
+            if (anime.runtimeMinutes === undefined && outcome.data.duration) {
+              next.runtimeMinutes = outcome.data.duration
+            }
             if (Object.keys(next).length > 0) updateAnime(anime.id, next)
           }
         } catch {
@@ -79,6 +84,7 @@ const NAV: { key: View; labelKey: MessageKey; icon: (p: { size?: number }) => Re
   { key: 'films', labelKey: 'nav.films', icon: IconFilm },
   { key: 'leaderboard', labelKey: 'nav.leaderboard', icon: IconTrophy },
   { key: 'criteria', labelKey: 'nav.criteria', icon: IconChart },
+  { key: 'stats', labelKey: 'nav.stats', icon: IconStats },
   { key: 'settings', labelKey: 'nav.settings', icon: IconSettings }
 ]
 
@@ -87,6 +93,7 @@ const TITLES: Record<View, { title: MessageKey; sub: MessageKey }> = {
   films: { title: 'title.films', sub: 'subtitle.films' },
   leaderboard: { title: 'title.leaderboard', sub: 'subtitle.leaderboard' },
   criteria: { title: 'title.criteria', sub: 'subtitle.criteria' },
+  stats: { title: 'title.stats', sub: 'subtitle.stats' },
   settings: { title: 'title.settings', sub: 'subtitle.settings' }
 }
 
@@ -241,6 +248,7 @@ export default function App(): ReactNode {
             setView('library')
             setSelectedId(id)
           }} />}
+          {view === 'stats' && <StatsView />}
           {view === 'settings' && <SettingsView />}
         </div>
       </main>
@@ -272,6 +280,7 @@ export default function App(): ReactNode {
               coverImage: v.coverImage,
               genres: v.genres.length > 0 ? v.genres : undefined,
               format: v.format,
+              runtimeMinutes: v.duration,
               episodes:
                 planned > 0
                   ? applySeasonSpans(

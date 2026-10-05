@@ -10,9 +10,9 @@ import {
   sortEpisodes
 } from '../scoring'
 import { useStore } from '../store'
-import { criterionKey, statusKey, useI18n } from '../i18n'
+import { criterionKey, describeFailure, statusKey, useI18n } from '../i18n'
 import {
-  CRITERIA,
+  applicableCriteria,
   STATUSES,
   type Anime,
   type CriterionKey,
@@ -136,7 +136,10 @@ export function AnimeDetail({
     try {
       const outcome = await window.animeeh.loadEpisodeNames(seasons)
       if (!outcome.ok) {
-        setNamesMessage({ kind: 'error', text: t('diff.namesFailed', { error: outcome.error }) })
+        setNamesMessage({
+          kind: 'error',
+          text: t('diff.namesFailed', { error: describeFailure(t, outcome) })
+        })
         return
       }
 
@@ -161,7 +164,7 @@ export function AnimeDetail({
     } catch (err) {
       setNamesMessage({
         kind: 'error',
-        text: t('diff.namesFailed', { error: (err as Error).message })
+        text: t('diff.namesFailed', { error: describeFailure(t, { detail: (err as Error).message }) })
       })
     } finally {
       setLoadingNames(false)
@@ -359,7 +362,8 @@ export function AnimeDetail({
           <div className="hint" style={{ marginBottom: 2 }}>
             Rate each criterion from 0–100. The episode average is added as its own component.
           </div>
-          {CRITERIA.map((c) => (
+          {/* A film has no opening, so that rating is not offered. */}
+          {applicableCriteria(anime).map((c) => (
             <div className="criterion" key={c.key}>
               <div className="criterion-name">
                 <span className="dot" style={{ background: `hsl(${c.hue} 70% 55%)` }} />

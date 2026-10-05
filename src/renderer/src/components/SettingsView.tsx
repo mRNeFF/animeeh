@@ -190,31 +190,6 @@ export function SettingsView(): ReactNode {
         </div>
       </div>
 
-      <div className="panel">
-        <h3>{t('settings.summary')}</h3>
-        <div className="panel-sub">{t('settings.summarySub')}</div>
-        <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap' }}>
-          <Stat label={t('settings.statAnime')} value={String(data.anime.length)} />
-          <Stat
-            label={t('settings.statEpisodes')}
-            value={String(data.anime.reduce((sum, a) => sum + a.episodes.length, 0))}
-          />
-          <Stat
-            label={t('settings.statCriteria')}
-            value={String(
-              data.anime.reduce(
-                (sum, a) => sum + Object.values(a.criteria).filter((v) => v !== null).length,
-                0
-              )
-            )}
-          />
-          <Stat
-            label={t('settings.statFavourites')}
-            value={String(data.anime.filter((a) => a.favorite).length)}
-          />
-        </div>
-      </div>
-
       {genres.length > 0 && (
         <div className="panel">
           <h3>{t('settings.genres')}</h3>
@@ -303,11 +278,3 @@ function ClearConfirm({
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }): ReactNode {
-  return (
-    <div>
-      <div style={{ fontSize: 24, fontWeight: 800 }}>{value}</div>
-      <div className="hint">{label}</div>
-    </div>
-  )
-}

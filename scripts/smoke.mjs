@@ -116,7 +116,7 @@ try {
   await shot('7-settings')
 
   // ---- AniList reference lookup (seasons must be merged) ----
-  await win.getByRole('button', { name: 'My Anime' }).click()
+  await win.locator('.sidebar .nav-item').first().click()
   await sleep(400)
   await win.getByRole('button', { name: 'Add anime' }).first().click()
   await sleep(400)
@@ -201,7 +201,7 @@ try {
   await shot('10-anilist-created')
 
   // ---- Season parts must merge (Re:Zero 2nd Season + Part 2 = one season) ----
-  await win.getByRole('button', { name: 'My Anime' }).click()
+  await win.locator('.sidebar .nav-item').first().click()
   await sleep(400)
   await win.getByRole('button', { name: 'Add anime' }).first().click()
   await sleep(400)

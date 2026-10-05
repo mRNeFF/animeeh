@@ -14,6 +14,7 @@
  * each part occupies its own stretch of the numbering.
  */
 import type { EpisodeName, EpisodeNamesResult } from '../shared/episodes'
+import { CodedError } from '../shared/errors'
 import { tvmazeSeasonTitles } from './tvmaze'
 
 const KITSU = 'https://kitsu.io/api/edge'
@@ -65,7 +66,9 @@ async function fetchJson<T>(url: string, headers: Record<string, string>): Promi
     headers,
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
   })
-  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  if (!response.ok) {
+    throw new CodedError('Kitsu HTTP error', 'http', { service: 'kitsu', status: response.status })
+  }
   return (await response.json()) as T
 }
 
@@ -91,7 +94,7 @@ async function kitsu<T>(path: string): Promise<T> {
       await new Promise((r) => setTimeout(r, 2500 * attempt))
     }
   }
-  throw new Error('Kitsu request failed')
+  throw new CodedError('Kitsu request failed', 'unreachable', { service: 'kitsu' })
 }
 
 /* ------------------------------------------------------------------ */
@@ -262,7 +265,9 @@ export async function loadEpisodeNames(seasons: number[][]): Promise<EpisodeName
     .map((parts) => parts.filter((n) => Number.isSafeInteger(n) && n > 0))
     .filter((parts) => parts.length > 0)
 
-  if (clean.length === 0) throw new Error('No reference id for this anime')
+  if (clean.length === 0) {
+    throw new CodedError('No reference id for this anime', 'noReference')
+  }
 
   const anilistParts = await fetchAniListParts(clean.flat())
 
@@ -394,7 +399,7 @@ export async function loadEpisodeNames(seasons: number[][]): Promise<EpisodeName
   }
 
   if (episodes.length === 0) {
-    throw new Error('No episode names found for this anime')
+    throw new CodedError('No episode names found for this anime', 'noEpisodeNames')
   }
 
   const source = usedKitsu ? 'kitsu' : usedAniList ? 'anilist' : usedTvmaze ? 'tvmaze' : 'kitsu'

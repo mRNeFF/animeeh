@@ -20,6 +20,8 @@ import type {
   AniListEpisode
 } from '../shared/anilist'
 
+import { CodedError } from '../shared/errors'
+
 const ENDPOINT = process.env['ANIMEEH_ANILIST_ENDPOINT'] ?? 'https://graphql.anilist.co'
 const REQUEST_TIMEOUT_MS = 15_000
 const CACHE_TTL_MS = 30 * 60 * 1000
@@ -120,28 +122,32 @@ async function graphql<T>(query: string, variables: Record<string, unknown>): Pr
   } catch (err) {
     const name = (err as Error).name
     if (name === 'TimeoutError' || name === 'AbortError') {
-      throw new Error('AniList did not respond (timed out). Check your connection.')
+      throw new CodedError('AniList timed out', 'timeout', { service: 'anilist' })
     }
-    throw new Error(`Could not reach AniList: ${(err as Error).message}`)
+    throw new CodedError('Could not reach AniList', 'unreachable', { service: 'anilist' })
   }
 
   if (response.status === 429) {
-    const retryAfter = response.headers.get('retry-after')
-    throw new Error(
-      retryAfter
-        ? `Too many requests to AniList. Try again in ${retryAfter}s.`
-        : 'Too many requests to AniList. Please wait a moment.'
-    )
+    throw new CodedError('Too many requests to AniList', 'rateLimit', {
+      service: 'anilist',
+      status: 429
+    })
   }
   if (!response.ok) {
-    throw new Error(`AniList responded with ${response.status}`)
+    throw new CodedError('AniList HTTP error', 'http', {
+      service: 'anilist',
+      status: response.status
+    })
   }
 
   const payload = (await response.json()) as GraphQLResponse<T>
   if (payload.errors && payload.errors.length > 0) {
-    throw new Error(payload.errors[0]?.message ?? 'AniList returned an error')
+    // AniList's own wording is descriptive but English; keep it as the detail.
+    throw new CodedError(payload.errors[0]?.message ?? 'AniList returned an error', 'http', {
+      service: 'anilist'
+    })
   }
-  if (!payload.data) throw new Error('Empty response from AniList')
+  if (!payload.data) throw new CodedError('Empty response from AniList', 'empty', { service: 'anilist' })
 
   return payload.data
 }
@@ -156,6 +162,7 @@ interface RawMedia {
   title: { romaji?: string | null; english?: string | null; native?: string | null } | null
   format: string | null
   episodes: number | null
+  duration: number | null
   seasonYear: number | null
   startDate: { year: number | null } | null
   coverImage?: { large?: string | null } | null
@@ -241,6 +248,7 @@ function toSearchResult(root: RawMedia, seasons: AnimeSeasonRef[]): AnimeSearchR
     format: root.format ?? null,
     year: yearOf(root),
     episodes: sumEpisodes(seasons.map((s) => s.episodes)),
+    duration: typeof root.duration === 'number' && root.duration > 0 ? root.duration : null,
     studio: firstStudio(root),
     coverImage: root.coverImage?.large ?? null,
     genres: (root.genres ?? []).filter((g): g is string => typeof g === 'string' && g !== ''),
@@ -429,6 +437,7 @@ const MEDIA_FIELDS = `
   title { romaji english native }
   format
   episodes
+  duration
   seasonYear
   startDate { year }
   coverImage { large }
@@ -489,7 +498,7 @@ async function fetchWithRelations(id: number): Promise<RawMedia> {
   if (cached) return cached
 
   const data = await graphql<{ Media: RawMedia | null }>(RELATIONS_QUERY, { id })
-  if (!data.Media) throw new Error(`AniList has no anime #${id}`)
+  if (!data.Media) throw new CodedError('AniList has no such entry', 'http', { service: 'anilist' })
 
   cacheSet(key, data.Media)
   return data.Media
@@ -732,7 +741,7 @@ export async function getAnimeDetails(anilistId: number): Promise<AnimeDetails> 
   if (cached) return cached
 
   const chain = await assembleFranchise(anilistId)
-  if (chain.length === 0) throw new Error(`AniList has no anime #${anilistId}`)
+  if (chain.length === 0) throw new CodedError('AniList has no such entry', 'http', { service: 'anilist' })
 
   // Fold the broadcast parts of a season together ("2nd Season" + "2nd Season
   // Part 2") so a split season counts once.

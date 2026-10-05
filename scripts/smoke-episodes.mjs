@@ -35,7 +35,7 @@ try {
   console.log(`SETUP: ${(await win.locator('.mono').first().innerText()).trim()}`)
 
   /* ---- Open Vinland Saga ---- */
-  await win.getByRole('button', { name: 'My Anime' }).click()
+  await win.locator('.sidebar .nav-item').first().click()
   await sleep(900)
   await win.locator('.search input').fill('vinland')
   await sleep(700)
@@ -124,7 +124,7 @@ try {
   const resultMessage = (await win.locator('.mono').first().innerText()).trim()
   console.log(`CLEAR: result = "${resultMessage}"`)
 
-  await win.getByRole('button', { name: 'My Anime' }).click()
+  await win.locator('.sidebar .nav-item').first().click()
   await sleep(900)
   const remaining = await win.locator('.card').count()
   const emptyState = await win.locator('.empty h3').count()

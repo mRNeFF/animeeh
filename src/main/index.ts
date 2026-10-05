@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { getAnimeDetails, MIN_QUERY_LENGTH, searchAnime, type SearchKind } from './anilist'
 import { loadEpisodeNames } from './episodes'
+import { CodedError, type ErrorCode, type ServiceName } from '../shared/errors'
 import {
   checkForUpdates,
   downloadUpdate,
@@ -122,6 +123,35 @@ ipcMain.handle('data:import', async () => {
   return { path: filePaths[0], data: JSON.parse(raw) }
 })
 
+/**
+ * Turn a thrown error into a Failure the renderer can translate.
+ *
+ * The main process has no dictionaries, so it reports a code plus the English
+ * detail. The renderer renders localised text from the code and only falls back
+ * to `error` when it does not recognise it.
+ */
+function toFailure(err: unknown, fallbackCode: ErrorCode = 'unreachable'): {
+  ok: false
+  code: ErrorCode
+  detail?: string
+  status?: number
+  service?: ServiceName
+  error: string
+} {
+  const message = (err as Error)?.message ?? String(err)
+  if (err instanceof CodedError) {
+    return {
+      ok: false,
+      code: err.code,
+      detail: message,
+      status: err.meta.status,
+      service: err.meta.service,
+      error: message
+    }
+  }
+  return { ok: false, code: fallbackCode, detail: message, error: message }
+}
+
 /* ------------------------------------------------------------------ */
 /* IPC: AniList reference lookup                                       */
 /* ------------------------------------------------------------------ */
@@ -139,7 +169,7 @@ ipcMain.handle(
       // Network problems must never break the app: the user can still type
       // everything in by hand.
       console.error('AniList search failed', err)
-      return { ok: false, error: (err as Error).message }
+      return toFailure(err)
     }
   }
 )
@@ -148,13 +178,13 @@ ipcMain.handle(
   'anilist:franchise',
   async (_event, anilistId: unknown): Promise<AniListOutcome<AnimeDetails>> => {
     if (typeof anilistId !== 'number' || !Number.isFinite(anilistId)) {
-      return { ok: false, error: 'Invalid AniList id' }
+      return { ok: false, code: 'noReference', error: 'Invalid AniList id' }
     }
     try {
       return { ok: true, data: await getAnimeDetails(anilistId) }
     } catch (err) {
       console.error('AniList franchise lookup failed', err)
-      return { ok: false, error: (err as Error).message }
+      return toFailure(err)
     }
   }
 )
@@ -168,7 +198,7 @@ ipcMain.handle(
   async (_event, seasons: unknown): Promise<EpisodeNamesOutcome> => {
     // One array of part ids per merged season.
     if (!Array.isArray(seasons) || seasons.length === 0) {
-      return { ok: false, error: 'This anime has no reference id to look episodes up by.' }
+      return { ok: false, code: 'noReference', error: 'no reference id' }
     }
     try {
       const parts = seasons.map((season) =>
@@ -177,7 +207,7 @@ ipcMain.handle(
       return { ok: true, data: await loadEpisodeNames(parts) }
     } catch (err) {
       console.error('Episode lookup failed', err)
-      return { ok: false, error: (err as Error).message }
+      return toFailure(err)
     }
   }
 )

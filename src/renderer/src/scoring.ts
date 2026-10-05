@@ -1,5 +1,7 @@
 import {
+  applicableCriteria,
   CRITERIA,
+  isFilm,
   DEFAULT_SETTINGS,
   DEFAULT_WEIGHTS,
   EPISODE_AVG_KEY,
@@ -167,7 +169,9 @@ export interface ScorePart {
 }
 
 export function scoreParts(anime: Anime, weights: Weights): ScorePart[] {
-  const criteriaParts: ScorePart[] = CRITERIA.map((c) => ({
+  // A film has no opening, so that component is left out entirely: not rated,
+  // not weighted, and not shown in the breakdown.
+  const criteriaParts: ScorePart[] = applicableCriteria(anime).map((c) => ({
     key: c.key,
     label: c.label,
     short: c.short,
@@ -175,6 +179,9 @@ export function scoreParts(anime: Anime, weights: Weights): ScorePart[] {
     value: criterionValue(anime, c.key),
     weight: weights[c.key] ?? 1
   }))
+
+  // A film has no episodes either, so the episode average never applies.
+  if (isFilm(anime)) return criteriaParts
 
   return [
     ...criteriaParts,
@@ -412,6 +419,7 @@ export function normaliseAnime(input: Partial<Anime>): Anime {
     format: typeof input.format === 'string' && input.format ? input.format : undefined,
     seasons,
     coverImage: typeof input.coverImage === 'string' && input.coverImage ? input.coverImage : undefined,
+    runtimeMinutes: Number.isFinite(input.runtimeMinutes) ? Number(input.runtimeMinutes) : undefined,
     genres: genres && genres.length > 0 ? genres : undefined,
     createdAt: input.createdAt ?? now,
     updatedAt: input.updatedAt ?? now

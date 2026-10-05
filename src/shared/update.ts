@@ -28,6 +28,11 @@ export interface UpdateStatus {
   /** Human-readable error, when stage is 'error'. */
   message: string | null
   /**
+   * Translation code for the message. The main process has no dictionaries, so
+   * it reports a code and the panel renders localised text from it.
+   */
+  messageCode?: 'noFeed' | 'noUpdateToDownload'
+  /**
    * True when a feed is configured and the build can actually self-update
    * (packaged app + publish config). In dev this is false.
    */

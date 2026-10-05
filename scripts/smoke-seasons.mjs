@@ -98,7 +98,7 @@ try {
   await shot('seasons-bulk-loaded')
 
   /* ---- Detail: seasons as panels ---- */
-  await win.getByRole('button', { name: 'My Anime' }).click()
+  await win.locator('.sidebar .nav-item').first().click()
   await sleep(900)
   await win.locator('.card').first().click()
 

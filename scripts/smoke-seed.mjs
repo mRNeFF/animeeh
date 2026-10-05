@@ -49,15 +49,21 @@ try {
   console.log(`SEED: result = ${message}`)
   await shot('seed-imported')
 
-  const statAnime = await win.locator('.panel', { hasText: 'Résumé' }).locator('.hint').allInnerTexts()
-  console.log(`SEED: summary labels = ${statAnime.slice(0, 4).join(' / ')}`)
-  const animeCount = await win
-    .locator('.panel', { hasText: 'Résumé' })
-    .locator('div')
-    .filter({ hasText: /^\d+$/ })
-    .first()
-    .innerText()
-  console.log(`SEED: anime count = ${animeCount} (expected 84)`)
+  // The Settings summary panel was replaced by the Statistics tab, so the count
+  // is read from there.
+  await win.locator('.sidebar .nav-item', { hasText: /Statistiques/ }).click()
+  await sleep(1000)
+
+  const tiles = await win.locator('.stat-tile').evaluateAll((els) =>
+    els.map((el) => ({
+      value: el.querySelector('.stat-value')?.textContent?.trim(),
+      label: el.querySelector('.stat-label')?.textContent?.trim()
+    }))
+  )
+  const seriesTile = tiles.find((t) => (t.label ?? '').includes('Séries'))
+  const filmTile = tiles.find((t) => (t.label ?? '').includes('Films'))
+  console.log(`SEED: summary tiles = ${tiles.map((t) => `${t.label}=${t.value}`).join(' / ')}`)
+  console.log(`SEED: series=${seriesTile?.value} films=${filmTile?.value} (expected 84 series)`)
 
   /* ---- 3. Genre tags ---- */
   const genrePanel = win.locator('.panel', { hasText: 'Genres' })
@@ -68,7 +74,7 @@ try {
   await shot('seed-genres')
 
   /* ---- Library: covers + genre filter ---- */
-  await win.getByRole('button', { name: 'Mes animés' }).click()
+  await win.locator('.sidebar .nav-item').first().click()
   await sleep(1200)
 
   const cards = await win.locator('.card').count()

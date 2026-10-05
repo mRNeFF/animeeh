@@ -66,10 +66,17 @@ function hasNames(anime: Anime): boolean {
 /**
  * Merge fetched names into an anime, creating any missing episodes.
  *
- * By default a title is only written where the episode has none, so anything
- * typed by hand survives. `replace` overwrites existing titles too, which is
- * what repairs an entry whose names were written at the wrong positions by an
- * earlier version. Ratings and episode numbers are never touched either way.
+ * Two modes:
+ *
+ * - **fill** (default): a title is only written where the episode has none, so
+ *   anything typed by hand survives.
+ * - **replace**: the source becomes authoritative. A title the source provides
+ *   overwrites what is there, and a title the source does *not* provide is
+ *   cleared. That second half matters: without it, repairing an entry whose
+ *   titles were written at the wrong positions leaves the wrong titles in
+ *   place, which is exactly the "season 3 titles showing under season 2" case.
+ *
+ * Ratings and episode numbers are never touched in either mode.
  */
 export function mergeEpisodeNames(
   anime: Anime,
@@ -82,14 +89,22 @@ export function mergeEpisodeNames(
   const target = Math.max(highest, anime.episodes.length)
   const existing = new Map(anime.episodes.map((e) => [e.number, e]))
 
+  // Only seasons the source has evidence for are cleaned up. A season it knows
+  // nothing about is left alone, so a gap in the source cannot wipe titles that
+  // were typed by hand.
+  const seasonsWithNames = new Set(names.map((n) => n.season))
+
   const merged: Episode[] = []
   for (let n = 1; n <= target; n += 1) {
     const current = existing.get(n)
     const found = byNumber.get(n)
+
     if (current) {
+      const season = current.season ?? 1
+      const clearable = replace && seasonsWithNames.has(season)
       merged.push({
         ...current,
-        title: replace ? (found?.title ?? current.title) : (current.title ?? found?.title),
+        title: found?.title ?? (clearable ? undefined : current.title),
         season: found?.season ?? current.season
       })
     } else if (found) {

@@ -1,4 +1,5 @@
 import { useEffect, type CSSProperties, type ReactNode } from 'react'
+import { useI18n } from '../i18n'
 
 /* ------------------------------------------------------------------ */
 /* Deterministic hue + cover gradient                                  */
@@ -102,6 +103,7 @@ export function ScoreControl({
   hue: number
   showClear?: boolean
 }): ReactNode {
+  const { t } = useI18n()
   const display = value ?? 0
   const pct = Math.max(0, Math.min(100, display))
 
@@ -135,7 +137,7 @@ export function ScoreControl({
         }}
       />
       {showClear && value !== null && (
-        <button className="btn ghost sm" title="Clear rating" onClick={() => onChange(null)}>
+        <button className="btn ghost sm" title={t('action.clearRating')} onClick={() => onChange(null)}>
           ×
         </button>
       )}

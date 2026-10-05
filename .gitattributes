@@ -1,0 +1,22 @@
+# Normalise line endings in the repository.
+#
+# Without this, every checkout on Windows marks the whole tree as modified:
+# the working files carry CRLF while the repository stores LF, and git reports
+# the difference on every file. Declaring it here makes that a non-issue.
+* text=auto
+
+# Scripts and config are plain text.
+*.ts   text
+*.tsx  text
+*.mjs  text
+*.js   text
+*.json text
+*.yml  text
+*.md   text
+*.css  text
+*.html text
+
+# Generated icons must keep their exact bytes.
+*.ico binary
+*.png binary
+*.exe binary

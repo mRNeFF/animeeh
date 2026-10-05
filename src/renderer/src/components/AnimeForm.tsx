@@ -31,6 +31,8 @@ export interface AnimeFormValues {
   coverImage?: string
   /** Genres from the reference source. */
   genres: string[]
+  /** AniList format, so films can be told apart from series. */
+  format?: string
   /** Whether the caller should pre-create the episode rows. */
   createEpisodes: boolean
 }
@@ -77,11 +79,14 @@ function seasonSummary(result: AnimeSearchResult): string | null {
 
 export function AnimeForm({
   initial,
+  kind = 'series',
   onClose,
   onSubmit,
   submitLabel
 }: {
   initial?: Anime
+  /** Whether this form searches series or films. */
+  kind?: 'series' | 'film'
   onClose: () => void
   onSubmit: (values: AnimeFormValues) => void
   submitLabel: string
@@ -103,6 +108,7 @@ export function AnimeForm({
     seasons: initial?.seasons ?? [],
     coverImage: initial?.coverImage,
     genres: initial?.genres ?? [],
+    format: initial?.format,
     createEpisodes: true
   })
 
@@ -136,7 +142,7 @@ export function AnimeForm({
     const timer = setTimeout(async () => {
       const id = ++requestId.current
       try {
-        const outcome = await window.animeeh.searchAnime(trimmed)
+        const outcome = await window.animeeh.searchAnime(trimmed, kind)
         if (id !== requestId.current) return // a newer search won
         if (outcome.ok) {
           setResults(outcome.data)
@@ -156,7 +162,7 @@ export function AnimeForm({
     }, DEBOUNCE_MS)
 
     return () => clearTimeout(timer)
-  }, [query, isNew])
+  }, [query, isNew, kind])
 
   /* ---------------- pick a search result ---------------- */
   const pick = async (result: AnimeSearchResult): Promise<void> => {
@@ -174,6 +180,7 @@ export function AnimeForm({
       seasons: seasonsFrom(result),
       coverImage: result.coverImage ?? undefined,
       genres: result.genres ?? [],
+      format: result.format ?? undefined,
       createEpisodes: true
     }))
 
@@ -197,6 +204,7 @@ export function AnimeForm({
           seasons: seasonsFrom(details),
           coverImage: details.coverImage ?? prev.coverImage,
           genres: details.genres.length > 0 ? details.genres : prev.genres,
+          format: details.format ?? prev.format,
           episodeBlueprint: details.episodeTitles.map((e) => ({
             number: e.number,
             title: e.title,
@@ -220,7 +228,8 @@ export function AnimeForm({
       episodeBlueprint: [],
       seasons: [],
       coverImage: undefined,
-      genres: []
+      genres: [],
+      format: undefined
     }))
   }
 
@@ -232,7 +241,7 @@ export function AnimeForm({
 
   return (
     <Modal
-      title={initial ? t('form.editTitle') : t('form.addTitle')}
+      title={initial ? t('form.editTitle') : kind === 'film' ? t('form.addFilm') : t('form.addTitle')}
       subtitle={
         initial
           ? 'Update the details for this entry.'
@@ -255,7 +264,7 @@ export function AnimeForm({
               <input
                 className="input"
                 autoFocus
-                placeholder="Search AniList (e.g. frieren)…"
+                placeholder={t('form.search')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -336,7 +345,7 @@ export function AnimeForm({
                     {picked.malId ? (
                       <span className="pill">MAL {picked.malId}</span>
                     ) : (
-                      <span className="pill">no MAL id</span>
+                      <span className="pill">{t('form.noMalId')}</span>
                     )}
                     {loadingDetails && <span className="hint"> · assembling seasons…</span>}
                   </div>
@@ -344,7 +353,7 @@ export function AnimeForm({
                     type="button"
                     className="btn ghost sm"
                     onClick={clearPicked}
-                    title="Remove"
+                    title={t('action.remove')}
                   >
                     <IconClose size={13} />
                   </button>
@@ -408,17 +417,17 @@ export function AnimeForm({
 
         <div className="row-2">
           <div className="field">
-            <label htmlFor="af-english">English title</label>
+            <label htmlFor="af-english">{t('field.englishTitle')}</label>
             <input
               id="af-english"
               className="input"
-              placeholder="optional"
+              placeholder={t('field.optional')}
               value={values.englishTitle}
               onChange={(e) => set('englishTitle', e.target.value)}
             />
           </div>
           <div className="field">
-            <label htmlFor="af-year">Year</label>
+            <label htmlFor="af-year">{t('field.year')}</label>
             <input
               id="af-year"
               className="input"
@@ -434,7 +443,7 @@ export function AnimeForm({
 
         <div className="row-2">
           <div className="field">
-            <label htmlFor="af-studio">Studio</label>
+            <label htmlFor="af-studio">{t('field.studio')}</label>
             <input
               id="af-studio"
               className="input"
@@ -444,7 +453,7 @@ export function AnimeForm({
             />
           </div>
           <div className="field">
-            <label htmlFor="af-status">Status</label>
+            <label htmlFor="af-status">{t('field.status')}</label>
             <select
               id="af-status"
               className="select"
@@ -461,11 +470,11 @@ export function AnimeForm({
         </div>
 
         <div className="field">
-          <label htmlFor="af-notes">Notes</label>
+          <label htmlFor="af-notes">{t('field.notes')}</label>
           <textarea
             id="af-notes"
             className="textarea"
-            placeholder="Thoughts, favourite arc, where you watched it…"
+            placeholder={t('form.notesPlaceholder')}
             value={values.notes}
             onChange={(e) => set('notes', e.target.value)}
           />

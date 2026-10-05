@@ -14,6 +14,7 @@ export const LANGUAGES: { key: Language; label: string }[] = [
  */
 const en = {
   'nav.library': 'My Anime',
+  'nav.films': 'Films',
   'nav.leaderboard': 'Leaderboard',
   'nav.criteria': 'By Criteria',
   'nav.settings': 'Settings',
@@ -32,6 +33,8 @@ const en = {
   'subtitle.criteria': 'Compare shows on a single aspect',
   'title.settings': 'Settings',
   'subtitle.settings': 'Language, weights, updates and data',
+  'title.films': 'Films',
+  'subtitle.films': 'Anime films you have watched and scored',
   'title.detail': 'Anime detail',
   'subtitle.detail': 'Score episodes and rate every criterion',
 
@@ -42,6 +45,34 @@ const en = {
   'action.backToLibrary': 'Library',
   'action.saveChanges': 'Save changes',
   'action.remove': 'Remove',
+  'action.expandAll': 'Expand all',
+  'action.collapseAll': 'Collapse all',
+  'action.clearRating': 'Clear rating',
+
+  'field.year': 'Year',
+  'field.studio': 'Studio',
+  'field.status': 'Status',
+  'field.episodes': 'Episodes',
+  'field.title': 'Title',
+  'field.englishTitle': 'English title',
+  'field.notes': 'Notes',
+  'field.optional': 'optional',
+  'field.favourite': 'Favourite',
+
+  'detail.openOnAniList': 'Open on AniList',
+  'detail.openOnMal': 'Open on MyAnimeList',
+  'detail.notesPlaceholder': 'Anything you want to remember about this show…',
+  'detail.deleteWord': 'delete',
+
+  'empty.noFilms.title': 'No films yet',
+  'empty.noFilms.body':
+    'Add the first anime film you have watched, then rate it on every criterion. Films live here and stay out of your series list.',
+  'empty.noFilms.cta': 'Add your first film',
+  'form.addFilm': 'Add film',
+  'board.tab.global': 'Global',
+  'board.tab.series': 'Series only',
+  'board.tab.films': 'Films only',
+  'board.tabHint': 'Rankings are computed separately: a film is never ranked against a series.',
 
   'empty.noAnime.title': 'No anime yet',
   'empty.noAnime.body':
@@ -268,6 +299,7 @@ export type MessageKey = keyof typeof en
 
 const fr: Record<MessageKey, string> = {
   'nav.library': 'Mes animés',
+  'nav.films': 'Films',
   'nav.leaderboard': 'Classement',
   'nav.criteria': 'Par critère',
   'nav.settings': 'Réglages',
@@ -286,6 +318,8 @@ const fr: Record<MessageKey, string> = {
   'subtitle.criteria': 'Comparez les animés sur un seul aspect',
   'title.settings': 'Réglages',
   'subtitle.settings': 'Langue, pondérations, mises à jour et données',
+  'title.films': 'Films',
+  'subtitle.films': 'Les films d’animation que vous avez vus et notés',
   'title.detail': "Fiche de l'animé",
   'subtitle.detail': 'Notez les épisodes et chaque critère',
 
@@ -296,6 +330,35 @@ const fr: Record<MessageKey, string> = {
   'action.backToLibrary': 'Bibliothèque',
   'action.saveChanges': 'Enregistrer',
   'action.remove': 'Retirer',
+  'action.expandAll': 'Tout déplier',
+  'action.collapseAll': 'Tout replier',
+  'action.clearRating': 'Effacer la note',
+
+  'field.year': 'Année',
+  'field.studio': 'Studio',
+  'field.status': 'Statut',
+  'field.episodes': 'Épisodes',
+  'field.title': 'Titre',
+  'field.englishTitle': 'Titre anglais',
+  'field.notes': 'Notes',
+  'field.optional': 'optionnel',
+  'field.favourite': 'Favori',
+
+  'detail.openOnAniList': 'Ouvrir sur AniList',
+  'detail.openOnMal': 'Ouvrir sur MyAnimeList',
+  'detail.notesPlaceholder': 'Ce que vous voulez retenir de cet animé…',
+  'detail.deleteWord': 'supprimer',
+
+  'empty.noFilms.title': 'Aucun film',
+  'empty.noFilms.body':
+    'Ajoutez le premier film d’animation que vous avez vu, puis notez chaque critère. Les films vivent ici et ne polluent pas votre liste de séries.',
+  'empty.noFilms.cta': 'Ajouter votre premier film',
+  'form.addFilm': 'Ajouter un film',
+  'board.tab.global': 'Global',
+  'board.tab.series': 'Séries uniquement',
+  'board.tab.films': 'Films uniquement',
+  'board.tabHint':
+    'Les classements sont calculés séparément : un film n’est jamais classé face à une série.',
 
   'empty.noAnime.title': 'Aucun animé',
   'empty.noAnime.body':

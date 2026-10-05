@@ -14,13 +14,14 @@
  * each part occupies its own stretch of the numbering.
  */
 import type { EpisodeName, EpisodeNamesResult } from '../shared/episodes'
+import { tvmazeSeasonTitles } from './tvmaze'
 
 const KITSU = 'https://kitsu.io/api/edge'
 const ANILIST = process.env['ANIMEEH_ANILIST_ENDPOINT'] ?? 'https://graphql.anilist.co'
 
 const REQUEST_TIMEOUT_MS = 20_000
 const CACHE_TTL_MS = 60 * 60 * 1000
-const KITSU_PACING_MS = 900
+const KITSU_PACING_MS = 1100
 const MAX_EPISODES_PER_SEASON = 500
 
 /* ------------------------------------------------------------------ */
@@ -158,6 +159,7 @@ async function kitsuEpisodeNames(
 /** AniList media shape for the batched part query. */
 interface AniListMedia {
   episodes?: number | null
+  title?: { romaji?: string | null; english?: string | null } | null
   streamingEpisodes?: { title?: string | null }[] | null
 }
 
@@ -170,12 +172,15 @@ interface AniListPartInfo {
   declared: number
   /** Titles, already parsed, in their local numbering. */
   titles: { number: number; title: string }[]
+  /** English title when available, for the TVMaze search. */
+  searchTitle: string | null
 }
 
-const EMPTY_PART: AniListPartInfo = { declared: 0, titles: [] }
+const EMPTY_PART: AniListPartInfo = { declared: 0, titles: [], searchTitle: null }
 
 /**
- * One batched request for every part's episode count and streamed titles.
+ * One batched request for every part's episode count, streamed titles and
+ * title.
  *
  * The counts are the important part: they decide how many episode slots a part
  * occupies, and getting that wrong shifts every following season.
@@ -186,7 +191,10 @@ async function fetchAniListParts(ids: number[]): Promise<Map<number, AniListPart
   if (unique.length === 0) return result
 
   // GraphQL alias batching: one request for the whole franchise.
-  const aliases = unique.map((id, i) => `p${i}: Media(id: ${id}) { episodes streamingEpisodes { title } }`)
+  const aliases = unique.map(
+    (id, i) =>
+      `p${i}: Media(id: ${id}) { episodes title { romaji english } streamingEpisodes { title } }`
+  )
 
   try {
     const response = await fetch(ANILIST, {
@@ -204,7 +212,9 @@ async function fetchAniListParts(ids: number[]): Promise<Map<number, AniListPart
     unique.forEach((id, index) => {
       const media = payload.data?.[`p${index}`]
       const declared = typeof media?.episodes === 'number' && media.episodes > 0 ? media.episodes : 0
-      result.set(id, { declared, titles: parseTitles(media?.streamingEpisodes) })
+      const searchTitle =
+        media?.title?.english?.trim() || media?.title?.romaji?.trim() || null
+      result.set(id, { declared, titles: parseTitles(media?.streamingEpisodes), searchTitle })
     })
   } catch {
     // Counts fall back to Kitsu below.
@@ -242,6 +252,10 @@ function parseTitles(list: { title?: string | null }[] | null | undefined): {
  * cours has two ids. Each part occupies its own stretch of the numbering, sized
  * by AniList's declared episode count rather than by how many titles came back
  * — a part with 13 episodes but a single titled row still takes 13 slots.
+ *
+ * Sources, in order: Kitsu (a real per-anime episode list), AniList's streamed
+ * titles when they match the part exactly, then TVMaze for a season still left
+ * without titles, guarded by an exact season-layout match.
  */
 export async function loadEpisodeNames(seasons: number[][]): Promise<EpisodeNamesResult> {
   const clean = seasons
@@ -256,17 +270,27 @@ export async function loadEpisodeNames(seasons: number[][]): Promise<EpisodeName
   const missingSeasons: number[] = []
   let usedKitsu = false
   let usedAniList = false
+  let usedTvmaze = false
   let absolute = 1
+
+  // Per season: the titles collected, how many slots it owns, and whether the
+  // source gave us anything at all. Collected first so TVMaze can fill the gaps
+  // before numbering.
+  const perSeason: {
+    season: number
+    titles: Map<number, string>
+    count: number
+  }[] = []
 
   for (const [seasonIndex, parts] of clean.entries()) {
     const seasonNumber = seasonIndex + 1
-    let namedInSeason = 0
+    const titles = new Map<number, string>()
+    let count = 0
 
     for (const partId of parts) {
       const info = anilistParts.get(partId) ?? EMPTY_PART
 
-      // Titles per part, in that part's own 1-based numbering.
-      const titles = new Map<number, string>()
+      let partTitles = new Map<number, string>()
 
       // Kitsu is the reliable source for titles.
       let kitsuCount = 0
@@ -275,7 +299,7 @@ export async function loadEpisodeNames(seasons: number[][]): Promise<EpisodeName
         if (kitsuId) {
           const kitsu = await kitsuEpisodeNames(kitsuId)
           kitsuCount = kitsu.count
-          for (const [number, title] of kitsu.titles) titles.set(number, title)
+          partTitles = kitsu.titles
           if (kitsu.titles.size > 0) usedKitsu = true
         }
       } catch {
@@ -285,7 +309,9 @@ export async function loadEpisodeNames(seasons: number[][]): Promise<EpisodeName
       // How many slots this part occupies, most reliable source first.
       let declared = info.declared
       if (declared === 0) declared = kitsuCount
-      if (declared === 0 && titles.size > 0) declared = Math.max(...titles.keys())
+      if (declared === 0 && partTitles.size > 0) {
+        declared = Math.max(...partTitles.keys())
+      }
 
       // AniList titles are only used when the list matches this part exactly.
       // It repeats the whole franchise otherwise: Re:Zero returns the same 16
@@ -295,8 +321,8 @@ export async function loadEpisodeNames(seasons: number[][]): Promise<EpisodeName
         let added = false
         for (const entry of info.titles) {
           if (entry.number < 1 || entry.number > declared) continue
-          if (!titles.has(entry.number)) {
-            titles.set(entry.number, entry.title)
+          if (!partTitles.has(entry.number)) {
+            partTitles.set(entry.number, entry.title)
             added = true
           }
         }
@@ -304,28 +330,74 @@ export async function loadEpisodeNames(seasons: number[][]): Promise<EpisodeName
       }
 
       // A stray high number must never inflate the part's length.
-      const count = Math.max(declared, titles.size > 0 ? Math.max(...titles.keys()) : 0)
+      const partCount = Math.max(
+        declared,
+        partTitles.size > 0 ? Math.max(...partTitles.keys()) : 0
+      )
 
-      for (let n = 1; n <= count; n += 1) {
-        const title = titles.get(n)
-        if (title) {
-          episodes.push({ number: absolute, season: seasonNumber, title })
-          namedInSeason += 1
-        }
-        absolute += 1
+      // Titles are re-keyed onto the season's own numbering, so a two-cours
+      // season counts 1..13 then 14..25 rather than restarting at 1.
+      for (const [localNumber, title] of partTitles) {
+        if (localNumber < 1 || localNumber > partCount) continue
+        titles.set(count + localNumber, title)
       }
+
+      count += partCount
     }
 
-    if (namedInSeason === 0) missingSeasons.push(seasonNumber)
+    perSeason.push({ season: seasonNumber, titles, count })
+  }
+
+  // Third source: fill any season the first two left empty. Refused unless
+  // TVMaze's season layout matches this franchise exactly.
+  //
+  // Seasons of unknown length are excluded from the comparison and from
+  // `missingSeasons`: they occupy no slots, so they must not shift the mapping
+  // nor be reported as a gap.
+  const countedSeasons = perSeason.filter((s) => s.count > 0)
+
+  if (countedSeasons.some((s) => s.titles.size === 0) && countedSeasons.length > 0) {
+    const firstPartId = clean[0][0]
+    const searchTitle = anilistParts.get(firstPartId)?.searchTitle ?? null
+
+    if (searchTitle) {
+      try {
+        const byTvmaze = await tvmazeSeasonTitles(
+          searchTitle,
+          countedSeasons.map((s) => s.count)
+        )
+        if (byTvmaze) {
+          countedSeasons.forEach((season, index) => {
+            if (season.titles.size > 0) return
+            const titles = byTvmaze.get(index + 1)
+            if (!titles || titles.size === 0) return
+            for (const [number, title] of titles) {
+              if (number >= 1 && number <= season.count) season.titles.set(number, title)
+            }
+            if (season.titles.size > 0) usedTvmaze = true
+          })
+        }
+      } catch {
+        // TVMaze is best-effort.
+      }
+    }
+  }
+
+  // Number the episodes across the whole franchise.
+  for (const season of perSeason) {
+    if (season.count > 0 && season.titles.size === 0) missingSeasons.push(season.season)
+    for (let n = 1; n <= season.count; n += 1) {
+      const title = season.titles.get(n)
+      if (title) episodes.push({ number: absolute, season: season.season, title })
+      absolute += 1
+    }
   }
 
   if (episodes.length === 0) {
     throw new Error('No episode names found for this anime')
   }
 
-  return {
-    episodes,
-    source: usedKitsu ? 'kitsu' : usedAniList ? 'anilist' : 'kitsu',
-    missingSeasons
-  }
+  const source = usedKitsu ? 'kitsu' : usedAniList ? 'anilist' : usedTvmaze ? 'tvmaze' : 'kitsu'
+
+  return { episodes, source, missingSeasons }
 }

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
-import { getAnimeDetails, MIN_QUERY_LENGTH, searchAnime } from './anilist'
+import { getAnimeDetails, MIN_QUERY_LENGTH, searchAnime, type SearchKind } from './anilist'
 import { loadEpisodeNames } from './episodes'
 import {
   checkForUpdates,
@@ -128,12 +128,13 @@ ipcMain.handle('data:import', async () => {
 
 ipcMain.handle(
   'anilist:search',
-  async (_event, query: unknown): Promise<AniListOutcome<AnimeSearchResult[]>> => {
+  async (_event, query: unknown, kind: unknown): Promise<AniListOutcome<AnimeSearchResult[]>> => {
     if (typeof query !== 'string' || query.trim().length < MIN_QUERY_LENGTH) {
       return { ok: true, data: [] }
     }
     try {
-      return { ok: true, data: await searchAnime(query) }
+      const searchKind: SearchKind = kind === 'film' ? 'film' : 'series'
+      return { ok: true, data: await searchAnime(query, searchKind) }
     } catch (err) {
       // Network problems must never break the app: the user can still type
       // everything in by hand.

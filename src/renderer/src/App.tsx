@@ -7,6 +7,7 @@ import { Leaderboard } from './components/Leaderboard'
 import { SettingsView } from './components/SettingsView'
 import {
   IconChart,
+  IconFilm,
   IconLibrary,
   IconPlus,
   IconRefresh,
@@ -19,7 +20,7 @@ import { useUpdate } from './useUpdate'
 import { applySeasonSpans, buildEpisodes } from './scoring'
 import { createAnime, type Anime } from './types'
 
-type View = 'library' | 'leaderboard' | 'criteria' | 'settings'
+type View = 'library' | 'films' | 'leaderboard' | 'criteria' | 'settings'
 
 /**
  * Silently fill in missing cover art and genres for entries that have a
@@ -38,7 +39,7 @@ function useMetadataBackfill(): void {
     if (started.current || data.anime.length === 0) return
 
     const targets = data.anime
-      .filter((a) => !a.coverImage || (a.genres?.length ?? 0) === 0)
+      .filter((a) => !a.coverImage || !a.format || (a.genres?.length ?? 0) === 0)
       .filter((a) => !!(a.source?.anilistId ?? a.seasons?.[0]?.anilistId))
       .slice(0, MAX_BACKFILL)
 
@@ -59,6 +60,9 @@ function useMetadataBackfill(): void {
             if ((anime.genres?.length ?? 0) === 0 && outcome.data.genres.length > 0) {
               next.genres = outcome.data.genres
             }
+            if (!anime.format && outcome.data.format) {
+              next.format = outcome.data.format
+            }
             if (Object.keys(next).length > 0) updateAnime(anime.id, next)
           }
         } catch {
@@ -72,6 +76,7 @@ function useMetadataBackfill(): void {
 
 const NAV: { key: View; labelKey: MessageKey; icon: (p: { size?: number }) => ReactNode }[] = [
   { key: 'library', labelKey: 'nav.library', icon: IconLibrary },
+  { key: 'films', labelKey: 'nav.films', icon: IconFilm },
   { key: 'leaderboard', labelKey: 'nav.leaderboard', icon: IconTrophy },
   { key: 'criteria', labelKey: 'nav.criteria', icon: IconChart },
   { key: 'settings', labelKey: 'nav.settings', icon: IconSettings }
@@ -79,6 +84,7 @@ const NAV: { key: View; labelKey: MessageKey; icon: (p: { size?: number }) => Re
 
 const TITLES: Record<View, { title: MessageKey; sub: MessageKey }> = {
   library: { title: 'title.library', sub: 'subtitle.library' },
+  films: { title: 'title.films', sub: 'subtitle.films' },
   leaderboard: { title: 'title.leaderboard', sub: 'subtitle.leaderboard' },
   criteria: { title: 'title.criteria', sub: 'subtitle.criteria' },
   settings: { title: 'title.settings', sub: 'subtitle.settings' }
@@ -91,6 +97,7 @@ export default function App(): ReactNode {
   const [view, setView] = useState<View>('library')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [addingFilm, setAddingFilm] = useState(false)
   const { status: updateStatus } = useUpdate()
 
   const inDetail = view === 'library' && selectedId !== null
@@ -194,7 +201,10 @@ export default function App(): ReactNode {
                   : t('update.badge', { version: updateStatus?.availableVersion ?? '' }).trim()}
               </button>
             )}
-            <button className="btn primary" onClick={() => setAdding(true)}>
+            <button
+              className="btn primary"
+              onClick={() => (view === 'films' ? setAddingFilm(true) : setAdding(true))}
+            >
               <IconPlus size={16} /> {t('action.addAnime')}
             </button>
           </div>
@@ -205,7 +215,23 @@ export default function App(): ReactNode {
             (selectedId ? (
               <AnimeDetail animeId={selectedId} onBack={() => setSelectedId(null)} />
             ) : (
-              <AnimeLibrary onOpen={setSelectedId} onAdd={() => setAdding(true)} />
+              <AnimeLibrary
+                mode="series"
+                onOpen={setSelectedId}
+                onAdd={() => setAdding(true)}
+              />
+            ))}
+          {view === 'films' &&
+            (selectedId ? (
+              <AnimeDetail animeId={selectedId} onBack={() => setSelectedId(null)} />
+            ) : (
+              <AnimeLibrary
+                mode="film"
+                onOpen={setSelectedId}
+                onAdd={() => {
+                  setAddingFilm(true)
+                }}
+              />
             ))}
           {view === 'leaderboard' && <Leaderboard onOpen={(id) => {
             setView('library')
@@ -219,10 +245,14 @@ export default function App(): ReactNode {
         </div>
       </main>
 
-      {adding && (
+      {(adding || addingFilm) && (
         <AnimeForm
-          submitLabel={t('action.addAnime')}
-          onClose={() => setAdding(false)}
+          kind={addingFilm ? 'film' : 'series'}
+          submitLabel={t(addingFilm ? 'form.addFilm' : 'action.addAnime')}
+          onClose={() => {
+            setAdding(false)
+            setAddingFilm(false)
+          }}
           onSubmit={(v) => {
             const planned = v.createEpisodes
               ? (v.totalEpisodes ?? v.episodeBlueprint.length)
@@ -241,6 +271,7 @@ export default function App(): ReactNode {
               seasons: v.seasons.length > 0 ? v.seasons : undefined,
               coverImage: v.coverImage,
               genres: v.genres.length > 0 ? v.genres : undefined,
+              format: v.format,
               episodes:
                 planned > 0
                   ? applySeasonSpans(
@@ -251,6 +282,7 @@ export default function App(): ReactNode {
             })
             addAnime(anime)
             setAdding(false)
+            setAddingFilm(false)
             setView('library')
             setSelectedId(anime.id)
           }}

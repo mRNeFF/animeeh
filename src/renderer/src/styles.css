@@ -1457,3 +1457,20 @@ tbody tr.clickable {
   color: var(--muted-2);
   text-align: center;
 }
+
+/* ------------------------------------------------------------------ */
+/* Films                                                               */
+/* ------------------------------------------------------------------ */
+
+.film-tag {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--bg);
+  background: var(--warn);
+  vertical-align: middle;
+}

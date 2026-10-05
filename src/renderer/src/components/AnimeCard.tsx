@@ -35,7 +35,7 @@ export function AnimeCard({
           <span>
             {eps} {eps === 1 ? 'ep' : 'eps'}
           </span>
-          {anime.favorite ? <span title="Favourite">★</span> : null}
+          {anime.favorite ? <span title={t('field.favourite')}>★</span> : null}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ flex: 1 }}>

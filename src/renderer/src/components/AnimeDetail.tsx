@@ -222,7 +222,7 @@ export function AnimeDetail({
           />
           <div className="detail-fields">
             <div className="field">
-              <label>Year</label>
+              <label>{t('field.year')}</label>
               <input
                 className="input"
                 type="number"
@@ -234,7 +234,7 @@ export function AnimeDetail({
               />
             </div>
             <div className="field">
-              <label>Studio</label>
+              <label>{t('field.studio')}</label>
               <input
                 className="input"
                 value={anime.studio ?? ''}
@@ -243,7 +243,7 @@ export function AnimeDetail({
               />
             </div>
             <div className="field">
-              <label>Status</label>
+              <label>{t('field.status')}</label>
               <select
                 className="select"
                 value={anime.status}
@@ -257,7 +257,7 @@ export function AnimeDetail({
               </select>
             </div>
             <div className="field">
-              <label>Episodes</label>
+              <label>{t('field.episodes')}</label>
               <input
                 className="input"
                 value={
@@ -284,7 +284,7 @@ export function AnimeDetail({
                 href={anime.source.siteUrl}
                 target="_blank"
                 rel="noreferrer"
-                title="Ouvrir sur AniList"
+                title={t('detail.openOnAniList')}
               >
                 AniList #{anime.source.anilistId}
                 {anime.source.malId ? ` · MAL ${anime.source.malId}` : ''}
@@ -296,7 +296,7 @@ export function AnimeDetail({
                 href={`https://myanimelist.net/anime/${anime.source.malId}`}
                 target="_blank"
                 rel="noreferrer"
-                title="Ouvrir sur MyAnimeList"
+                title={t('detail.openOnMal')}
               >
                 MyAnimeList ↗
               </a>
@@ -499,7 +499,7 @@ export function AnimeDetail({
       <textarea
         className="textarea"
         style={{ minHeight: 110 }}
-        placeholder="Anything you want to remember about this show…"
+        placeholder={t('detail.notesPlaceholder')}
         value={anime.notes ?? ''}
         onChange={(e) => patch({ notes: e.target.value || undefined })}
       />
@@ -512,7 +512,7 @@ export function AnimeDetail({
       {editing && (
         <AnimeForm
           initial={anime}
-          submitLabel="Save changes"
+          submitLabel={t('action.saveChanges')}
           onClose={() => setEditing(false)}
           onSubmit={(v) => {
             patch({
@@ -561,14 +561,14 @@ function ConfirmDelete({
         <h3>Delete “{title}”?</h3>
         <div className="modal-sub">
           This permanently removes the anime, all its episode scores and criteria. Type{' '}
-          <strong>delete</strong> to confirm.
+          <strong>{t('detail.deleteWord')}</strong>
         </div>
         <div className="modal-form">
           <input
             className="input"
             autoFocus
             value={text}
-            placeholder="delete"
+            placeholder={t('detail.deleteWord')}
             onChange={(e) => setText(e.target.value)}
           />
           <div className="modal-actions">

@@ -294,14 +294,20 @@ export interface Grade {
   hue: number
 }
 
+/**
+ * Letter grades.
+ *
+ * S 90-100 · A 75-89.9 · B 65-74.9 · C 50-64.9 · D 30-49.9 · E 10-29.9 · F 0-9.9
+ */
 export function grade(score: number | null): Grade {
   if (score === null) return { letter: '—', hue: 0 }
   if (score >= 90) return { letter: 'S', hue: 320 }
-  if (score >= 80) return { letter: 'A', hue: 268 }
-  if (score >= 70) return { letter: 'B', hue: 212 }
-  if (score >= 60) return { letter: 'C', hue: 158 }
-  if (score >= 50) return { letter: 'D', hue: 46 }
-  return { letter: 'E', hue: 8 }
+  if (score >= 75) return { letter: 'A', hue: 268 }
+  if (score >= 65) return { letter: 'B', hue: 212 }
+  if (score >= 50) return { letter: 'C', hue: 158 }
+  if (score >= 30) return { letter: 'D', hue: 46 }
+  if (score >= 10) return { letter: 'E', hue: 22 }
+  return { letter: 'F', hue: 8 }
 }
 
 /* ------------------------------------------------------------------ */
@@ -403,6 +409,7 @@ export function normaliseAnime(input: Partial<Anime>): Anime {
     notes: input.notes,
     favorite: !!input.favorite,
     source,
+    format: typeof input.format === 'string' && input.format ? input.format : undefined,
     seasons,
     coverImage: typeof input.coverImage === 'string' && input.coverImage ? input.coverImage : undefined,
     genres: genres && genres.length > 0 ? genres : undefined,

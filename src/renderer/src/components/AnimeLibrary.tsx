@@ -16,12 +16,27 @@ const SORTS: { key: SortKey; labelKey: MessageKey }[] = [
   { key: 'recent', labelKey: 'sort.recent' }
 ]
 
+/** Which entries a library view shows. */
+export type LibraryMode = 'all' | 'series' | 'film'
+
+export function isFilm(anime: { format?: string }): boolean {
+  return (anime.format ?? '') === 'MOVIE'
+}
+
+function matchesMode(anime: { format?: string }, mode: LibraryMode): boolean {
+  if (mode === 'all') return true
+  return mode === 'film' ? isFilm(anime) : !isFilm(anime)
+}
+
 export function AnimeLibrary({
   onOpen,
-  onAdd
+  onAdd,
+  mode = 'all'
 }: {
   onOpen: (id: string) => void
   onAdd: () => void
+  /** Narrows the view to series or films. */
+  mode?: LibraryMode
 }): ReactNode {
   const { data } = useStore()
   const { t } = useI18n()
@@ -32,26 +47,31 @@ export function AnimeLibrary({
 
   const weights = data.settings.weights
 
+  /** Items visible in this view before the status and genre filters. */
+  const scoped = useMemo(() => data.anime.filter((a) => matchesMode(a, mode)), [data.anime, mode])
+
   /** Genres present in the library, most common first. */
   const genres = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const anime of data.anime) {
+    for (const anime of scoped) {
       for (const g of anime.genres ?? []) counts.set(g, (counts.get(g) ?? 0) + 1)
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-  }, [data.anime])
+  }, [scoped])
 
+  // Ranks are computed inside the view, so the films tab does not show a rank
+  // borrowed from the series ranking.
   const rankMap = useMemo(() => {
     const map = new Map<string, number>()
-    for (const entry of rankAnime(data.anime, weights)) {
+    for (const entry of rankAnime(scoped, weights)) {
       if (entry.rank > 0) map.set(entry.anime.id, entry.rank)
     }
     return map
-  }, [data.anime, weights])
+  }, [scoped, weights])
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
-    let list = data.anime.filter((a) => {
+    let list = scoped.filter((a) => {
       if (status !== 'all' && a.status !== status) return false
       if (genre !== 'all' && !(a.genres ?? []).includes(genre)) return false
       if (!q) return true
@@ -81,16 +101,18 @@ export function AnimeLibrary({
       }
     })
     return list
-  }, [data.anime, query, status, genre, sort, rankMap])
+  }, [scoped, query, status, genre, sort, rankMap])
 
-  if (data.anime.length === 0) {
+  if (scoped.length === 0) {
     return (
       <div className="empty">
         <div className="big">アニメ</div>
-        <h3>{t('empty.noAnime.title')}</h3>
-        <p style={{ maxWidth: 460, margin: 0 }}>{t('empty.noAnime.body')}</p>
+        <h3>{t(mode === 'film' ? 'empty.noFilms.title' : 'empty.noAnime.title')}</h3>
+        <p style={{ maxWidth: 460, margin: 0 }}>
+          {t(mode === 'film' ? 'empty.noFilms.body' : 'empty.noAnime.body')}
+        </p>
         <button className="btn primary" onClick={onAdd}>
-          <IconPlus size={16} /> {t('empty.noAnime.cta')}
+          <IconPlus size={16} /> {t(mode === 'film' ? 'empty.noFilms.cta' : 'empty.noAnime.cta')}
         </button>
       </div>
     )
@@ -166,7 +188,7 @@ export function AnimeLibrary({
       ) : (
         <>
           <div className="hint" style={{ marginBottom: 12 }}>
-            {t('library.count', { shown: visible.length, total: data.anime.length })}
+            {t('library.count', { shown: visible.length, total: scoped.length })}
           </div>
           <div className="grid">
             {visible.map((a) => (

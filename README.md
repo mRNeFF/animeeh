@@ -30,7 +30,8 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - **Rate every episode from 0 to 100.** An unrated episode is simply ignored, so you can create a whole season up front and score it as you watch, without skewing your average.
 - **Seven criteria per anime** — Characters, Story, Animation, OST, Opening, Key Factor, Originality.
 - **Weighted global score**, with the episode average as a first-class component.
-- **Four views**: Library, Global leaderboard, Rankings by criteria, Settings.
+- **Five views**: My Anime (series), Films, Leaderboard, Rankings by criteria, Settings.
+- **Series and films are kept apart.** Searching series never returns films, films have their own tab, and the leaderboard ranks them separately so a film is never placed against a series.
 - **AniList lookup**: type a title and the app pre-fills the year, studio, episode count **and the individual episode titles**, all of which you can still edit by hand.
 - **Seasons are merged into one entry.** Search "shingeki no kyojin" and you get one row, not seventeen: the app follows AniList's sequel links and creates a single entry holding all six TV seasons, with episodes numbered continuously and tagged by season.
 - **In-app updates** via GitHub Releases.
@@ -75,6 +76,28 @@ Verify the assembly against the live API at any time:
 
 ```powershell
 npm run check:franchise "shingeki no kyojin" "sousou no frieren"
+```
+
+---
+
+## Episode names, and how far they can go
+
+Episode titles come from **three services**, tried in order, because no single one covers everything:
+
+| Source | Strength | Weakness |
+|---|---|---|
+| **Kitsu** | A real per-anime episode list, and maps to AniList ids | Whole seasons can exist without titles (Tokyo Revengers S2-S4, Kaguya-sama S3) |
+| **AniList** | The reference used for episode *counts* | No episode list of its own: `streamingEpisodes` mirrors the streamer and repeats the whole franchise on every season |
+| **TVMaze** | Fills some gaps Kitsu leaves | Only accepted when its season layout matches this app's exactly |
+
+AniList's own title list is used only when its length matches the part exactly. For Re:Zero it returns the same 16 franchise-wide titles numbered 63–78 on all three early seasons; trusting that would stamp season 3's titles onto season 1.
+
+**Being straight about the limits:** measured over a 25-anime library, about **95%** of episodes get a name. The rest is a genuine gap — for Tokyo Revengers (S2–S4), Kakegurui's second part and Mushoku Tensei, Kitsu returns the episodes with no titles, TVMaze groups the show differently so it is refused, and AniList has nothing. Those episodes keep their number and stay rateable; only the title is missing, and you can type it yourself.
+
+```powershell
+npm run check:numbering         # asserts titles land on the right episodes
+npm run diagnose:episodes       # reports coverage and gaps for your own data file
+npm run inspect "<title>"       # relations and Kitsu coverage for one title
 ```
 
 ---
@@ -126,11 +149,12 @@ This is a real result from the test suite for *Sousou no Frieren*, with every we
 | Grade | Threshold |
 |---|---|
 | **S** | 90 and above |
-| **A** | 80 – 89.9 |
-| **B** | 70 – 79.9 |
-| **C** | 60 – 69.9 |
-| **D** | 50 – 59.9 |
-| **E** | below 50 |
+| **A** | 75 – 89.9 |
+| **B** | 65 – 74.9 |
+| **C** | 50 – 64.9 |
+| **D** | 30 – 49.9 |
+| **E** | 10 – 29.9 |
+| **F** | below 10 |
 
 ### The episode average
 
@@ -207,6 +231,9 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run smoke:update` | Tests updating against a fake local feed |
 | `npm run smoke:update:live` | Tests updating against the real GitHub releases |
 | `npm run check:franchise "query"` | Prints how a franchise is grouped and ordered, against the live AniList API |
+| `npm run check:numbering` | Asserts episode titles land on the correct episode numbers |
+| `npm run diagnose:episodes` | Reports episode-name coverage and gaps for your data file |
+| `npm run inspect "title"` | Shows a title's AniList relations and Kitsu episode coverage |
 
 ---
 

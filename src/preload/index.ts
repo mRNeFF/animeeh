@@ -11,9 +11,11 @@ const api = {
   importData: (): Promise<{ path: string; data: unknown } | null> =>
     ipcRenderer.invoke('data:import'),
 
-  /** Search MyAnimeList-reference titles through the AniList API. */
-  searchAnime: (query: string): Promise<AniListOutcome<AnimeSearchResult[]>> =>
-    ipcRenderer.invoke('anilist:search', query),
+  /**
+   * Search AniList. kind is 'series' (everything but films) or 'film'.
+   */
+  searchAnime: (query: string, kind: 'series' | 'film' = 'series'): Promise<AniListOutcome<AnimeSearchResult[]>> =>
+    ipcRenderer.invoke('anilist:search', query, kind),
   /**
    * Assemble a whole franchise (every season, episodes renumbered) from any one
    * of its seasons.

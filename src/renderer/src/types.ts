@@ -121,6 +121,11 @@ export interface Anime {
   favorite?: boolean
   source?: AnimeSource
   /**
+   * AniList format of the entry: TV, TV_SHORT, ONA, OVA, MOVIE, SPECIAL.
+   * `MOVIE` is what the Films tab sorts on.
+   */
+  format?: string
+  /**
    * Every season merged into this entry, in broadcast order. Absent for
    * hand-entered anime and for single-season shows.
    */

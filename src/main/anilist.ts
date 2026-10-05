@@ -339,14 +339,37 @@ export function franchiseKey(title: string): string {
 }
 
 /**
+ * Which kinds of entry a search should return.
+ *
+ * - `series`: everything except films, so a franchise's recap movies never
+ *   appear among its seasons.
+ * - `film`: only films.
+ */
+export type SearchKind = 'series' | 'film'
+
+const FILM_FORMAT = 'MOVIE'
+
+/**
  * Merge search hits that belong to the same franchise. Non-series formats are
  * never merged, so films and OVAs keep their own rows.
  */
-export function groupSearchResults(media: RawMedia[]): AnimeSearchResult[] {
+export function groupSearchResults(media: RawMedia[], kind: SearchKind = 'series'): AnimeSearchResult[] {
+  const wanted = media.filter((item) => {
+    const isFilm = (item.format ?? '') === FILM_FORMAT
+    return kind === 'film' ? isFilm : !isFilm
+  })
+
+  // Films are standalone entries: no franchise folding, one row each, and the
+  // AniList relevance order is kept rather than sorted by year — sorting would
+  // push a loosely matching older film above an exact hit.
+  if (kind === 'film') {
+    return wanted.map((item) => toSearchResult(item, [toSeasonRef([item], 1)]))
+  }
+
   const buckets: RawMedia[][] = []
   const byKey = new Map<string, RawMedia[]>()
 
-  for (const item of media) {
+  for (const item of wanted) {
     if (!SERIES_FORMATS.has(item.format ?? '')) {
       // Non-series entries are never merged by title, but a curated group can
       // still fold them in below.
@@ -414,10 +437,25 @@ const MEDIA_FIELDS = `
   studios(isMain: true) { nodes { name } }
 `
 
-const SEARCH_QUERY = `
+/**
+ * Film searches filter server-side instead of client-side. AniList returns
+ * mostly series for a mixed query, so filtering afterwards left a handful of
+ * films out of 25 rows.
+ */
+const FILM_SEARCH_QUERY = `
 query ($search: String) {
   Page(page: 1, perPage: 25) {
-    media(search: $search, type: ANIME, sort: SEARCH_MATCH) {
+    media(search: $search, type: ANIME, format: MOVIE, sort: SEARCH_MATCH) {
+      ${MEDIA_FIELDS}
+    }
+  }
+}`
+
+/** Series searches ask AniList to leave films out entirely. */
+const SERIES_SEARCH_QUERY = `
+query ($search: String) {
+  Page(page: 1, perPage: 25) {
+    media(search: $search, type: ANIME, format_not: MOVIE, sort: SEARCH_MATCH) {
       ${MEDIA_FIELDS}
     }
   }
@@ -663,16 +701,22 @@ async function fetchEpisodeTitles(groups: RawMedia[][]): Promise<AniListEpisode[
 /** Minimum query length before AniList returns anything meaningful. */
 export const MIN_QUERY_LENGTH = 2
 
-export async function searchAnime(query: string): Promise<AnimeSearchResult[]> {
+export async function searchAnime(
+  query: string,
+  kind: SearchKind = 'series'
+): Promise<AnimeSearchResult[]> {
   const trimmed = query.trim()
   if (trimmed.length < MIN_QUERY_LENGTH) return []
 
-  const key = `search:${trimmed.toLowerCase()}`
+  const key = `search:${kind}:${trimmed.toLowerCase()}`
   const cached = cacheGet<AnimeSearchResult[]>(key)
   if (cached) return cached
 
-  const data = await graphql<{ Page: { media: RawMedia[] } }>(SEARCH_QUERY, { search: trimmed })
-  const results = groupSearchResults((data.Page?.media ?? []).filter(Boolean))
+  const data = await graphql<{ Page: { media: RawMedia[] } }>(
+    kind === 'film' ? FILM_SEARCH_QUERY : SERIES_SEARCH_QUERY,
+    { search: trimmed }
+  )
+  const results = groupSearchResults((data.Page?.media ?? []).filter(Boolean), kind)
 
   cacheSet(key, results)
   return results

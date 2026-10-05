@@ -14,7 +14,7 @@ export interface EpisodeName {
 export interface EpisodeNamesResult {
   episodes: EpisodeName[]
   /** Which source supplied the data. */
-  source: 'kitsu' | 'anilist'
+  source: 'kitsu' | 'anilist' | 'tvmaze'
   /** Season numbers that returned nothing, so the UI can say so. */
   missingSeasons: number[]
 }

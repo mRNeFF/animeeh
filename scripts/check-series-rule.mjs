@@ -80,7 +80,18 @@ const CASES = [
   ['Dragon Ball Z', 'Dragon Ball GT', true],
   ['Dragon Ball Z', 'Dragon Ball Super', true],
   ['Dragon Ball Super', 'Dragon Ball DAIMA', true],
-  ['Dragon Ball Z', 'Dragon Ball Z Kai', true]
+  ['Dragon Ball Z', 'Dragon Ball Z Kai', true],
+  ['Dragon Ball GT', 'Dragon Ball Super', true],
+  ['Dragon Ball', 'Dragon Ball DAIMA', true],
+  // The over-merges the first rule let through, which cost the Dragon Ball split.
+  ['Dragon Ball Z', 'Dragon Ball Kai (2014)', true],
+  ['Dragon Ball Kai (2014)', 'Dragon Ball Super', true],
+  ['Dragon Ball Kai', 'Dragon Ball Super', true],
+  ['Dragon Ball Z', 'Dragon Ball GT', true],
+  // Other franchises that share a name but are separate works.
+  ['Bleach', 'Bleach: Sennen Kessen-hen', false],
+  ['Dr. STONE', 'Dr. STONE: Stone Wars', false],
+  ['HUNTER×HUNTER', 'HUNTER×HUNTER OVA', true]
 ]
 
 let failures = 0

@@ -87,26 +87,53 @@ Following `SEQUEL` links blindly merged **Dragon Ball, Z, GT, Super and DAIMA** 
 entry of 825 episodes across 8 "seasons". They are linked as sequels, but they are five
 different series.
 
-Those links are now skipped when the linked title reads as **a different series** rather
-than a continuation, and the signal is the shape of the extra words:
+Each title is now reduced to a **series signature**, and two entries belong to the same
+series exactly when their signatures match. Only decoration is removed, never a name:
 
-| Extra words after the shared title | Reading | Example |
+1. a subtitle after a colon, when that colon ends a word (`Bleach: Sennen Kessen-hen`) or
+   is followed by three characters or fewer (`Tokyo Ghoul:re`) — but not when the colon
+   is inside a word, which is what keeps `Re:Zero kara Hajimeru Isekai Seikatsu` intact;
+2. a season, part or cour marker and everything after it, so `Sousou no Frieren 2nd
+   Season` and `Boku no Hero Academia FINAL SEASON` both reduce to their base;
+3. trailing decoration: a year in parentheses, a number, a roman numeral, or a short
+   symbol-bearing token such as `√A`.
+
+A **different series is the default**, and a continuation has to be earned by decoration
+the signature removes. That direction is the whole point: an earlier version merged
+unless *both* remainders were single plain words, so `Dragon Ball Z` merged with
+`Dragon Ball Kai (2014)` — a year in parentheses is not a plain word — and from there the
+whole family came back.
+
+Two earlier attempts are worth recording, because both looked right and both were wrong:
+
+- comparing **base titles** split 22 legitimate franchises, from Boku no Hero Academia's
+  numbered seasons to Tokyo Ghoul's `√A`;
+- **normalising before comparing** turned `√A` into the plain word `a`, which then read as
+  a distinct series and broke Tokyo Ghoul again.
+
+### Dragon Ball cannot be decided by titles
+
+`Z`, `GT`, `Super` and `DAIMA` are real words, so they survive every step above by
+design. No title rule can tell `Dragon Ball Z` apart from `Dragon Ball: Some Subtitle`
+without also breaking something else. Those entries are therefore listed explicitly in
+`FRANCHISE_SPLITS`, keyed by AniList id so it holds whatever the entries are named:
+
+| Series | Ids | Episodes |
 |---|---|---|
-| a number | a season | `Boku no Hero Academia` → `… Academia 2` |
-| a season word or `Part N` | a season | `Sousou no Frieren` → `… 2nd Season` |
-| a subtitle after `:` or `-` | a season | `Tokyo Revengers` → `…: Tenjiku-hen` |
-| a symbol-bearing token | a season | `Tokyo Ghoul` → `Tokyo Ghoul √A` |
-| a roman numeral | a season | `Overlord` → `Overlord II` |
-| **a single plain word** | **a different series** | `Dragon Ball` → `Dragon Ball Z` |
+| Dragon Ball | 223 | 153 |
+| Dragon Ball Z | 813 | 291 |
+| Dragon Ball GT | 225 | 64 |
+| Dragon Ball Super | 21175 | 131 |
+| Dragon Ball DAIMA | 170083 | 20 |
+| Dragon Ball Kai + its 2014 recut | 6033, 20635 | 166 |
 
-A rule that compared only the base title was tried first and **rejected**: it split 22
-legitimate franchises, from Boku no Hero Academia's numbered seasons to Tokyo Ghoul's
-`√A`. A second attempt that normalised the titles before comparing them also failed, for
-a subtler reason — stripping symbols turned `√A` into a plain word `a`, which then looked
-like a distinct series. The comparison therefore runs on the raw titles.
+Ids sharing a group still join; ids in different groups never do. `FRANCHISE_GROUPS` is
+the opposite list — pairs that join despite reading as different series (Steins;Gate and
+Steins;Gate 0, and Fate/Zero with Fate/stay night, which the library already stored as
+one entry before this rule existed).
 
-Steins;Gate and Steins;Gate 0 keep a curated exception, since `0` reads as a season by
-the table above but the two are stored as one entry on purpose.
+`shouldChainLink` is the single function that decides, and both the app and the checks
+call it, so they cannot drift apart.
 
 Verify the rule against real pairs — no network, so it is fast enough to run on every
 change:
@@ -115,10 +142,17 @@ change:
 npm run check:series
 ```
 
-To see whether any franchise in your own library would be split by the rule:
+To confirm that no franchise in your own library would be split, and that the Dragon Ball
+family stays apart:
 
 ```powershell
 npm run check:guard
+```
+
+To assemble each Dragon Ball series separately against the live API:
+
+```powershell
+npm run diagnose:dragonball
 ```
 
 ---
@@ -285,6 +319,7 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run check:series` | Tests the "different series or continuation?" rule on real title pairs, offline |
 | `npm run check:guard` | Reports which franchises in your library the series rule would split |
 | `npm run check:kinds` | Asserts the film search and the series search stay disjoint, against the live API |
+| `npm run diagnose:dragonball` | Assembles each Dragon Ball series on its own, against the live API |
 | `npm run diagnose:ova` | Lists the OVA, SPECIAL and ONA entries attached to the shows in your library |
 | `npm run diagnose:episodes` | Reports episode-name coverage and gaps for your data file |
 | `npm run inspect "title"` | Shows a title's AniList relations and Kitsu episode coverage |

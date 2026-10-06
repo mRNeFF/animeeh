@@ -1,16 +1,11 @@
 /**
- * Would a "same base title" guard break the franchises already merged?
+ * Would the series rule split any franchise already stored in the library?
  *
- * The Dragon Ball problem: Dragon Ball, Z, GT, Super and Daima are linked by
- * SEQUEL, so the chain walk merges them, yet they are distinct series. The
- * proposed guard is to only follow a link when the target's base title matches,
- * which would separate them.
- *
- * Before applying it, every multi-season franchise in the library is checked:
- * for each consecutive pair of seasons, does the base title match? Any pair that
- * does not would be split, and that must be a deliberate outcome, not a
- * surprise. Steins;Gate is expected to fail here and is covered by a curated
- * exception.
+ * Every consecutive season pair in the data file must read as a continuation, so
+ * this compares each pair with the real exported rule rather than a copy of it.
+ * Reimplementing the logic here was a mistake worth recording: the first version
+ * of this script tested a locally retyped rule, so it kept passing while the real
+ * rule was broken.
  *
  * Usage: node scripts/check-chain-guard.mjs
  */
@@ -35,34 +30,11 @@ await build({
 })
 
 const mod = await import(pathToFileURL(out).href)
-// franchiseKey is exported for the tests; fall back to a local copy if not.
-const franchiseKey =
-  mod.franchiseKey ??
-  ((title) =>
-    title
-      .toLowerCase()
-      .normalize('NFKD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/\([^)]*\)/g, ' ')
-      .replace(/[^a-z0-9]+/g, ' ')
-      .replace(/\bthe final season\b/g, ' ')
-      .replace(/\bfinal season\b/g, ' ')
-      .replace(/\b\d+(?:st|nd|rd|th) season\b/g, ' ')
-      .replace(/\bseason \d+\b/g, ' ')
-      .replace(/\b\d+(?:st|nd|rd|th) cour\b/g, ' ')
-      .replace(/\bpart \d+\b/g, ' ')
-      .replace(/\bcour \d+\b/g, ' ')
-      .replace(/\s+(?:i{1,3}|iv|v|vi{1,3}|ix|x)\s*$/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim())
-
-/** Strip roman numerals wherever they appear, not only at the end. */
-function looseKey(title) {
-  return franchiseKey(title)
-    .replace(/\s+(?:i{1,3}|iv|v|vi{1,3}|ix|x)\s+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+if (typeof mod.shouldChainLink !== 'function') {
+  console.error('shouldChainLink is not exported from src/main/anilist.ts')
+  process.exit(2)
 }
+const shouldChainLink = mod.shouldChainLink
 
 if (!existsSync(dataFile)) {
   console.error(`No data file at ${dataFile}`)
@@ -71,43 +43,68 @@ if (!existsSync(dataFile)) {
 
 const data = JSON.parse(readFileSync(dataFile, 'utf-8'))
 
-const strictFailures = []
-const looseFailures = []
+/** Franchises that are deliberately a single entry across separate AniList ids. */
+const CURATED_MERGES = new Set(['Steins;Gate', 'Steins;Gate 0'])
+
+let splits = 0
+let pairs = 0
+const offenders = []
 
 for (const a of data.anime ?? []) {
   const seasons = a.seasons ?? []
   if (seasons.length < 2) continue
 
   console.log(`\n${a.title}  (${seasons.length} seasons)`)
-  for (let i = 0; i < seasons.length; i += 1) {
-    const s = seasons[i]
-    if (i === 0) {
-      console.log(`   S${s.season}  ${s.title}`)
-      continue
-    }
+  for (let i = 1; i < seasons.length; i += 1) {
     const prev = seasons[i - 1]
-    const sameStrict = franchiseKey(s.title) === franchiseKey(prev.title)
-    const sameLoose = looseKey(s.title) === looseKey(prev.title)
-    const mark = sameLoose ? 'OK  ' : 'SPLIT'
-    console.log(
-      `   S${s.season}  ${s.title}\n` +
-        `         prev base "${franchiseKey(prev.title)}"` +
-        `  vs "${franchiseKey(s.title)}"` +
-        `  strict=${sameStrict ? 'match' : 'differ'} loose=${sameLoose ? 'match' : 'differ'}  ${mark}`
+    const current = seasons[i]
+    pairs += 1
+    // The exact decision the app makes when it walks the chain.
+    const linked = shouldChainLink(
+      { id: prev.anilistId, title: prev.title },
+      { id: current.anilistId, title: current.title }
     )
-    if (!sameStrict) strictFailures.push({ anime: a.title, pair: `${prev.title} -> ${s.title}` })
-    if (!sameLoose) looseFailures.push({ anime: a.title, pair: `${prev.title} -> ${s.title}` })
+    if (!linked) {
+      splits += 1
+      offenders.push({ anime: a.title, pair: `${prev.title}  ->  ${current.title}` })
+    }
+    console.log(`   S${prev.season} -> S${current.season}  ${linked ? 'linked' : 'SPLIT'}  ${current.title}`)
   }
 }
 
 console.log(`\n${'='.repeat(88)}`)
-console.log(`pairs that a STRICT base-key guard would split: ${strictFailures.length}`)
-for (const f of strictFailures) console.log(`   ${f.anime}\n      ${f.pair}`)
-
-console.log(`\npairs a LOOSE guard (roman numerals stripped anywhere) would split: ${looseFailures.length}`)
-for (const f of looseFailures) console.log(`   ${f.anime}\n      ${f.pair}`)
-
-console.log(`\n--- Dragon Ball, both rules ---`)
-for (const title of ['Dragon Ball', 'Dragon Ball Z', 'Dragon Ball GT', 'Dragon Ball Super', 'Dragon Ball DAIMA', 'Dragon Ball Kai']) {
-  console.log(`   ${title.padEnd(22)} strict "${franchiseKey(title)}"  loose "${looseKey(title)}"`)
+console.log(`${pairs} consecutive season pair(s) in your library, ${splits} of which the rule would split`)
+for (const f of offenders) {
+  console.log(`   ${f.anime}\n      ${f.pair}`)
 }
+
+// The Dragon Ball family is the one case that must split, so it is asserted here
+// to catch a rule that has quietly become permissive again.
+const DRAGON_BALL = [
+  'Dragon Ball',
+  'Dragon Ball Z',
+  'Dragon Ball GT',
+  'Dragon Ball Super',
+  'Dragon Ball DAIMA'
+]
+let dragonBallFailures = 0
+console.log('\nDragon Ball, which must stay separate:')
+for (let i = 0; i < DRAGON_BALL.length; i += 1) {
+  for (let j = i + 1; j < DRAGON_BALL.length; j += 1) {
+    // Ids as AniList reports them, so the curated split is exercised too.
+    const ids = { 'Dragon Ball': 223, 'Dragon Ball Z': 813, 'Dragon Ball GT': 225, 'Dragon Ball Super': 21175, 'Dragon Ball DAIMA': 170083 }
+    const linked = shouldChainLink(
+      { id: ids[DRAGON_BALL[i]], title: DRAGON_BALL[i] },
+      { id: ids[DRAGON_BALL[j]], title: DRAGON_BALL[j] }
+    )
+    if (linked) dragonBallFailures += 1
+    console.log(`   ${linked ? 'FAIL' : 'OK  '} separate  ${DRAGON_BALL[i]} / ${DRAGON_BALL[j]}`)
+  }
+}
+
+const ok = splits === 0 && dragonBallFailures === 0
+console.log(`\n${ok ? 'LIBRARY INTACT AND DRAGON BALL SEPARATE' : `${splits + dragonBallFailures} PROBLEM(S)`}`)
+if (CURATED_MERGES.size > 0 && splits === 0) {
+  console.log('(Steins;Gate relies on the curated merge, not on the title rule.)')
+}
+process.exit(ok ? 0 : 1)

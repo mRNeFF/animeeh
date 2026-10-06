@@ -1,6 +1,6 @@
 {
   "name": "animeeh",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "ANIMEEH — track and rank every anime you watch, episode by episode.",
   "main": "./out/main/index.js",
   "author": "Axel",
@@ -48,7 +48,8 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit",
     "check:utf8": "node scripts/check-i18n-bytes.mjs",
-    "verify:split": "npm run build && node scripts/verify-dragonball-ova.mjs"
+    "verify:split": "npm run build && node scripts/verify-dragonball-ova.mjs",
+    "diagnose:dragonball": "node scripts/diagnose-dragonball-each.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

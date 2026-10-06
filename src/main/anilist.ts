@@ -50,7 +50,16 @@ const FRANCHISE_GROUPS: number[][] = [
   //   9253  --ALTERNATIVE--> 21624 (OVA)
   //   21127 --PREQUEL-------> 21624 (OVA)
   // Season order falls out of the year, putting Steins;Gate 0 second.
-  [9253, 21127]
+  [9253, 21127],
+
+  // Fate/Zero and Fate/stay night. AniList links them directly, so this group
+  // is not about a missing link but about the title rule: "Fate/Zero 2nd Season"
+  // and "Fate/stay night" reduce to different signatures, which would separate a
+  // franchise that has been stored as one entry since before the rule existed.
+  // Kept merged so that re-adding the franchise reproduces the existing seasons
+  // rather than silently changing them. Fate/Apocrypha and the other Fate
+  // spin-offs are deliberately not listed, so they stay their own entries.
+  [10087, 11741, 356, 19603, 20792]
 ]
 
 /** The curated group an AniList id belongs to, if any. */
@@ -67,6 +76,40 @@ const SERIES_FORMATS = new Set(['TV', 'TV_SHORT', 'ONA'])
 
 /** Safety bound so a pathological relation graph cannot explode the call count. */
 const MAX_FRANCHISE_ENTRIES = 15
+
+/**
+ * Entries AniList links as sequels that are nevertheless separate series.
+ *
+ * Dragon Ball is the case. Every installment is "Dragon Ball" plus one short
+ * word, and AniList chains them all with SEQUEL, so walking the links produced a
+ * single entry of 825 episodes spanning Dragon Ball, Z, GT, Super and DAIMA.
+ * Their titles carry no number and no subtitle to tell them apart, which is
+ * precisely the signal the general rule relies on, so the answer is stated here
+ * instead.
+ *
+ * Ids in the same group still join: Kai and its 2014 recut are one season list.
+ * Keying by id rather than by title keeps this working whatever AniList names
+ * the entries.
+ */
+const FRANCHISE_SPLITS: Record<number, string> = {
+  223: 'dragon-ball',
+  813: 'dragon-ball-z',
+  225: 'dragon-ball-gt',
+  21175: 'dragon-ball-super',
+  170083: 'dragon-ball-daima',
+  6033: 'dragon-ball-kai',
+  20635: 'dragon-ball-kai',
+  // The 2026 retelling of the Battle of Gods arc, kept apart so Super stands
+  // alone at its 131 episodes.
+  206814: 'dragon-ball-super-beerus'
+}
+
+/** True when two ids are known to be different series. */
+function splitByCuration(from: number, to: number): boolean {
+  const a = FRANCHISE_SPLITS[from]
+  const b = FRANCHISE_SPLITS[to]
+  return a !== undefined && b !== undefined && a !== b
+}
 
 /* ------------------------------------------------------------------ */
 /* Small TTL cache (AniList rate-limits to ~30 requests/minute)        */
@@ -373,39 +416,98 @@ const FILM_LIKE_FORMATS = new Set(['MOVIE', 'OVA'])
 const ROMAN_SUFFIX = /^(?:i{1,3}|iv|v|vi{1,3}|ix|x)$/i
 
 /**
+ * Reduce a title to the identity of the series it belongs to.
+ *
+ * "Boku no Hero Academia 2", "Sousou no Frieren 2nd Season", "Tokyo Ghoul √A",
+ * "Tokyo Revengers: Tenjiku-hen" and "Overlord II" all reduce to their base
+ * series, so two entries are the same series exactly when their signatures match.
+ *
+ * Only decoration is removed, never a name:
+ *   1. a subtitle after a colon, but only past the first word, so that
+ *      "Re:Zero kara Hajimeru Isekai Seikatsu" does not collapse to "re";
+ *   2. a season, part or cour marker and everything following it;
+ *   3. trailing decoration: a year in parentheses, a number, a roman numeral, or
+ *      a short symbol-bearing token such as "√A".
+ *
+ * Dragon Ball is why the answer cannot rest on titles alone: "Z", "GT", "Super"
+ * and "DAIMA" survive all three steps by design, since they are real words, so
+ * those entries are separated by FRANCHISE_SPLITS instead.
+ */
+function seriesSignature(title: string): string {
+  let value = title.trim().toLowerCase().replace(/\s+/g, ' ')
+
+  // A colon introduces a subtitle when it ends a word ("Bleach: Sennen
+  // Kessen-hen") or is followed by a word of three characters or fewer
+  // ("Tokyo Ghoul:re"). A longer run means the colon is part of the name, which
+  // is what keeps "Re:Zero kara Hajimeru Isekai Seikatsu" intact.
+  for (let i = 0; i < value.length; i += 1) {
+    if (value[i] !== ':') continue
+    const head = value.slice(i + 1).split(' ')[0]
+    if (head.length <= 3) {
+      value = value.slice(0, i)
+      break
+    }
+  }
+
+  value = value.replace(
+    /\b(?:\d+(?:st|nd|rd|th)\s+season|season\s*\d+|final\s+season|\d+(?:st|nd|rd|th)\s+cour|cour\s*\d+|part\s*\d+)\b.*$/,
+    ' '
+  )
+
+  const words = value.split(' ').filter(Boolean)
+  const isDecoration = (word: string, index: number): boolean => {
+    const bare = word.replace(/[^\p{L}\p{N}]/gu, '')
+    if (/^\(\d{4}\)$/.test(word)) return true
+    if (/^\d+$/.test(bare)) return true
+    if (ROMAN_SUFFIX.test(bare)) return true
+    if (index > 0 && /[^\p{L}\p{N}]/u.test(word) && bare.length <= 3) return true
+    return false
+  }
+  while (words.length > 1 && isDecoration(words[words.length - 1], words.length - 1)) {
+    words.pop()
+  }
+
+  return words.join(' ')
+}
+
+/**
  * Does `candidate` start a different series in the same universe, rather than
  * continue the current one?
  *
- * The signal is the shape of the extra words. A continuation adds a number, a
- * season word or a subtitle: "Season 2", "Boku no Hero Academia 2", ": Tenjiku
- * -hen", "√A", "II". A different series adds a single plain word: Dragon Ball,
- * then Z, GT, Super, DAIMA.
+ * Read as a comparison of signatures, so a different series is the default and a
+ * continuation has to be earned by decoration the signature removes. That
+ * direction matters: an earlier version merged unless both remainders were
+ * single plain words, which merged "Dragon Ball Z" with "Dragon Ball Kai (2014)"
+ * precisely because a year in parentheses is not a plain word.
  *
- * Works on the raw titles, deliberately. Normalising first was tried and it
- * failed: stripping symbols turned "√A" into "a", which then read as a plain
- * word and wrongly split Tokyo Ghoul from Tokyo Ghoul √A.
+ * Also compared on signatures rather than by walking the titles in step, because
+ * "Boku no Hero Academia 7" and "Boku no Hero Academia FINAL SEASON" diverge
+ * immediately after the shared part and neither is a prefix of the other.
  */
 export function looksLikeDifferentSeries(current: string, candidate: string): boolean {
-  const words = (value: string): string[] =>
-    value.trim().toLowerCase().replace(/\s+/g, ' ').split(' ')
-  const a = words(current)
-  const b = words(candidate)
-  if (a.length === 0 || b.length === 0) return false
+  const a = seriesSignature(current)
+  const b = seriesSignature(candidate)
+  if (a === '' || b === '') return false
+  return a !== b
+}
 
-  let i = 0
-  while (i < a.length && i < b.length && a[i] === b[i]) i += 1
-
-  const restA = a.slice(i).join(' ')
-  const restB = b.slice(i).join(' ')
-
-  // One token, purely alphabetic, and not a roman numeral.
-  const plain = (rest: string): boolean =>
-    rest !== '' && !rest.includes(' ') && /^[a-z]+$/.test(rest) && !ROMAN_SUFFIX.test(rest)
-
-  // A different series only when neither side is left with a longer subtitle.
-  const leftOk = restA === '' || plain(restA)
-  const rightOk = restB === '' || plain(restB)
-  return leftOk && rightOk && (restA !== '' || restB !== '')
+/**
+ * Should the chain walk follow a link from one entry to another?
+ *
+ * The single place that decides, so the app and the checks cannot drift apart.
+ * Three questions, in order of authority:
+ *   1. a curated group that names both entries always links them;
+ *   2. a curated split that names both entries never does;
+ *   3. otherwise the titles decide.
+ */
+export function shouldChainLink(
+  from: { id: number; title: string },
+  to: { id: number; title: string }
+): boolean {
+  const curated = franchiseGroupFor(from.id)
+  if (curated !== null && curated.includes(to.id)) return true
+  if (splitByCuration(from.id, to.id)) return false
+  return !looksLikeDifferentSeries(from.title, to.title)
 }
 
 /**
@@ -637,14 +739,13 @@ async function assembleFranchise(startId: number): Promise<RawMedia[]> {
       if (!node || !SERIES_FORMATS.has(node.format ?? '')) continue
 
       // A curated group always wins, so Steins;Gate and Steins;Gate 0 stay one
-      // entry even though their titles read as different series.
-      const curated = franchiseGroupFor(id)
-      const forced = curated !== null && curated.includes(node.id)
-
-      // Otherwise, a link to something titled as a *different* series in the
-      // same universe is not followed: Dragon Ball and Dragon Ball Z must not
-      // become one entry. Season numbering and subtitles still are.
-      if (!forced && looksLikeDifferentSeries(pickTitle(media), pickTitle(node))) continue
+      // entry even though their titles read as different series. Otherwise the
+      // link is followed only when the two titles belong to the same series,
+      // which keeps Dragon Ball, Z, GT, Super and DAIMA apart while season
+      // numbering and subtitles still join their own series.
+      if (!shouldChainLink({ id, title: pickTitle(media) }, { id: node.id, title: pickTitle(node) })) {
+        continue
+      }
 
       const from = edge.relationType === 'SEQUEL' ? id : node.id
       const to = edge.relationType === 'SEQUEL' ? node.id : id

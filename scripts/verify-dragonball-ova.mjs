@@ -86,9 +86,45 @@ try {
   }
   await win.screenshot({ path: join(root, 'verify-dragonball-search.png') })
 
-  /* ---- 2. Re:Zero OVA, from the Films tab ---- */
-  await win.getByRole('button', { name: /^(Cancel|Annuler)/ }).click()
+  /* ---- 2. Picking a series must assemble only that series ---- */
+  console.log('\nPICKING EACH SERIES — the assembled season list must hold one season:')
+  const EXPECTED = {
+    'Dragon Ball': 153,
+    'Dragon Ball Z': 291,
+    'Dragon Ball GT': 64,
+    'Dragon Ball Super': 131,
+    'Dragon Ball DAIMA': 20
+  }
+  for (const [title, episodes] of Object.entries(EXPECTED)) {
+    const row = dragonRows.find((r) => r.startsWith(title))
+    if (!row) continue
+    await win.locator('.al-result').nth(dragonRows.indexOf(row)).click()
+    // The form fetches the full franchise, which costs several AniList calls.
+    const deadline = Date.now() + 30000
+    let pill = ''
+    while (Date.now() < deadline) {
+      const pills = await win.locator('.al-block .pill').allInnerTexts()
+      pill = pills.map((s) => s.replace(/\s+/g, ' ').trim()).find((s) => /season|saison/i.test(s)) ?? ''
+      if (pill !== '') break
+      await win.waitForTimeout(400)
+    }
+    const oneSeason = /^1 (season|saison)/i.test(pill)
+    if (!oneSeason) failures += 1
+    console.log(`   ${oneSeason ? 'OK  ' : 'FAIL'} ${title.padEnd(18)} ${pill.padEnd(14)} (expected 1 season, ${episodes} eps)`)
+
+    // Back to the result list for the next one.
+    await win.getByRole('button', { name: /^(Cancel|Annuler)/ }).click()
+    await win.waitForTimeout(700)
+    if (title !== 'Dragon Ball DAIMA') {
+      await win.getByRole('button', { name: /^(Add anime|Ajouter un animé)/ }).click()
+      await win.waitForTimeout(600)
+      await win.locator('.al-block input.input').fill('dragon ball')
+      await waitForResults()
+    }
+  }
   await win.waitForTimeout(600)
+
+  /* ---- 3. Re:Zero OVA, from the Films tab ---- */
   await win.getByRole('button', { name: /^(Films)/ }).first().click()
   await win.waitForTimeout(900)
 

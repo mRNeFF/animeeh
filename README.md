@@ -16,6 +16,7 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - [What it does](#what-it-does)
 - [How seasons are merged](#how-seasons-are-merged)
 - [When a sequel is not a season](#when-a-sequel-is-not-a-season)
+- [Why the find bar has to be sticky](#why-the-find-bar-has-to-be-sticky)
 - [The scoring model](#the-scoring-model)
 - [Install](#install)
 - [Where your data lives](#where-your-data-lives)
@@ -33,6 +34,7 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - **Weighted global score**, with the episode average as a first-class component.
 - **Seven views**: Anime (series), Films & OVA, Leaderboard, Rankings by criteria, Calendar, Statistics, Settings.
 - **Find a title in the ranking.** The leaderboard keeps its order and its reader's place: a search there highlights the matching rows in amber and jumps the current match to the middle of the page, rather than filtering the table. `/` puts the focus in the field, Enter and Shift+Enter walk the matches, Escape clears then releases the focus, and accents are ignored, so `pokemon` finds `Pokémon`. Amber rather than the cyan accent on purpose: cyan already means "selected", so a search result has to read as something else.
+  The toolbar sticks to the top of the page, which is a fix rather than a flourish — see [Why the find bar has to be sticky](#why-the-find-bar-has-to-be-sticky).
 - **Release calendar.** Upcoming episodes of shows you follow, announced continuations of shows you already have, and the season's new shows kept in a separate section so your own tracking stays clean.
 - **Series and everything else are kept apart.** Searching series never returns a film or an OVA. Both live in the Films tab and are ranked there, so a film is never placed against a series; each row is badged `Film` or `OVA`. A film is rated on six criteria rather than seven, since it has no opening sequence, while an OVA keeps all seven and its episodes.
 - **AniList lookup**: type a title and the app pre-fills the year, studio, episode count **and the individual episode titles**, all of which you can still edit by hand.
@@ -155,6 +157,45 @@ To assemble each Dragon Ball series separately against the live API:
 ```powershell
 npm run diagnose:dragonball
 ```
+
+## Why the find bar has to be sticky
+
+The leaderboard toolbar is `position: sticky`, and that is load-bearing rather
+than decorative.
+
+Its find field keeps the focus while you type. Chromium scrolls a focused field
+back into view as the caret moves, and while that field sat inside the scrolling
+area, every keystroke dragged the container back up to the toolbar and undid the
+jump that had just been made to the matched row. Searching "lycoris" highlighted
+Lycoris Recoil — the row was found — and left the view at the top, 1736px away
+from it, on a 56-row ranking. Enter and the step buttons looked dead because the
+row they pointed at was never brought on screen.
+
+Sticking the toolbar means the field is always visible, so there is nothing for
+the browser to scroll back to. Keeping the search and the scope tabs at hand
+while reading a long ranking is a bonus.
+
+Two things about the diagnosis are worth keeping in mind, because both nearly hid
+the bug:
+
+- **Pasting a query hid it completely.** `fill()` sets the value in a single
+  event and the scroll worked; typing fires one event per character and it did
+  not. `smoke:find` therefore types with `pressSequentially` and never pastes.
+  Breaking the sticky rule on purpose makes that suite fail 8 checks, which is
+  the check that it still guards the bug.
+- **`scrollIntoView({ block: 'center' })` is the wrong tool here**, for a reason
+  given away by the numbers above: the table wrapper scrolls horizontally, which
+  makes it a scrollport, so the browser centres the row inside *that* — where
+  there is nothing to scroll — instead of inside the page. The scroll is computed
+  against the first ancestor with real vertical overflow instead.
+
+```powershell
+npm run diagnose:find "lycoris"
+```
+
+That prints the ancestor chain with each element's overflow and scroll height, the
+scroll calls the app makes, and how far the matched row ends up from the middle.
+`--` is not needed; the query is a plain argument.
 
 ---
 
@@ -309,7 +350,7 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run smoke:update` | Tests updating against a fake local feed |
 | `npm run smoke:update:live` | Tests updating against the real GitHub releases |
 | `npm run smoke:films` | Films tab, leaderboard scopes and grade thresholds |
-| `npm run smoke:find` | Leaderboard find bar: highlighting, centring and accent matching |
+| `npm run smoke:find` | Leaderboard find bar: highlighting, centring and accent matching, typed rather than pasted |
 | `npm run smoke:stats` | Statistics figures and the film criteria set |
 | `npm run smoke:schedule` | Release calendar end to end, against the live API |
 | `npm run check:schedule` | Prints the calendar for your own data, with sanity checks |
@@ -323,6 +364,7 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run check:guard` | Reports which franchises in your library the series rule would split |
 | `npm run check:kinds` | Asserts the film search and the series search stay disjoint, against the live API |
 | `npm run diagnose:dragonball` | Assembles each Dragon Ball series on its own, against the live API |
+| `npm run diagnose:find "query"` | Prints the scroll layout and how far the matched row sits from the middle |
 | `npm run diagnose:ova` | Lists the OVA, SPECIAL and ONA entries attached to the shows in your library |
 | `npm run diagnose:episodes` | Reports episode-name coverage and gaps for your data file |
 | `npm run inspect "title"` | Shows a title's AniList relations and Kitsu episode coverage |

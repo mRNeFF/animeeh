@@ -82,6 +82,13 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
    */
   const [find, setFind] = useState('')
   const [current, setCurrent] = useState(0)
+  /**
+   * Bumped by Enter and the step buttons so the centring effect runs again even
+   * when nothing else changed. Without it a query with a single match left those
+   * controls apparently dead: there is no next match to move to, and re-centring
+   * is the only useful thing left to do.
+   */
+  const [nudge, setNudge] = useState(0)
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>())
   const findInput = useRef<HTMLInputElement>(null)
 
@@ -190,12 +197,17 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
     const areaBox = container.getBoundingClientRect()
     const delta = rowBox.top + rowBox.height / 2 - (areaBox.top + areaBox.height / 2)
     container.scrollTo({ top: container.scrollTop + delta })
-  }, [activeId, find])
+  }, [activeId, find, nudge])
 
-  /** Moves to the next or previous match, wrapping around. */
+  /**
+   * Moves to the next or previous match, wrapping around. With a single match
+   * there is nowhere to move, so it only re-centres, which is what makes the
+   * control feel alive rather than broken.
+   */
   const step = (delta: number): void => {
     if (matchIds.length === 0) return
-    setCurrent((index) => index + delta)
+    if (matchIds.length > 1) setCurrent((index) => index + delta)
+    setNudge((value) => value + 1)
   }
 
   const counts = useMemo(() => {
@@ -211,7 +223,7 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
 
   return (
     <>
-      <div className="toolbar">
+      <div className="toolbar toolbar-sticky">
         <div className="find">
           <IconSearch size={14} />
           <input

@@ -922,6 +922,27 @@ mark {
   margin-bottom: 18px;
   flex-wrap: wrap;
 }
+
+/* Leaderboard toolbar, which holds the find field.
+   Sticking it is a correctness fix, not a decoration. The browser scrolls a
+   focused field back into view as the caret moves, and while the field sat inside
+   the scrolling area that dragged the container up to the toolbar on every
+   keystroke, undoing the jump to the matched row. With the toolbar stuck it never
+   needs revealing. It also keeps the search and the scope tabs at hand while
+   reading a long ranking.
+   The translucent background and the blur keep the body gradient showing through,
+   so there is no seam against the rest of the page. */
+.toolbar-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  padding-top: 8px;
+  padding-bottom: 14px;
+  margin-bottom: 6px;
+  background: rgba(7, 12, 22, 0.9);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
 .toolbar .spacer {
   flex: 1;
 }

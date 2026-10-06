@@ -52,7 +52,8 @@
     "diagnose:dragonball": "node scripts/diagnose-dragonball-each.mjs",
     "smoke:find": "npm run build && node scripts/smoke-find.mjs",
     "check:search": "node scripts/check-search.mjs",
-    "preview:find": "npm run build && node scripts/preview-find.mjs"
+    "preview:find": "npm run build && node scripts/preview-find.mjs",
+    "diagnose:find": "node scripts/diagnose-find-scroll.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

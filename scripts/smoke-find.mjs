@@ -112,13 +112,38 @@ const centres = async () => {
   return { row: Math.round(rowCentre), area: Math.round(areaCentre), delta: Math.round(Math.abs(rowCentre - areaCentre)) }
 }
 
+/**
+ * Clears the field and types `text` one character at a time.
+ *
+ * Typed rather than pasted deliberately. `fill()` sets the value in a single
+ * event and this bug does not appear; typing fires one event per character, and
+ * it was the browser revealing the focused field on each caret move that dragged
+ * the container back to the toolbar and undid the jump. A pasted query hid the
+ * whole thing, so the tests paste nothing.
+ */
 const type = async (text) => {
-  await input().fill(text)
-  // The scroll is instant and the matching is local, so this is only a frame or
-  // two of settle time. It is deliberately short: a smooth scroll would not have
-  // arrived yet, which is what makes the centring assertions meaningful.
-  await sleep(450)
+  await input().fill('')
+  await sleep(180)
+  await input().click()
+  await input().pressSequentially(text, { delay: 40 })
+  // The scroll is instant, so this is only a frame or two of settle time.
+  await sleep(500)
 }
+
+/** Where the current match sits relative to the scrolling area. */
+const currentRowState = () =>
+  win.evaluate(() => {
+    const area = document.querySelector('.content')
+    const row = document.querySelector('tr.row-current')
+    if (!area || !row) return { delta: null, visible: false, scrollTop: -1 }
+    const a = area.getBoundingClientRect()
+    const r = row.getBoundingClientRect()
+    return {
+      delta: Math.round(Math.abs(r.top + r.height / 2 - (a.top + a.height / 2))),
+      visible: r.top >= a.top && r.bottom <= a.bottom + 1,
+      scrollTop: Math.round(area.scrollTop)
+    }
+  })
 
 try {
   await sleep(1500)
@@ -162,7 +187,7 @@ try {
   check('focus starts outside the find field', before.inFind, false)
   check('"/" focuses the find field', after.inFind && after.tag === 'INPUT', true)
 
-  /* ---- 3. One match, far down the table ---- */
+  /* ---- 3. One match, far down the table, reached by typing ---- */
   await type('zelda no densetsu')
   const matched = await win.locator('tr.row-match').count()
   check('both Zelda rows match', matched, 2)
@@ -227,9 +252,56 @@ try {
   const accented = await centres()
   console.log(`   accented match centred at ${accented.row}px, off by ${accented.delta}px`)
   check('the accented match is centred', accented.delta !== null && accented.delta <= 4, true)
+  const accentedState = await currentRowState()
+  check('and it is visible on screen', accentedState.visible, true)
+  check('the container really scrolled', accentedState.scrollTop > 100, true)
   await win.screenshot({ path: join(root, 'smoke-find-accent.png') })
 
-  /* ---- 6. A match at the very bottom: the scroll clamps, so all that is
+  /* ---- 6b. A single match, typed, must still be reached. This is the shape of
+     the reported bug: "lycoris" found one row, highlighted it, and left the
+     container at the top. ---- */
+  await type('pokemon')
+  const single = await currentRowState()
+  console.log(
+    `   single match "Pokémon Chronicles": scrollTop=${single.scrollTop}, off by ${single.delta}px, visible=${single.visible}`
+  )
+  check('a single typed match is centred', single.delta !== null && single.delta <= 4, true)
+  check('a single typed match is visible', single.visible, true)
+
+  /* ---- 6c. Enter with a single match cannot advance, but must re-centre, so the
+     control is never inert. ---- */
+  await win.evaluate(() => {
+    document.querySelector('.content').scrollTop = 0
+  })
+  await sleep(300)
+  const scrolledAway = await currentRowState()
+  check('scrolled away for the test', scrolledAway.scrollTop, 0)
+  await input().press('Enter')
+  await sleep(600)
+  const recentred = await currentRowState()
+  console.log(`   after Enter: scrollTop=${recentred.scrollTop}, off by ${recentred.delta}px`)
+  check('Enter re-centres a lone match', recentred.delta !== null && recentred.delta <= 4, true)
+  check('and brings it back into view', recentred.visible, true)
+
+  /* ---- 6d. The step buttons do the same. ---- */
+  await win.evaluate(() => {
+    document.querySelector('.content').scrollTop = 0
+  })
+  await sleep(300)
+  await win.locator('.find-step').first().click()
+  await sleep(600)
+  const stepUp = await currentRowState()
+  check('the up button re-centres a lone match', stepUp.delta !== null && stepUp.delta <= 4, true)
+  await win.evaluate(() => {
+    document.querySelector('.content').scrollTop = 0
+  })
+  await sleep(300)
+  await win.locator('.find-step').nth(1).click()
+  await sleep(600)
+  const stepDown = await currentRowState()
+  check('the down button re-centres a lone match', stepDown.delta !== null && stepDown.delta <= 4, true)
+
+  /* ---- 7. A match at the very bottom: the scroll clamps, so all that is
      required is that the row ends up visible. This is the last row, and the
      container cannot scroll past its end to centre it. ---- */
   await type('one piece')

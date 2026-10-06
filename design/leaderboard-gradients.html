@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ANIMEEH — Dégradés du classement</title>
+    <style>
+      /* ----------------------------------------------------------------
+         Page de comparaison, autonome. Aucune dépendance, aucun réseau.
+
+         Le classement est rendu sept fois, avec le même balisage et les mêmes
+         couleurs que l'application. Seule la façon de poser le dégradé change.
+         Les couleurs des lettres ne bougent pas : S rose, A violet, B bleu,
+         C vert, D jaune, E orange, F rouge, comme dans l'app.
+         ---------------------------------------------------------------- */
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        background: #0a0f19;
+        color: #f1f5f9;
+        font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .page { max-width: 1320px; margin: 0 auto; padding: 34px 24px 90px; }
+
+      h1 { font-size: 23px; margin: 0 0 8px; letter-spacing: -0.01em; }
+      h2 {
+        font-size: 15px; margin: 0; letter-spacing: -0.01em;
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      }
+      .lead { color: #a8b6cb; font-size: 13.5px; line-height: 1.65; max-width: 860px; margin: 0 0 28px; }
+      .lead strong { color: #f1f5f9; font-weight: 600; }
+
+      /* ---------------- Échelle des teintes ---------------- */
+
+      .ramp {
+        display: flex; gap: 0; margin: 0 0 30px; border-radius: 12px; overflow: hidden;
+        border: 1px solid #26375a; flex-wrap: wrap;
+      }
+      .ramp div {
+        flex: 1 1 110px; padding: 9px 10px 10px;
+        font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+        text-align: center; color: #070c16;
+      }
+      .ramp div small { display: block; font-weight: 600; opacity: 0.72; font-size: 9.5px; letter-spacing: 0; }
+
+      /* ---------------- Une proposition ---------------- */
+
+      .proposal { margin-bottom: 40px; }
+      .proposal > header {
+        display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+        margin-bottom: 6px;
+      }
+      .num {
+        flex: none; width: 26px; height: 26px; border-radius: 8px;
+        display: grid; place-items: center; font-size: 12px; font-weight: 800;
+        background: #1e2c49; color: #a8b6cb;
+      }
+      .tag {
+        font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+        padding: 3px 9px; border-radius: 99px; border: 1px solid #26375a; color: #7d8ca3;
+      }
+      .tag.best { border-color: #22d3ee; color: #22d3ee; background: rgba(34,211,238,.1); }
+      .why { color: #a8b6cb; font-size: 12.5px; line-height: 1.6; margin: 4px 0 12px; max-width: 900px; }
+      .why b { color: #f1f5f9; font-weight: 600; }
+      .why .risk { color: #fbbf24; }
+
+      /* ---------------- Le cadre, qui imite l'application ---------------- */
+
+      .frame {
+        border-radius: 14px; overflow: hidden; border: 1px solid #1c2942;
+        background: #070c16; box-shadow: 0 26px 60px -34px rgba(0,0,0,.95);
+      }
+      .frame-head {
+        display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+        background: #121a2b; border-bottom: 1px solid #1c2942;
+        font-size: 12.5px; font-weight: 700;
+      }
+      .frame-head .dot { width: 8px; height: 8px; border-radius: 50%; background: #22d3ee; }
+      .frame-body { padding: 16px 16px 18px; }
+
+      /* ---------------- La table ---------------- */
+
+      table { width: 100%; border-collapse: collapse; }
+      th {
+        text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+        color: #7d8ca3; font-weight: 700; padding: 0 10px 9px; white-space: nowrap;
+      }
+      th.n, td.n { text-align: right; font-variant-numeric: tabular-nums; }
+      td {
+        padding: 9px 10px; border-bottom: 1px solid rgba(28,41,66,.75);
+        vertical-align: middle; font-size: 13px;
+      }
+      tbody tr:last-child td { border-bottom: none; }
+      .c-rank { font-weight: 800; color: #a8b6cb; width: 46px; }
+      .c-rank.top { color: #22d3ee; }
+      .t-title { font-weight: 600; }
+      .t-sub { font-size: 11px; color: #7d8ca3; }
+      .num-val { font-weight: 600; }
+      .c-eps { color: #a8b6cb; }
+
+      /* La pastille de note : identique dans toutes les propositions, sauf la 5. */
+      .badge {
+        width: 30px; height: 30px; border-radius: 9px;
+        display: grid; place-items: center; font-weight: 800; font-size: 14px;
+        color: #070c16;
+        background: linear-gradient(135deg, hsl(var(--h) 78% 62%), hsl(var(--h) 70% 46%));
+      }
+
+      /* ----------------------------------------------------------------
+         Chaque proposition pose le dégradé autrement. Les variables
+         --h1 et --h2 sont l'étendue de teintes de la note de la ligne.
+         ---------------------------------------------------------------- */
+
+      /* 1. Bandeau de gauche : un liseré vertical, le reste de la ligne net. */
+      .v1 tbody tr { position: relative; }
+      .v1 tbody tr td:first-child {
+        position: relative;
+        background-image: linear-gradient(180deg, hsl(var(--h1) 80% 60%), hsl(var(--h2) 80% 52%));
+        background-repeat: no-repeat;
+        background-size: 4px 100%;
+        background-position: left center;
+        padding-left: 14px;
+      }
+
+      /* 2. Cellule du titre : dégradé horizontal qui s'efface vers la droite. */
+      .v2 .c-title {
+        background-image: linear-gradient(
+          90deg,
+          hsl(var(--h1) 78% 56% / 0.30) 0%,
+          hsl(var(--h2) 78% 56% / 0.10) 55%,
+          transparent 88%
+        );
+        border-radius: 7px 0 0 7px;
+      }
+
+      /* 3. Ligne entière : dégradé horizontal très léger sur toute la largeur. */
+      .v3 tbody tr {
+        background-image: linear-gradient(
+          90deg,
+          hsl(var(--h1) 78% 56% / 0.20) 0%,
+          hsl(var(--h2) 78% 56% / 0.09) 45%,
+          transparent 85%
+        );
+      }
+
+      /* 4. Colonne de rang : un bloc plein, le numéro posé dessus en sombre. */
+      .v4 .c-rank {
+        background-image: linear-gradient(150deg, hsl(var(--h1) 78% 62%), hsl(var(--h2) 74% 48%));
+        color: #070c16 !important;
+        font-weight: 800;
+        border-radius: 8px;
+        text-align: center;
+      }
+
+      /* 5. Pastille et score : le dégradé porte la note, et une jauge le score. */
+      .v5 .badge {
+        background: linear-gradient(150deg, hsl(var(--h1) 82% 64%), hsl(var(--h2) 74% 44%));
+        width: 34px; height: 30px;
+      }
+      .v5 .score-wrap { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+      .v5 .score-bar { width: 54px; height: 5px; border-radius: 3px; background: #1c2942; overflow: hidden; }
+      .v5 .score-bar i {
+        display: block; height: 100%; border-radius: 3px;
+        background: linear-gradient(90deg, hsl(var(--h1) 78% 58%), hsl(var(--h2) 78% 52%));
+      }
+
+      /* 6. Dégradé continu : la colonne de gauche traverse tout le spectre du
+         classement, du rose du haut au rouge du bas. */
+      .v6 tbody tr td:first-child {
+        background-image: linear-gradient(180deg, hsl(var(--h1) 80% 60%), hsl(var(--h2) 80% 50%));
+        background-repeat: no-repeat;
+        background-size: 4px 100%;
+        background-position: left center;
+        padding-left: 14px;
+      }
+      .v6 tbody tr {
+        background-image: linear-gradient(
+          90deg,
+          hsl(var(--h1) 70% 52% / var(--flow)) 0%,
+          transparent 70%
+        );
+      }
+
+      /* 8. La même chose, franche : c'est le réglage d'intensité qui change,
+         pas la forme. À comparer avec la 6 pour choisir le dosage. */
+      .v8 tbody tr td:first-child {
+        background-image: linear-gradient(180deg, hsl(var(--h1) 82% 62%), hsl(var(--h2) 82% 52%));
+        background-repeat: no-repeat;
+        background-size: 5px 100%;
+        background-position: left center;
+        padding-left: 15px;
+      }
+      .v8 tbody tr {
+        background-image: linear-gradient(
+          90deg,
+          hsl(var(--h1) 72% 52% / var(--flow)) 0%,
+          hsl(var(--h2) 72% 50% / calc(var(--flow) * 0.5)) 55%,
+          transparent 100%
+        );
+      }
+
+      /* 7. Carte de chaleur : chaque valeur teintée selon elle-même, plus le
+         liseré de gauche pour garder la note lisible d'un coup d'œil. */
+      .v7 tbody tr td:first-child {
+        background-image: linear-gradient(180deg, hsl(var(--h1) 80% 60%), hsl(var(--h2) 80% 50%));
+        background-repeat: no-repeat;
+        background-size: 4px 100%;
+        background-position: left center;
+        padding-left: 14px;
+      }
+      .v7 .heat {
+        border-radius: 6px; font-weight: 600;
+        color: #070c16;
+      }
+
+      /* La variante de référence : le classement tel qu'il est aujourd'hui. */
+      .v0 tbody tr td:first-child { padding-left: 10px; }
+
+      .foot { color: #7d8ca3; font-size: 12px; line-height: 1.7; margin-top: 6px; }
+      .foot code { color: #22d3ee; font-size: 11.5px; }
+      .sep { height: 1px; background: #1c2942; margin: 46px 0; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <h1>Dégradés du classement</h1>
+      <p class="lead">
+        Sept façons de poser un dégradé sur le classement, à comparer avec le rendu
+        actuel. Dans toutes, <strong>les couleurs de lettres ne changent pas</strong> :
+        S rose, A violet, B bleu, C vert, D jaune, E orange, F rouge. Ce qui change
+        est l'endroit où le dégradé est posé et la surface qu'il couvre. Chaque note
+        reçoit une <strong>étendue</strong> de teintes plutôt qu'une teinte unique,
+        pour que le dégradé se voie à l'intérieur d'une même note.
+      </p>
+
+      <div class="ramp" id="ramp"></div>
+
+      <div id="proposals"></div>
+
+      <div class="sep"></div>
+
+      <h2>Ce que je recommande</h2>
+      <p class="why">
+        La <b>6</b> comme base : c'est la plus proche de ta capture, elle donne au
+        classement un dégradé qui descend du rose (S) au rouge (F) et se lit d'un seul
+        regard, et son liseré de gauche garde chaque note identifiable quand on
+        regarde une ligne précise. Elle s'accorde avec les pastilles actuelles, qui
+        restent inchangées.<br /><br />
+        Reste le <b>dosage</b>, et c'est la vraie question : la <b>6</b> est discrète,
+        la <b>7</b> est le même dessin poussé à l'intensité de ta capture. Entre les
+        deux, tout est possible en réglant un seul chiffre.<br /><br />
+        En complément, la <b>8</b> apporte la carte de chaleur que ta capture montre
+        sur les colonnes de critères. Elle est plus riche mais charge davantage, donc
+        je la proposerais séparément, quitte à ne teinter que trois colonnes plutôt que
+        sept.<br /><br />
+        Les <b>1</b>, <b>2</b> et <b>4</b> sont les plus sobres si le dégradé te paraît
+        finalement trop présent à l'usage.
+      </p>
+    </div>
+
+    <script>
+      /* ----------------------------------------------------------------
+         Les teintes, dans un seul objet : changer un chiffre ici change
+         toutes les propositions.
+         ---------------------------------------------------------------- */
+
+      // La teinte de référence de chaque note, telle qu'elle est dans l'app.
+      const LETTER_HUE = { S: 320, A: 268, B: 212, C: 158, D: 46, E: 22, F: 8 }
+
+      // L'étendue de chaque note : d'où l'on part, où l'on arrive.
+      // « dégradé de rose » pour le S, « de bleu-violet à rose-violet » pour le A.
+      const RANGE = {
+        S: [304, 342],
+        A: [246, 292],
+        B: [190, 244],
+        C: [142, 188],
+        D: [30, 68],
+        E: [14, 34],
+        F: [0, 16]
+      }
+
+      /* ----------------------------------------------------------------
+         Le jeu de lignes : les sept notes sont représentées.
+         ---------------------------------------------------------------- */
+
+      const ROWS = [
+        ['Sousou no Frieren',      '2023 · Madhouse', 28, 95.6, 96, 95, 94],
+        ['Shingeki no Kyojin',     '2013 · WIT',      87, 91.2, 93, 90, 91],
+        ['Jujutsu Kaisen',         '2020 · MAPPA',    59, 88.4, 90, 86, 89],
+        ['Boku no Hero Academia',  '2016 · Bones',   170, 82.1, 84, 80, 83],
+        ['Chainsaw Man',           '2022 · MAPPA',    12, 76.3, 79, 74, 78],
+        ['Tokyo Revengers',        '2021 · Liden',    63, 71.0, 73, 69, 72],
+        ['Jigokuraku',             '2023 · MAPPA',    25, 66.8, 68, 65, 67],
+        ['Re:Zero',                '2016 · White Fox',85, 58.2, 60, 55, 59],
+        ['Tokyo Ghoul',            '2014 · Pierrot',  12, 52.7, 54, 50, 53],
+        ['Yakusoku no Neverland',  '2019 · CloverW',  12, 41.5, 43, 39, 42],
+        ['Kakegurui',              '2017 · MAPPA',    12, 33.9, 35, 32, 34],
+        ['Darling in the Franxx',  '2018 · Trigger',  24, 24.6, 26, 22, 25],
+        ['Tengoku Daimakyou',      '2023 · Production',13, 15.2, 16, 13, 15],
+        ['Takopii no Genzai',      '2025 · Shaft',     6,  6.4,  7,  5,  6]
+      ]
+
+      const LETTER = (score) =>
+        score >= 90 ? 'S' : score >= 75 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C'
+        : score >= 30 ? 'D' : score >= 10 ? 'E' : 'F'
+
+      /** La variable --flow de la proposition 6, pour que le fond descende.
+       *  La 8 reprend la même forme avec une intensité plus franche. */
+      const flowAlpha = (index, variant) => {
+        const bold = variant === 'v8'
+        const start = bold ? 0.46 : 0.17
+        const step = bold ? 0.026 : 0.009
+        return Math.max(bold ? 0.16 : 0.05, start - index * step).toFixed(3)
+      }
+
+      /** Une valeur de critère teintée selon elle-même, pour la proposition 7. */
+      const heat = (value) => {
+        // 0 rouge, 100 vert : la même échelle que sur ta capture.
+        const hue = 8 + (value / 100) * 132
+        return `hsl(${hue} 62% 62% / 0.30)`
+      }
+
+      const SCORE_NEUTRAL = { color: '#f1f5f9' }
+
+      function row([title, sub, eps, score, ...criteria], index, variant) {
+        const letter = LETTER(score)
+        const [h1, h2] = RANGE[letter]
+        const top = index < 3
+        const style = `--h1:${h1};--h2:${h2};--flow:${flowAlpha(index, variant)}`
+
+        const cells = criteria
+          .map((value) => {
+            const tint = variant === 'v7' ? ` class="heat" style="background:${heat(value)}"` : ''
+            return `<td class="n"><span${tint}>${value}</span></td>`
+          })
+          .join('')
+
+        const scoreCell =
+          variant === 'v5'
+            ? `<td class="n"><div class="score-wrap"><span class="score-bar"><i style="width:${
+                Math.max(4, score)
+              }%"></i></span><span class="num-val">${score.toFixed(1)}</span></div></td>`
+            : `<td class="n"><span class="num-val" style="${SCORE_NEUTRAL}">${score.toFixed(1)}</span></td>`
+
+        return `<tr style="${style}">
+          <td class="c-rank${top ? ' top' : ''}">${index + 1}</td>
+          <td class="c-title"><div class="t-title">${title}</div><div class="t-sub">${sub}</div></td>
+          <td class="n c-eps">${eps}</td>
+          <td class="n num-val">${(score - 0.7).toFixed(1)}</td>
+          ${cells}
+          ${scoreCell}
+          <td><span class="badge" style="--h:${LETTER_HUE[letter]}">${letter}</span></td>
+        </tr>`
+      }
+
+      function board(variant) {
+        const body = ROWS.map((r, i) => row(r, i, variant)).join('')
+        return `<div class="frame ${variant}">
+          <div class="frame-head"><span class="dot"></span> Classement · Global</div>
+          <div class="frame-body">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>Titre</th><th class="n">Ép.</th><th class="n">Moy.</th>
+                  <th class="n" title="Personnages">Pers.</th>
+                  <th class="n" title="Histoire">Hist.</th>
+                  <th class="n" title="Animation">Anim.</th>
+                  <th class="n">Global</th><th>Note</th>
+                </tr>
+              </thead>
+              <tbody>${body}</tbody>
+            </table>
+          </div>
+        </div>`
+      }
+
+      /* ----------------------------------------------------------------
+         Les propositions.
+         ---------------------------------------------------------------- */
+
+      const PROPOSALS = [
+        {
+          variant: 'v1',
+          tag: 'Sobre',
+          name: 'Liseré de gauche',
+          why: `Un trait de 4px sur le bord de la ligne, du rosé au rosé plus soutenu.
+            Le reste de la ligne reste <b>totalement net</b> : les chiffres, le titre et
+            la pastille gardent le fond sombre. Le dégradé se lit sur la tranche, pas
+            sous le texte.`,
+          note: 'Le moins intrusif. La colonne de gauche devient un repère de couleur.'
+        },
+        {
+          variant: 'v2',
+          tag: 'Sobre',
+          name: 'Cellule du titre teintée',
+          why: `Le dégradé part du bord gauche de la cellule du titre et <b>s'efface vers la
+            droite</b>, sur environ 240px. Le fond n'est jamais franc : le titre reste
+            lisible et les colonnes de chiffres ne reçoivent aucune couleur, donc elles
+            se comparent sans bruit.`,
+          note: 'Bon compromis lisibilité / couleur, mais le dégradé est court.'
+        },
+        {
+          variant: 'v3',
+          tag: 'Marqué',
+          name: 'Ligne entière teintée',
+          why: `Le même dégradé, étalé sur <b>toute la largeur</b> de la ligne. La couleur
+            devient une propriété de la ligne et non d'une cellule, donc elle continue de
+            se lire quand on fait défiler horizontalement un classement large.`,
+          note: 'Plus présent ; les cellules teintées demandent un texte bien contrasté.'
+        },
+        {
+          variant: 'v4',
+          tag: 'Compact',
+          name: 'Colonne de rang pleine',
+          why: `Le dégradé remplit <b>la case du rang</b>, avec le numéro posé dessus en
+            sombre. C'est la proposition la plus dense : la couleur tient dans 46px de
+            large et le reste du tableau ne change pas du tout.`,
+          note: 'Rappelle les pastilles de note juste à droite : deux aplats de couleur par ligne.'
+        },
+        {
+          variant: 'v5',
+          tag: 'Sur la note',
+          name: 'Pastille en dégradé, score en jauge',
+          why: `Le dégradé va là où il porte une information : la <b>pastille de note</b>
+            utilise toute l'étendue de la couleur (34px de large au lieu de 30), et le
+            score global reçoit une <b>jauge</b> qui reprend le même dégradé. Le fond du
+            tableau reste entièrement noir.`,
+          note: "La couleur n'est plus décorative mais mesurable. La plus proche de la DA actuelle."
+        },
+        {
+          variant: 'v6',
+          tag: 'Recommandé',
+          name: 'Dégradé vertical continu + liseré',
+          why: `Le dégradé <b>descend sur toute la hauteur du classement</b> : en haut le rose
+            du S, en bas le rouge du F, en passant par le violet, le bleu, le vert et le
+            jaune. Chaque ligne reçoit sa tranche de ce spectre, en fond léger, plus le
+            liseré de gauche. C'est la lecture d'ensemble de ta capture : on voit la
+            qualité du classement avant de lire un seul chiffre.`,
+          note: "Le plus proche de ta capture. Dosage discret : compare avec la 7 juste en dessous."
+        },
+        {
+          variant: 'v8',
+          tag: 'Intensité',
+          name: 'Dégradé vertical soutenu',
+          why: `Exactement la même forme que la 6, <b>dosée plus fort</b> : le fond de ligne
+            monte de 17% à 46% d'opacité au premier rang, et le dégradé court sur toute la
+            largeur au lieu de s'éteindre à 70%. C'est le réglage d'intensité de ta
+            capture, pour juger du dosage indépendamment de la forme.`,
+          note: 'C\'est ici la seule différence avec la 6 : la forme est identique.'
+        },
+        {
+          variant: 'v7',
+          tag: 'Riche',
+          name: 'Carte de chaleur des critères',
+          why: `Ta capture teinte surtout les <b>colonnes de critères</b> : chaque valeur prend
+            la couleur de sa propre valeur, du rouge au vert. J'ajoute le liseré de gauche
+            pour que la note de la ligne reste lisible d'un coup d'œil, car une carte de
+            chaleur ne dit rien de la note globale.`,
+          note: 'La plus informative, et la plus chargée. À réserver au grand écran.'
+        }
+      ]
+
+      const ramp = document.getElementById('ramp')
+      ramp.innerHTML = ['S', 'A', 'B', 'C', 'D', 'E', 'F']
+        .map((letter) => {
+          const [h1, h2] = RANGE[letter]
+          return `<div style="background:linear-gradient(100deg, hsl(${h1} 78% 62%), hsl(${h2} 76% 54%))">
+            ${letter}<small>${h1}° → ${h2}°</small>
+          </div>`
+        })
+        .join('')
+
+      document.getElementById('proposals').innerHTML = PROPOSALS.map(
+        (p, i) => `<section class="proposal">
+          <header>
+            <span class="num">${i + 1}</span>
+            <h2>${p.name} <span class="tag${p.tag === 'Recommandé' ? ' best' : ''}">${p.tag}</span></h2>
+          </header>
+          <p class="why">${p.why}</p>
+          ${board(p.variant)}
+          <p class="why"><span class="risk">À savoir :</span> ${p.note}</p>
+        </section>`
+      ).join('')
+
+      /* La référence, en dernier, pour comparer. */
+      document.getElementById('proposals').insertAdjacentHTML(
+        'afterbegin',
+        `<section class="proposal v0">
+          <header>
+            <span class="num">0</span>
+            <h2>Aujourd'hui <span class="tag">Référence</span></h2>
+          </header>
+          <p class="why">Le classement tel qu'il est : aucune couleur sur les lignes, seules
+            les pastilles de note sont teintées. C'est le point de comparaison.</p>
+          ${board('v0')}
+        </section>`
+      )
+    </script>
+  </body>
+</html>

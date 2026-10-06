@@ -1,9 +1,15 @@
 /**
- * Minimal static file server, used only to preview design/art-directions.html in
- * the browser. The browser tool refuses file:// URLs, so the page needs to be
- * served over HTTP for a visual check.
+ * Minimal static file server, used only to preview the pages in design/ in the
+ * browser. The browser tool refuses file:// URLs, so a page needs to be served
+ * over HTTP for a visual check.
  *
- * Usage: node scripts/serve-design.mjs [port]
+ * Usage:
+ *   node scripts/serve-design.mjs                      # art-directions.html
+ *   node scripts/serve-design.mjs 4180                 # another port
+ *   node scripts/serve-design.mjs 4180 leaderboard-gradients.html
+ *
+ * Any other file in design/ is reachable by its name, so the default page is
+ * only a convenience.
  */
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
@@ -13,6 +19,7 @@ import { dirname, extname, join, normalize } from 'node:path'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'design')
 const port = Number(process.argv[2] ?? 4173)
+const defaultPage = process.argv[3] ?? 'art-directions.html'
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -24,7 +31,7 @@ const TYPES = {
 
 const server = createServer(async (req, res) => {
   const url = decodeURIComponent((req.url ?? '/').split('?')[0])
-  const rel = url === '/' ? 'art-directions.html' : url.replace(/^\/+/, '')
+  const rel = url === '/' ? defaultPage : url.replace(/^\/+/, '')
   const file = join(root, normalize(rel))
 
   // Keep the server inside the design folder.

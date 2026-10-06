@@ -12,6 +12,9 @@ verify-*.png
 preview-*.png
 ab-*.png
 diagnose-scroll-*.png
+
+# Captures de revue de design, jetables.
+design/preview/
 .seed-cache.json
 seed-report.json
 .kitsu-cache.json

@@ -2,9 +2,9 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { statusKey, useI18n, type MessageKey } from '../i18n'
 import { rankAnime } from '../scoring'
 import { useStore } from '../store'
-import { STATUSES, isFilm, type Status } from '../types'
+import { STATUSES, isFilmLike, type Status } from '../types'
 
-export { isFilm }
+export { isFilmLike }
 import { AnimeCard } from './AnimeCard'
 import { IconPlus, IconSearch } from './Icons'
 
@@ -23,7 +23,8 @@ export type LibraryMode = 'all' | 'series' | 'film'
 
 function matchesMode(anime: { format?: string }, mode: LibraryMode): boolean {
   if (mode === 'all') return true
-  return mode === 'film' ? isFilm(anime) : !isFilm(anime)
+  // A film and an OVA both belong under Films; everything else is a series.
+  return mode === 'film' ? isFilmLike(anime) : !isFilmLike(anime)
 }
 
 export function AnimeLibrary({

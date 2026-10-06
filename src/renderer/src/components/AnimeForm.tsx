@@ -173,7 +173,10 @@ export function AnimeForm({
     setPicked(result)
     setShowSeasons(false)
 
-    const isFilm = (result.format ?? '') === 'MOVIE'
+    // A film is one work; an OVA is a short run. Neither has seasons, but an
+    // OVA does have episodes, so only a film drops the episode count.
+    const isMoviePick = (result.format ?? '') === 'MOVIE'
+    const isFilmLikePick = isMoviePick || (result.format ?? '') === 'OVA'
 
     setValues((prev) => ({
       ...prev,
@@ -182,22 +185,22 @@ export function AnimeForm({
       year: result.year ? String(result.year) : '',
       studio: result.studio ?? '',
       source: sourceFrom(result),
-      totalEpisodes: isFilm ? undefined : (result.episodes ?? undefined),
+      totalEpisodes: isMoviePick ? undefined : (result.episodes ?? undefined),
       episodeBlueprint: [],
-      seasons: isFilm ? [] : seasonsFrom(result),
+      seasons: isFilmLikePick ? [] : seasonsFrom(result),
       coverImage: result.coverImage ?? undefined,
       genres: result.genres ?? [],
       format: result.format ?? undefined,
       duration: result.duration ?? undefined,
       // A film is rated as a whole: there are no episodes to create.
-      createEpisodes: !isFilm
+      createEpisodes: !isMoviePick
     }))
 
-    // A film is a single work. Walking its relations would drag in the TV
-    // series it belongs to — picking "Chainsaw Man: Reze-hen" used to return
-    // the whole Chainsaw Man franchise — so films stop here and use the search
-    // data, which already carries everything the app stores.
-    if (isFilm || kind === 'film') {
+    // A film or an OVA is a self-contained work. Walking its relations would
+    // drag in the series it belongs to — picking "Chainsaw Man: Reze-hen" used
+    // to return the whole Chainsaw Man franchise — so these stop here and use
+    // the search data, which already carries everything the app stores.
+    if (isFilmLikePick || kind === 'film') {
       setLoadingDetails(false)
       return
     }
@@ -254,7 +257,13 @@ export function AnimeForm({
   }
 
   const canSubmit = values.title.trim().length > 0
-  const isFilmPicked = (picked?.format ?? '') === 'MOVIE' || kind === 'film'
+  /**
+   * Film or OVA: no season list, and the pill names the format instead of a
+   * season count. An OVA still has episodes, so the episode controls stay.
+   */
+  const formatOf = picked?.format ?? (kind === 'film' ? 'MOVIE' : undefined)
+  const isFilmPicked = formatOf === 'MOVIE' || formatOf === 'OVA'
+  const pickLabel = formatOf === 'OVA' ? t('form.ova') : t('form.film')
   const plannedEpisodes = values.createEpisodes
     ? (values.totalEpisodes ?? values.episodeBlueprint.length)
     : 0
@@ -305,7 +314,7 @@ export function AnimeForm({
             {!searching && !searchError && results.length > 0 && (
               <div className="al-results">
                 {results.map((r) => {
-                  const isFilmResult = (r.format ?? '') === 'MOVIE'
+                  const isFilmResult = r.format === 'MOVIE' || r.format === 'OVA'
                   const summary = isFilmResult ? null : seasonSummary(r)
                   return (
                     <button
@@ -328,7 +337,11 @@ export function AnimeForm({
                         <div className="al-tags">
                           {/* A film's format and episode count are noise: it is
                               one work, so only the year and studio are useful. */}
-                          {isFilmResult && <span className="al-film">{t('form.film')}</span>}
+                          {isFilmResult && (
+                            <span className="al-film">
+                              {r.format === 'OVA' ? t('form.ova') : t('form.film')}
+                            </span>
+                          )}
                           {r.year && <span>{r.year}</span>}
                           {!isFilmResult && r.format && <span>{r.format}</span>}
                           {!isFilmResult && (
@@ -362,7 +375,7 @@ export function AnimeForm({
                   <div>
                     {/* A film has no seasons, so the season pill is noise. */}
                     {isFilmPicked ? (
-                      <span className="pill">{t('form.film')}</span>
+                      <span className="pill">{pickLabel}</span>
                     ) : multiSeason ? (
                       <button
                         type="button"

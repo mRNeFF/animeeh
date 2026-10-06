@@ -14,7 +14,7 @@ export const LANGUAGES: { key: Language; label: string }[] = [
  */
 const en = {
   'nav.library': 'Anime',
-  'nav.films': 'Films',
+  'nav.films': 'Films & OVA',
   'nav.leaderboard': 'Leaderboard',
   'nav.criteria': 'By Criteria',
   'nav.settings': 'Settings',
@@ -53,7 +53,8 @@ const en = {
   'stats.empty.title': 'Nothing to measure yet',
   'stats.empty.body': 'Add and rate some anime, and your statistics will appear here.',
   'stats.series': 'Series',
-  'stats.films': 'Films',
+  'stats.films': 'Films & OVA',
+  'stats.ovas': 'OVAs',
   'stats.watchTimeDetail': 'How the watch time is built',
   'stats.watchTimeSub':
     'Only episodes you have rated count as watched. The listed figure is the upper bound, for the case where you watched everything in your list.',
@@ -104,8 +105,8 @@ const en = {
   'subtitle.criteria': 'Compare shows on a single aspect',
   'title.settings': 'Settings',
   'subtitle.settings': 'Language, weights, updates and data',
-  'title.films': 'Films',
-  'subtitle.films': 'Anime films you have watched and scored',
+  'title.films': 'Films & OVA',
+  'subtitle.films': 'Films and OVAs you have watched and scored',
   'title.detail': 'Anime detail',
   'subtitle.detail': 'Score episodes and rate every criterion',
 
@@ -139,7 +140,7 @@ const en = {
   'empty.noFilms.body':
     'Add the first anime film you have watched, then rate it on every criterion. Films live here and stay out of your series list.',
   'empty.noFilms.cta': 'Add your first film',
-  'form.addFilm': 'Add film',
+  'form.addFilm': 'Add film or OVA',
   'board.tab.global': 'Global',
   'board.tab.series': 'Series only',
   'board.tab.films': 'Films only',
@@ -231,7 +232,7 @@ const en = {
   'form.editTitle': 'Edit anime',
   'form.editSubtitle': 'Update the details for this entry.',
   'form.search': 'Search AniList (e.g. frieren)…',
-  'form.searchFilm': 'Search films on AniList (e.g. your name)…',
+  'form.searchFilm': 'Search films and OVAs (e.g. re:zero)…',
   'form.searching': 'Searching AniList…',
   'form.unreachable': 'AniList unreachable: {error}',
   'form.manualFallback': 'You can still fill in the details manually below.',
@@ -254,6 +255,7 @@ const en = {
   'form.notesPlaceholder': 'Thoughts, favourite arc, where you watched it…',
   'form.episodePlaceholder': 'Episode {number}',
   'form.film': 'Film',
+  'form.ova': 'OVA',
   'form.filmTitlePlaceholder': 'e.g. Your Name',
   'form.titlePlaceholder': "e.g. Frieren: Beyond Journey's End",
   'form.favourite': 'Mark as a personal favourite',
@@ -387,7 +389,7 @@ export type MessageKey = keyof typeof en
 
 const fr: Record<MessageKey, string> = {
   'nav.library': 'Animé',
-  'nav.films': 'Films',
+  'nav.films': 'Films & OVA',
   'nav.leaderboard': 'Classement',
   'nav.criteria': 'Par critère',
   'nav.settings': 'Réglages',
@@ -427,7 +429,8 @@ const fr: Record<MessageKey, string> = {
   'stats.empty.title': 'Rien à mesurer pour le moment',
   'stats.empty.body': 'Ajoutez et notez des animés, vos statistiques apparaîtront ici.',
   'stats.series': 'Séries',
-  'stats.films': 'Films',
+  'stats.films': 'Films & OVA',
+  'stats.ovas': 'OVAs',
   'stats.watchTime': 'Temps de visionnage estimé',
   'stats.watchTimeDetail': 'Comment le temps est calculé',
   'stats.watchTimeSub':
@@ -479,8 +482,8 @@ const fr: Record<MessageKey, string> = {
   'subtitle.criteria': 'Comparez les animés sur un seul aspect',
   'title.settings': 'Réglages',
   'subtitle.settings': 'Langue, pondérations, mises à jour et données',
-  'title.films': 'Films',
-  'subtitle.films': 'Les films d’animation que vous avez vus et notés',
+  'title.films': 'Films & OVA',
+  'subtitle.films': 'Les films et OVA que vous avez vus et notés',
   'title.detail': "Fiche de l'animé",
   'subtitle.detail': 'Notez les épisodes et chaque critère',
 
@@ -514,7 +517,7 @@ const fr: Record<MessageKey, string> = {
   'empty.noFilms.body':
     'Ajoutez le premier film d’animation que vous avez vu, puis notez chaque critère. Les films vivent ici et ne polluent pas votre liste de séries.',
   'empty.noFilms.cta': 'Ajouter votre premier film',
-  'form.addFilm': 'Ajouter un film',
+  'form.addFilm': 'Ajouter un film ou un OVA',
   'board.tab.global': 'Global',
   'board.tab.series': 'Séries uniquement',
   'board.tab.films': 'Films uniquement',
@@ -608,7 +611,7 @@ const fr: Record<MessageKey, string> = {
   'form.editTitle': "Modifier l'animé",
   'form.editSubtitle': 'Mettez à jour les informations de cette fiche.',
   'form.search': 'Rechercher sur AniList (ex. frieren)…',
-  'form.searchFilm': 'Rechercher un film sur AniList (ex. your name)…',
+  'form.searchFilm': 'Rechercher un film ou un OVA (ex. re:zero)…',
   'form.searching': 'Recherche sur AniList…',
   'form.unreachable': 'AniList injoignable : {error}',
   'form.manualFallback': 'Vous pouvez saisir les informations manuellement ci-dessous.',
@@ -631,6 +634,7 @@ const fr: Record<MessageKey, string> = {
   'form.notesPlaceholder': 'Impressions, arc préféré, où vous l’avez vu…',
   'form.episodePlaceholder': 'Épisode {number}',
   'form.film': 'Film',
+  'form.ova': 'OVA',
   'form.filmTitlePlaceholder': 'ex. Your Name',
   'form.titlePlaceholder': "ex. Frieren: Beyond Journey's End",
   'form.favourite': 'Marquer comme favori personnel',

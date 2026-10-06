@@ -15,6 +15,7 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 
 - [What it does](#what-it-does)
 - [How seasons are merged](#how-seasons-are-merged)
+- [When a sequel is not a season](#when-a-sequel-is-not-a-season)
 - [The scoring model](#the-scoring-model)
 - [Install](#install)
 - [Where your data lives](#where-your-data-lives)
@@ -30,11 +31,12 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - **Rate every episode from 0 to 100.** An unrated episode is simply ignored, so you can create a whole season up front and score it as you watch, without skewing your average.
 - **Seven criteria per anime** — Characters, Story, Animation, OST, Opening, Key Factor, Originality.
 - **Weighted global score**, with the episode average as a first-class component.
-- **Seven views**: Anime (series), Films, Leaderboard, Rankings by criteria, Calendar, Statistics, Settings.
+- **Seven views**: Anime (series), Films & OVA, Leaderboard, Rankings by criteria, Calendar, Statistics, Settings.
 - **Release calendar.** Upcoming episodes of shows you follow, announced continuations of shows you already have, and the season's new shows kept in a separate section so your own tracking stays clean.
-- **Series and films are kept apart.** Searching series never returns films, films have their own tab, and the leaderboard ranks them separately so a film is never placed against a series. A film is rated on six criteria rather than seven, since it has no opening sequence.
+- **Series and everything else are kept apart.** Searching series never returns a film or an OVA. Both live in the Films tab and are ranked there, so a film is never placed against a series; each row is badged `Film` or `OVA`. A film is rated on six criteria rather than seven, since it has no opening sequence, while an OVA keeps all seven and its episodes.
 - **AniList lookup**: type a title and the app pre-fills the year, studio, episode count **and the individual episode titles**, all of which you can still edit by hand.
 - **Seasons are merged into one entry.** Search "shingeki no kyojin" and you get one row, not seventeen: the app follows AniList's sequel links and creates a single entry holding all six TV seasons, with episodes numbered continuously and tagged by season.
+- **Distinct series in one universe stay distinct.** Dragon Ball, Dragon Ball Z, GT, Super and DAIMA are linked as sequels on AniList but are five separate series, and the app keeps them that way — see [When a sequel is not a season](#when-a-sequel-is-not-a-season).
 - **In-app updates** via GitHub Releases.
 - **Entirely local**: your ratings live in a single JSON file on your machine. No account, no server.
 
@@ -69,7 +71,7 @@ Deliberate choices:
 
 ![Merged season parts](docs/screenshots/season-parts.png)
 
-- **Only series formats join a chain** (`TV`, `TV_SHORT`, `ONA`). This is what keeps Attack on Titan's `PREQUEL` link to the *Kuinaki Sentaku* OVA, and Frieren's `SIDE_STORY` link to its *● no Mahou* spin-off, out of the season list. Films and OVAs stay separate entries.
+- **Only series formats join a chain** (`TV`, `TV_SHORT`, `ONA`). This is what keeps Attack on Titan's `PREQUEL` link to the *Kuinaki Sentaku* OVA, and Frieren's `SIDE_STORY` link to its *● no Mahou* spin-off, out of the season list. Films and OVAs are separate entries, listed under Films & OVA.
 - **Episode titles are only trusted when the count matches the season.** AniList's `streamingEpisodes` mirrors the streaming service, and Crunchyroll reports the whole franchise: Attack on Titan's Seasons 2 and 3 each return Season 1's 25 episodes. Titles whose length disagrees with the season, or which duplicate an earlier season verbatim, are dropped, and those episodes are created with a placeholder title you can fill in.
 - **A single-season show is untouched** — same flow as before, one season, one entry.
 
@@ -77,6 +79,46 @@ Verify the assembly against the live API at any time:
 
 ```powershell
 npm run check:franchise "shingeki no kyojin" "sousou no frieren"
+```
+
+## When a sequel is not a season
+
+Following `SEQUEL` links blindly merged **Dragon Ball, Z, GT, Super and DAIMA** into one
+entry of 825 episodes across 8 "seasons". They are linked as sequels, but they are five
+different series.
+
+Those links are now skipped when the linked title reads as **a different series** rather
+than a continuation, and the signal is the shape of the extra words:
+
+| Extra words after the shared title | Reading | Example |
+|---|---|---|
+| a number | a season | `Boku no Hero Academia` → `… Academia 2` |
+| a season word or `Part N` | a season | `Sousou no Frieren` → `… 2nd Season` |
+| a subtitle after `:` or `-` | a season | `Tokyo Revengers` → `…: Tenjiku-hen` |
+| a symbol-bearing token | a season | `Tokyo Ghoul` → `Tokyo Ghoul √A` |
+| a roman numeral | a season | `Overlord` → `Overlord II` |
+| **a single plain word** | **a different series** | `Dragon Ball` → `Dragon Ball Z` |
+
+A rule that compared only the base title was tried first and **rejected**: it split 22
+legitimate franchises, from Boku no Hero Academia's numbered seasons to Tokyo Ghoul's
+`√A`. A second attempt that normalised the titles before comparing them also failed, for
+a subtler reason — stripping symbols turned `√A` into a plain word `a`, which then looked
+like a distinct series. The comparison therefore runs on the raw titles.
+
+Steins;Gate and Steins;Gate 0 keep a curated exception, since `0` reads as a season by
+the table above but the two are stored as one entry on purpose.
+
+Verify the rule against real pairs — no network, so it is fast enough to run on every
+change:
+
+```powershell
+npm run check:series
+```
+
+To see whether any franchise in your own library would be split by the rule:
+
+```powershell
+npm run check:guard
 ```
 
 ---
@@ -240,6 +282,10 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run audit:translations` | Reports values identical in both languages, and English raised in the main process |
 | `npm run check:franchise "query"` | Prints how a franchise is grouped and ordered, against the live AniList API |
 | `npm run check:numbering` | Asserts episode titles land on the correct episode numbers |
+| `npm run check:series` | Tests the "different series or continuation?" rule on real title pairs, offline |
+| `npm run check:guard` | Reports which franchises in your library the series rule would split |
+| `npm run check:kinds` | Asserts the film search and the series search stay disjoint, against the live API |
+| `npm run diagnose:ova` | Lists the OVA, SPECIAL and ONA entries attached to the shows in your library |
 | `npm run diagnose:episodes` | Reports episode-name coverage and gaps for your data file |
 | `npm run inspect "title"` | Shows a title's AniList relations and Kitsu episode coverage |
 

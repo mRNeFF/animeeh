@@ -68,8 +68,8 @@ const anime = (id, title, format, value, year) => ({
   updatedAt: new Date().toISOString()
 })
 
-// Two series and two films, interleaved by score so a shared ranking would
-// give a different (and wrong) order.
+// Two series, two films and one OVA, interleaved by score so a shared ranking
+// would give a different (and wrong) order.
 writeFileSync(
   join(profile, 'animeeh-data.json'),
   JSON.stringify({
@@ -85,8 +85,9 @@ writeFileSync(
     anime: [
       anime('s1', 'Top Series', 'TV', 95, 2020),
       anime('f1', 'Top Film', 'MOVIE', 85, 2021),
-      anime('s2', 'Low Series', 'TV', 60, 2022),
-      anime('f2', 'Low Film', 'MOVIE', 40, 2023)
+      anime('o1', 'Mid OVA', 'OVA', 70, 2022),
+      anime('s2', 'Low Series', 'TV', 60, 2023),
+      anime('f2', 'Low Film', 'MOVIE', 40, 2024)
     ]
   }),
   'utf-8'
@@ -146,7 +147,16 @@ try {
         const cells = [...tr.querySelectorAll('td')]
         return {
           rank: cells[0]?.textContent?.trim(),
-          title: cells[1]?.querySelector('.t-title')?.textContent?.trim().replace(/FILM\s*$/, '').trim(),
+          title: (() => {
+            const cell = cells[1]?.querySelector('.t-title')
+            if (!cell) return undefined
+            // The film/OVA badge sits inside the title cell, so remove it from a
+            // copy rather than pattern-matching its label, which is translated.
+            const copy = cell.cloneNode(true)
+            copy.querySelector('.film-tag')?.remove()
+            return copy.textContent?.trim()
+          })(),
+          tag: cells[1]?.querySelector('.film-tag')?.textContent?.trim(),
           isFilm: !!cells[1]?.querySelector('.film-tag'),
           score: cells[cells.length - 2]?.textContent?.trim(),
           grade: cells[cells.length - 1]?.textContent?.trim()
@@ -155,7 +165,7 @@ try {
     )
     console.log(`\n${label}:`)
     for (const r of rows) {
-      console.log(`  #${r.rank} ${r.title}${r.isFilm ? ' [FILM]' : ''} score=${r.score} grade=${r.grade}`)
+      console.log(`  #${r.rank} ${r.title}${r.tag ? ` [${r.tag}]` : ''} score=${r.score} grade=${r.grade}`)
     }
     return rows
   }
@@ -173,19 +183,25 @@ try {
   }
 
   console.log('\nCHECKS:')
-  check('series library excludes films', seriesCards.sort(), ['Low Series', 'Top Series'])
-  check('films tab holds only films', filmCards.sort(), ['Low Film', 'Top Film'])
-  check('global scope ranks all four', globals.length, 4)
+  check('series library excludes films and OVAs', seriesCards.sort(), ['Low Series', 'Top Series'])
+  check('films tab holds films and OVAs', filmCards.sort(), ['Low Film', 'Mid OVA', 'Top Film'])
+  check('global scope ranks all five', globals.length, 5)
   check('series scope ranks series only', series.map((r) => r.title), ['Top Series', 'Low Series'])
-  check('film scope ranks films only', films.map((r) => r.title), ['Top Film', 'Low Film'])
+  check('film scope ranks films and OVAs', films.map((r) => r.title), ['Top Film', 'Mid OVA', 'Low Film'])
   // Ranks must be computed inside the scope: the film scope's #1 is a film.
   check('film scope rank 1', films[0]?.rank, '1')
   check('film scope rank 2', films[1]?.rank, '2')
   check('series scope has no film', series.some((r) => r.isFilm), false)
 
+  // The badge must name the format rather than saying FILM for everything.
+  check('movie badge reads Film', films.find((r) => r.title === 'Top Film')?.tag, 'Film')
+  check('OVA badge reads OVA', films.find((r) => r.title === 'Mid OVA')?.tag, 'OVA')
+  check('series rows carry no badge', series.every((r) => r.tag === undefined), true)
+
   // Grades follow the new thresholds.
   check('score 95 grades S', globals.find((r) => r.title === 'Top Series')?.grade, 'S')
   check('score 85 grades A', globals.find((r) => r.title === 'Top Film')?.grade, 'A')
+  check('score 70 grades B', globals.find((r) => r.title === 'Mid OVA')?.grade, 'B')
   check('score 60 grades C', globals.find((r) => r.title === 'Low Series')?.grade, 'C')
   check('score 40 grades D', globals.find((r) => r.title === 'Low Film')?.grade, 'D')
 

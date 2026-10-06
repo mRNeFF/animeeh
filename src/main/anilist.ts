@@ -360,23 +360,66 @@ export function franchiseKey(title: string): string {
 /**
  * Which kinds of entry a search should return.
  *
- * - `series`: everything except films, so a franchise's recap movies never
- *   appear among its seasons.
- * - `film`: only films.
+ * - `series`: everything that is not a film or an OVA, so a franchise's recaps,
+ *   films and side OVAs never appear among its seasons.
+ * - `film`: films and OVAs, the entries that are not part of a weekly run.
  */
 export type SearchKind = 'series' | 'film'
 
-const FILM_FORMAT = 'MOVIE'
+/** Formats that belong under Films rather than in the series library. */
+const FILM_LIKE_FORMATS = new Set(['MOVIE', 'OVA'])
+
+/** Roman numerals continue a series rather than starting a new one. */
+const ROMAN_SUFFIX = /^(?:i{1,3}|iv|v|vi{1,3}|ix|x)$/i
 
 /**
- * Merge search hits that belong to the same franchise. Non-series formats are
- * never merged, so films and OVAs keep their own rows.
+ * Does `candidate` start a different series in the same universe, rather than
+ * continue the current one?
+ *
+ * The signal is the shape of the extra words. A continuation adds a number, a
+ * season word or a subtitle: "Season 2", "Boku no Hero Academia 2", ": Tenjiku
+ * -hen", "√A", "II". A different series adds a single plain word: Dragon Ball,
+ * then Z, GT, Super, DAIMA.
+ *
+ * Works on the raw titles, deliberately. Normalising first was tried and it
+ * failed: stripping symbols turned "√A" into "a", which then read as a plain
+ * word and wrongly split Tokyo Ghoul from Tokyo Ghoul √A.
+ */
+export function looksLikeDifferentSeries(current: string, candidate: string): boolean {
+  const words = (value: string): string[] =>
+    value.trim().toLowerCase().replace(/\s+/g, ' ').split(' ')
+  const a = words(current)
+  const b = words(candidate)
+  if (a.length === 0 || b.length === 0) return false
+
+  let i = 0
+  while (i < a.length && i < b.length && a[i] === b[i]) i += 1
+
+  const restA = a.slice(i).join(' ')
+  const restB = b.slice(i).join(' ')
+
+  // One token, purely alphabetic, and not a roman numeral.
+  const plain = (rest: string): boolean =>
+    rest !== '' && !rest.includes(' ') && /^[a-z]+$/.test(rest) && !ROMAN_SUFFIX.test(rest)
+
+  // A different series only when neither side is left with a longer subtitle.
+  const leftOk = restA === '' || plain(restA)
+  const rightOk = restB === '' || plain(restB)
+  return leftOk && rightOk && (restA !== '' || restB !== '')
+}
+
+/**
+ * Merge search hits that belong to the same franchise.
+ *
+ * Non-series formats are never merged by title, so films and OVAs keep their own
+ * rows.
  */
 export function groupSearchResults(media: RawMedia[], kind: SearchKind = 'series'): AnimeSearchResult[] {
-  const wanted = media.filter((item) => {
-    const isFilm = (item.format ?? '') === FILM_FORMAT
-    return kind === 'film' ? isFilm : !isFilm
-  })
+  const wanted = media.filter((item) =>
+    kind === 'film'
+      ? FILM_LIKE_FORMATS.has(item.format ?? '')
+      : !FILM_LIKE_FORMATS.has(item.format ?? '')
+  )
 
   // Films are standalone entries: no franchise folding, one row each, and the
   // AniList relevance order is kept rather than sorted by year — sorting would
@@ -460,22 +503,22 @@ const MEDIA_FIELDS = `
 /**
  * Film searches filter server-side instead of client-side. AniList returns
  * mostly series for a mixed query, so filtering afterwards left a handful of
- * films out of 25 rows.
+ * films out of 25 rows. OVAs are included: they are listed under Films too.
  */
 const FILM_SEARCH_QUERY = `
 query ($search: String) {
   Page(page: 1, perPage: 25) {
-    media(search: $search, type: ANIME, format: MOVIE, sort: SEARCH_MATCH) {
+    media(search: $search, type: ANIME, format_in: [MOVIE, OVA], sort: SEARCH_MATCH) {
       ${MEDIA_FIELDS}
     }
   }
 }`
 
-/** Series searches ask AniList to leave films out entirely. */
+/** Series searches ask AniList to leave films and OVAs out entirely. */
 const SERIES_SEARCH_QUERY = `
 query ($search: String) {
   Page(page: 1, perPage: 25) {
-    media(search: $search, type: ANIME, format_not: MOVIE, sort: SEARCH_MATCH) {
+    media(search: $search, type: ANIME, format_not_in: [MOVIE, OVA], sort: SEARCH_MATCH) {
       ${MEDIA_FIELDS}
     }
   }
@@ -592,6 +635,16 @@ async function assembleFranchise(startId: number): Promise<RawMedia[]> {
       if (!CHAIN_RELATIONS.has(edge.relationType)) continue
       const node = edge.node
       if (!node || !SERIES_FORMATS.has(node.format ?? '')) continue
+
+      // A curated group always wins, so Steins;Gate and Steins;Gate 0 stay one
+      // entry even though their titles read as different series.
+      const curated = franchiseGroupFor(id)
+      const forced = curated !== null && curated.includes(node.id)
+
+      // Otherwise, a link to something titled as a *different* series in the
+      // same universe is not followed: Dragon Ball and Dragon Ball Z must not
+      // become one entry. Season numbering and subtitles still are.
+      if (!forced && looksLikeDifferentSeries(pickTitle(media), pickTitle(node))) continue
 
       const from = edge.relationType === 'SEQUEL' ? id : node.id
       const to = edge.relationType === 'SEQUEL' ? node.id : id

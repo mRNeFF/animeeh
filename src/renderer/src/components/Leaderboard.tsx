@@ -2,9 +2,8 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { criterionKey, useI18n } from '../i18n'
 import { grade, rankAnime, scoreParts } from '../scoring'
 import { useStore } from '../store'
-import { CRITERIA, type Anime, type ComponentKey } from '../types'
 import { GradeBadge } from './ui'
-import { isFilm } from './AnimeLibrary'
+import { CRITERIA, isFilmLike, isMovie, type Anime, type ComponentKey } from '../types'
 
 type SortKey = 'rank' | ComponentKey
 type Dir = 'asc' | 'desc'
@@ -14,8 +13,8 @@ type Scope = 'global' | 'series' | 'film'
 
 function scopeFilter(scope: Scope): (anime: Anime) => boolean {
   if (scope === 'global') return () => true
-  if (scope === 'film') return isFilm
-  return (anime) => !isFilm(anime)
+  if (scope === 'film') return isFilmLike
+  return (anime) => !isFilmLike(anime)
 }
 
 export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): ReactNode {
@@ -70,7 +69,7 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
   const arrow = (key: SortKey): string => (key === sortKey ? (dir === 'desc' ? ' ▾' : ' ▴') : '')
 
   const counts = useMemo(() => {
-    const films = data.anime.filter(isFilm).length
+    const films = data.anime.filter(isFilmLike).length
     return { all: data.anime.length, films, series: data.anime.length - films }
   }, [data.anime])
 
@@ -160,7 +159,11 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
                       <td>
                         <div className="t-title">
                           {entry.anime.title}
-                          {isFilm(entry.anime) && <span className="film-tag">FILM</span>}
+                          {isFilmLike(entry.anime) && (
+                            <span className="film-tag">
+                              {isMovie(entry.anime) ? t('form.film') : t('form.ova')}
+                            </span>
+                          )}
                         </div>
                         <div className="t-sub">
                           {[entry.anime.year, entry.anime.studio].filter(Boolean).join(' · ') ||

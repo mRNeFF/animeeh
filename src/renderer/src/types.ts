@@ -191,34 +191,54 @@ export function emptyCriteria(): CriterionScores {
   )
 }
 
-/** AniList format of a film. */
-export const FILM_FORMAT = 'MOVIE'
+/** AniList format of a film: one sitting, no episode list, no opening. */
+export const MOVIE_FORMAT = 'MOVIE'
 
-export function isFilm(anime: { format?: string }): boolean {
-  return (anime.format ?? '') === FILM_FORMAT
+/** AniList format of a direct-to-video entry: a short run, sold on its own. */
+export const OVA_FORMAT = 'OVA'
+
+/**
+ * A film: a single work with no episode list and no opening sequence to rate.
+ *
+ * Distinct from `isFilmLike` on purpose. An OVA is listed under Films, but it
+ * does have episodes and may have an opening, so the criteria and the episode
+ * list must treat the two differently.
+ */
+export function isMovie(anime: { format?: string }): boolean {
+  return (anime.format ?? '') === MOVIE_FORMAT
+}
+
+/**
+ * Entries that are not part of a weekly run, and therefore belong under Films
+ * rather than in the series library: films and OVAs.
+ */
+export function isFilmLike(anime: { format?: string }): boolean {
+  const format = anime.format ?? ''
+  return format === MOVIE_FORMAT || format === OVA_FORMAT
 }
 
 /**
  * Criteria that do not apply to a film.
  *
  * A film has no opening sequence to speak of, so asking for an Opening rating
- * would be asking for a number with no meaning. Episode average is already
- * meaningless for a film because it has no episodes.
+ * would be asking for a number with no meaning. An OVA keeps it: those usually
+ * do have one.
  */
-const FILM_EXCLUDED: ReadonlySet<CriterionKey> = new Set<CriterionKey>(['opening'])
+const MOVIE_EXCLUDED: ReadonlySet<CriterionKey> = new Set<CriterionKey>(['opening'])
 
 /** The criteria worth rating for this entry, in display order. */
 export function applicableCriteria(
   anime: { format?: string }
 ): readonly (typeof CRITERIA)[number][] {
-  if (!isFilm(anime)) return CRITERIA
-  return CRITERIA.filter((c) => !FILM_EXCLUDED.has(c.key))
+  if (!isMovie(anime)) return CRITERIA
+  return CRITERIA.filter((c) => !MOVIE_EXCLUDED.has(c.key))
 }
 
 /** True when this criterion should be offered for this entry. */
 export function criterionApplies(anime: { format?: string }, key: CriterionKey): boolean {
   return applicableCriteria(anime).some((c) => c.key === key)
 }
+
 
 
 export function createAnime(partial: Partial<Anime> = {}): Anime {

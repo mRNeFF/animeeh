@@ -21,7 +21,7 @@ import {
 } from '../types'
 import { AnimeForm } from './AnimeForm'
 import { EpisodeSeasons } from './EpisodeSeasons'
-import { isFilm } from './AnimeLibrary'
+import { isMovie } from '../types'
 import { mergeEpisodeNames, seasonPartsOf } from '../bulkEpisodes'
 import { Bar, Cover, ScoreControl } from './ui'
 import { IconArrowLeft, IconDownload, IconEpisode, IconPlus, IconTrash } from './Icons'
@@ -420,7 +420,7 @@ export function AnimeDetail({
       {/* ---------------- Episodes ---------------- */}
       {/* A film is one work: it is rated as a whole on its criteria, so an
           episode list would be meaningless. */}
-      {!isFilm(anime) && (
+      {!isMovie(anime) && (
       <>
       <div className="section-title">
         <IconEpisode size={17} />

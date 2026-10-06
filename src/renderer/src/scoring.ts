@@ -1,7 +1,7 @@
 import {
   applicableCriteria,
   CRITERIA,
-  isFilm,
+  isMovie,
   DEFAULT_SETTINGS,
   DEFAULT_WEIGHTS,
   EPISODE_AVG_KEY,
@@ -181,7 +181,9 @@ export function scoreParts(anime: Anime, weights: Weights): ScorePart[] {
   }))
 
   // A film has no episodes either, so the episode average never applies.
-  if (isFilm(anime)) return criteriaParts
+  // A film has no episodes either, so the episode average never applies.
+  // An OVA does have episodes and keeps it.
+  if (isMovie(anime)) return criteriaParts
 
   return [
     ...criteriaParts,

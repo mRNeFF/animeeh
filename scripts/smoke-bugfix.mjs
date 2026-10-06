@@ -1,7 +1,7 @@
 /**
  * Regression test for the reported bugs:
  *   1. the delete confirmation asked for "supprimer" but demanded "delete",
- *   2. the top-right button stayed "Add anime" inside the Films tab,
+ *   2. the top-right button stayed "Add anime" inside the Films & OVA tab,
  *   3. picking a film used to assemble the whole franchise around it
  *      (Chainsaw Man: Reze-hen came back as the Chainsaw Man TV series),
  *   4. film search results showed series-style noise (format, episode counts).
@@ -129,7 +129,7 @@ try {
   console.log(`   series tab: "${seriesLabel}"`)
   console.log(`   films tab : "${filmLabel}"`)
   check('series tab says "Ajouter un animé"', seriesLabel, 'Ajouter un animé')
-  check('films tab says "Ajouter un film"', filmLabel, 'Ajouter un film')
+  check('films tab says "Ajouter un film ou un OVA"', filmLabel, 'Ajouter un film ou un OVA')
 
   /* ---- 3 and 4. Film search stays films-only, and picking keeps it ---- */
   console.log('\nBUG 3/4: film search and picking')
@@ -137,7 +137,7 @@ try {
   await sleep(600)
   const formTitle = (await win.locator('.modal h3').innerText()).trim()
   console.log(`   form title: "${formTitle}"`)
-  check('the form knows it is adding a film', formTitle, 'Ajouter un film')
+  check('the form knows it is adding a film', formTitle, 'Ajouter un film ou un OVA')
 
   await win.locator('.al-block input.input').fill('chainsaw man')
 

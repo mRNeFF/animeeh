@@ -33,6 +33,7 @@
     "audit:encoding": "node scripts/audit-encoding.mjs",
     "diagnose:upcoming": "node scripts/diagnose-upcoming.mjs",
     "compare:upcoming": "node scripts/compare-upcoming.mjs",
+    "design": "node scripts/serve-design.mjs",
     "seed": "node scripts/build-seed.mjs",
     "smoke:update": "node scripts/smoke-update.mjs",
     "smoke:update:live": "node scripts/smoke-update-live.mjs",

@@ -32,9 +32,7 @@ export function AnimeCard({
         <div className="card-meta">
           <span className="pill">{t(statusKey(anime.status))}</span>
           {anime.year ? <span>{anime.year}</span> : null}
-          <span>
-            {eps} {eps === 1 ? 'ep' : 'eps'}
-          </span>
+          <span>{t('library.episodeCount', { count: eps })}</span>
           {anime.favorite ? <span title={t('field.favourite')}>★</span> : null}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

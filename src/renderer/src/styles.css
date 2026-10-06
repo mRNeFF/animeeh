@@ -1,23 +1,38 @@
 :root {
-  --bg: #0d0a15;
-  --bg-glow-1: rgba(138, 76, 255, 0.18);
-  --bg-glow-2: rgba(255, 61, 160, 0.12);
-  --panel: #16121f;
-  --panel-2: #1d1830;
-  --panel-3: #241d3b;
-  --border: #2c2440;
-  --border-strong: #3b3057;
-  --text: #efeaf7;
-  --muted: #9a91b3;
-  --muted-2: #6f6689;
-  --accent: #a855f7;
-  --accent-2: #ec4899;
+  /* ---- Direction E : sombre, cyan, orienté visuel ---- */
+  --bg: #070c16;
+  --bg-glow-1: rgba(34, 211, 238, 0.14);
+  --bg-glow-2: rgba(14, 165, 233, 0.08);
+
+  /* Three surface levels: card, raised, and the highest (popovers, active). */
+  --panel: #121a2b;
+  --panel-2: #16223a;
+  --panel-3: #1e2c49;
+
+  --border: #1c2942;
+  --border-strong: #26375a;
+
+  --text: #f1f5f9;
+  --muted: #a8b6cb;
+  --muted-2: #7d8ca3;
+
+  --accent: #22d3ee;
+  --accent-2: #0ea5e9;
+
   --good: #34d399;
   --warn: #fbbf24;
   --bad: #f87171;
+
   --radius: 14px;
-  --radius-sm: 9px;
-  --shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.9);
+  --radius-sm: 10px;
+  --pill: 99px;
+
+  /* Deeper than the previous theme: E relies on shadows to lift surfaces. */
+  --shadow: 0 22px 46px -26px rgba(0, 0, 0, 0.95);
+  --shadow-lift: 0 26px 54px -24px rgba(0, 0, 0, 0.98);
+
+  /* Cover art height, shared by the card layout. */
+  --cover-h: 132px;
 }
 
 * {
@@ -32,7 +47,7 @@ body,
 }
 
 body {
-  font-family: 'Segoe UI', Inter, system-ui, -apple-system, sans-serif;
+  font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
   color: var(--text);
   background:
     radial-gradient(900px 500px at 12% -8%, var(--bg-glow-1), transparent 65%),
@@ -82,7 +97,7 @@ textarea {
   gap: 6px;
   padding: 20px 14px;
   border-right: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(30, 22, 50, 0.75), rgba(13, 10, 21, 0.6));
+  background: linear-gradient(180deg, rgba(22, 34, 58, 0.75), rgba(7, 12, 22, 0.6));
   backdrop-filter: blur(6px);
 }
 
@@ -138,7 +153,7 @@ textarea {
   color: var(--text);
 }
 .nav-item.active {
-  background: linear-gradient(90deg, rgba(168, 85, 247, 0.22), rgba(236, 72, 153, 0.08));
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.22), rgba(14, 165, 233, 0.08));
   border-color: var(--border-strong);
   color: var(--text);
 }
@@ -197,7 +212,7 @@ textarea {
   gap: 14px;
   padding: 18px 26px;
   border-bottom: 1px solid var(--border);
-  background: rgba(13, 10, 21, 0.55);
+  background: rgba(7, 12, 22, 0.55);
   backdrop-filter: blur(8px);
 }
 .topbar h1 {
@@ -230,8 +245,8 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 15px;
-  border-radius: var(--radius-sm);
+  padding: 9px 16px;
+  border-radius: var(--pill);
   border: 1px solid var(--border-strong);
   background: var(--panel-2);
   color: var(--text);
@@ -316,7 +331,7 @@ textarea {
 .select:focus,
 .textarea:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.18);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18);
 }
 .textarea {
   resize: vertical;
@@ -343,24 +358,30 @@ textarea {
   flex-direction: column;
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  background: var(--panel);
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.14s, border-color 0.15s, box-shadow 0.2s;
+  transition: transform 0.16s, border-color 0.15s, box-shadow 0.22s;
 }
 .card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px);
   border-color: var(--border-strong);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-lift);
 }
 
+/*
+ * Direction E: the artwork leads. The cover is tall and the body is pulled up
+ * over its lower half, behind a gradient, so the title sits on the image.
+ * A single gradient covers every case: an unknown cover falls back to a colour
+ * gradient on the same box, so the text always has something dark under it.
+ */
 .card-cover {
-  height: 104px;
+  height: var(--cover-h);
   display: grid;
   place-items: center;
   position: relative;
   font-weight: 800;
-  font-size: 40px;
+  font-size: 34px;
   color: rgba(255, 255, 255, 0.92);
   letter-spacing: 0.02em;
 }
@@ -381,7 +402,8 @@ textarea {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 45%, rgba(13, 10, 21, 0.85));
+  /* Redundant with the gradient on .card-body, and it would double-darken. */
+  background: none;
   pointer-events: none;
 }
 .detail-cover.cover-img {
@@ -392,7 +414,7 @@ textarea {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 45%, rgba(13, 10, 21, 0.85));
+  background: linear-gradient(180deg, transparent 45%, rgba(7, 12, 22, 0.85));
 }
 .card-rank {
   position: absolute;
@@ -404,7 +426,7 @@ textarea {
   letter-spacing: 0.04em;
   padding: 3px 9px;
   border-radius: 99px;
-  background: rgba(13, 10, 21, 0.72);
+  background: rgba(7, 12, 22, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.16);
 }
 .card-grade {
@@ -419,13 +441,22 @@ textarea {
   place-items: center;
   font-weight: 800;
   font-size: 14px;
-  color: #0d0a15;
+  color: #070c16;
 }
 .card-body {
-  padding: 12px 13px 14px;
+  position: relative;
+  /* Pulled up over the artwork, leaving 46px of cover clear above the text. */
+  margin-top: calc(46px - var(--cover-h));
+  padding: 12px 14px 14px;
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 8px;
+  background: linear-gradient(
+    180deg,
+    rgba(7, 12, 22, 0) 0%,
+    rgba(7, 12, 22, 0.75) 26%,
+    var(--panel) 72%
+  );
 }
 .card-title {
   font-weight: 700;
@@ -516,7 +547,7 @@ tbody tr:last-child td {
   border-bottom: none;
 }
 tbody tr:hover {
-  background: rgba(168, 85, 247, 0.06);
+  background: rgba(34, 211, 238, 0.06);
 }
 tbody tr.clickable {
   cursor: pointer;
@@ -968,7 +999,7 @@ tbody tr.clickable {
   padding: 14px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-strong);
-  background: linear-gradient(180deg, rgba(168, 85, 247, 0.09), rgba(168, 85, 247, 0.03));
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.09), rgba(34, 211, 238, 0.03));
 }
 
 .al-state {
@@ -1012,7 +1043,7 @@ tbody tr.clickable {
 }
 .al-result.active {
   border-color: var(--accent);
-  background: rgba(168, 85, 247, 0.16);
+  background: rgba(34, 211, 238, 0.16);
 }
 
 .al-cover {
@@ -1121,10 +1152,10 @@ tbody tr.clickable {
   cursor: pointer;
   color: var(--text);
   border-color: var(--accent);
-  background: rgba(168, 85, 247, 0.16);
+  background: rgba(34, 211, 238, 0.16);
 }
 .pill-button:hover {
-  background: rgba(168, 85, 247, 0.26);
+  background: rgba(34, 211, 238, 0.26);
 }
 
 .al-season-list {
@@ -1133,7 +1164,7 @@ tbody tr.clickable {
   padding: 8px 10px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: rgba(13, 10, 21, 0.5);
+  background: rgba(7, 12, 22, 0.5);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1172,7 +1203,7 @@ tbody tr.clickable {
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--accent);
-  background: rgba(168, 85, 247, 0.16);
+  background: rgba(34, 211, 238, 0.16);
   vertical-align: middle;
 }
 
@@ -1213,7 +1244,7 @@ tbody tr.clickable {
   font-size: 9.5px;
   font-weight: 700;
   color: var(--accent);
-  background: rgba(168, 85, 247, 0.16);
+  background: rgba(34, 211, 238, 0.16);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1529,7 +1560,7 @@ tbody tr.clickable {
   place-items: center;
   font-size: 11px;
   font-weight: 800;
-  color: rgba(13, 10, 21, 0.8);
+  color: rgba(7, 12, 22, 0.8);
   transition: width 0.3s ease;
 }
 

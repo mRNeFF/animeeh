@@ -1,6 +1,6 @@
 {
   "name": "animeeh",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "ANIMEEH — track and rank every anime you watch, episode by episode.",
   "main": "./out/main/index.js",
   "author": "Axel",
@@ -31,6 +31,8 @@
     "audit:translations": "node scripts/audit-translations.mjs",
     "audit:i18n": "node scripts/audit-i18n.mjs",
     "audit:encoding": "node scripts/audit-encoding.mjs",
+    "audit:visible": "node scripts/audit-visible-text.mjs",
+    "check:cards": "node scripts/check-card-layout.mjs",
     "diagnose:upcoming": "node scripts/diagnose-upcoming.mjs",
     "compare:upcoming": "node scripts/compare-upcoming.mjs",
     "design": "node scripts/serve-design.mjs",

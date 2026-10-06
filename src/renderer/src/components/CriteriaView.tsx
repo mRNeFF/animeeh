@@ -73,7 +73,7 @@ export function CriteriaView({ onOpen }: { onOpen: (id: string) => void }): Reac
                   {row.anime.title}
                 </div>
                 <div className="t-sub">
-                  {row.anime.episodes.length} eps
+                  {t('library.episodeCount', { count: row.anime.episodes.length })}
                   {row.anime.year ? ` · ${row.anime.year}` : ''}
                 </div>
               </div>

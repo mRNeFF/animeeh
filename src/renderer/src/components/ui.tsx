@@ -185,7 +185,9 @@ export function GradeBadge({
     letter === '—'
       ? 'rgba(255,255,255,0.08)'
       : `linear-gradient(135deg, hsl(${hue} 78% 62%), hsl(${hue} 70% 46%))`
-  const color = letter === '—' ? 'var(--muted-2)' : '#14101f'
+  // Text on a coloured badge: the page background, so it stays legible on the
+  // pale end of the gradient whatever hue the grade uses.
+  const color = letter === '—' ? 'var(--muted-2)' : 'var(--bg)'
   return (
     <div className={className} style={{ background, color, ...style }}>
       {letter}

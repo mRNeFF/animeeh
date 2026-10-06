@@ -164,6 +164,7 @@ const en = {
   'library.all': 'All',
   'library.sort': 'Sort: {label}',
   'library.count': '{shown} of {total} anime',
+  'library.episodeCount': '{count} eps',
   'library.genre': 'Genre',
   'library.allGenres': 'All genres',
 
@@ -539,6 +540,7 @@ const fr: Record<MessageKey, string> = {
   'library.all': 'Tous',
   'library.sort': 'Tri : {label}',
   'library.count': '{shown} sur {total} animés',
+  'library.episodeCount': '{count} ép.',
   'library.genre': 'Genre',
   'library.allGenres': 'Tous les genres',
 

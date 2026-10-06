@@ -263,11 +263,7 @@ export function AnimeForm({
   return (
     <Modal
       title={initial ? t('form.editTitle') : kind === 'film' ? t('form.addFilm') : t('form.addTitle')}
-      subtitle={
-        initial
-          ? 'Update the details for this entry.'
-          : 'Search AniList to pre-fill, or type everything manually. Seasons of the same series are merged into one entry.'
-      }
+      subtitle={initial ? t('form.editSubtitle') : t('form.addSubtitle')}
       onClose={onClose}
     >
       <form

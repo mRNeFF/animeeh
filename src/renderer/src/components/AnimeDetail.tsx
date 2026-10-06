@@ -360,7 +360,7 @@ export function AnimeDetail({
 
         <div className="criteria-list">
           <div className="hint" style={{ marginBottom: 2 }}>
-            Rate each criterion from 0–100. The episode average is added as its own component.
+            {t('diff.hint')}
           </div>
           {/* A film has no opening, so that rating is not offered. */}
           {applicableCriteria(anime).map((c) => (
@@ -516,8 +516,10 @@ export function AnimeDetail({
       />
 
       <div className="hint" style={{ marginTop: 22 }}>
-        Status: {t(statusKey(anime.status))} · Last updated{' '}
-        {new Date(anime.updatedAt).toLocaleString()}
+        {t('diff.lastUpdated', {
+          status: t(statusKey(anime.status)),
+          date: new Date(anime.updatedAt).toLocaleString()
+        })}
       </div>
 
       {editing && (

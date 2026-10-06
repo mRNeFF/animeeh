@@ -10,6 +10,8 @@ smoke-*.png
 live-*.png
 verify-*.png
 preview-*.png
+ab-*.png
+diagnose-scroll-*.png
 .seed-cache.json
 seed-report.json
 .kitsu-cache.json

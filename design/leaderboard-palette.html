@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ANIMEEH — Paliers de couleurs</title>
+    <style>
+      /* ----------------------------------------------------------------
+         Page de comparaison, autonome. Aucune dépendance, aucun réseau.
+
+         Quatre palettes de sept paliers, mesurées. Chaque modèle est jugé sur
+         trois choses, parce qu'une palette doit réussir les trois :
+
+           1. la progression   — l'écart ressenti avec le palier voisin (ΔE)
+           2. la distinction   — deux paliers voisins ne doivent pas se confondre
+           3. la lisibilité    — la lettre sombre posée sur la couleur
+
+         Le ΔE est calculé en CIE76 : une distance euclidienne dans l'espace
+         Lab, où la perception humaine est approximativement uniforme. Au-dessus
+         de 20, deux couleurs se distinguent au premier regard ; en dessous de
+         10, elles se confondent.
+         ---------------------------------------------------------------- */
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        background: #0a0f19;
+        color: #f1f5f9;
+        font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .page { max-width: 1180px; margin: 0 auto; padding: 34px 24px 90px; }
+
+      h1 { font-size: 23px; margin: 0 0 8px; letter-spacing: -0.01em; }
+      h2 { font-size: 16px; margin: 0; letter-spacing: -0.01em; }
+      h3 { font-size: 11px; margin: 0 0 9px; letter-spacing: 0.07em; text-transform: uppercase; color: #7d8ca3; }
+
+      .lead { color: #a8b6cb; font-size: 13.5px; line-height: 1.7; max-width: 900px; margin: 0 0 22px; }
+      .lead strong { color: #f1f5f9; font-weight: 600; }
+      .lead code { color: #22d3ee; font-size: 12.5px; }
+
+      .callout {
+        border: 1px solid #26375a; border-left: 3px solid #fbbf24; border-radius: 10px;
+        background: rgba(251,191,36,.06); padding: 14px 16px; margin: 0 0 30px;
+        font-size: 12.5px; line-height: 1.65; color: #d7dfea; max-width: 900px;
+      }
+      .callout b { color: #fbbf24; }
+      .callout .m { font-variant-numeric: tabular-nums; color: #f1f5f9; font-weight: 600; }
+
+      /* ---------------- Légende des indicateurs ---------------- */
+
+      .keys { display: flex; gap: 18px; flex-wrap: wrap; margin: 0 0 30px; }
+      .keys div { font-size: 11.5px; color: #7d8ca3; display: flex; align-items: center; gap: 7px; }
+      .pill {
+        display: inline-block; padding: 1px 7px; border-radius: 99px;
+        font-size: 10px; font-weight: 700; letter-spacing: .03em;
+      }
+      .pill.ok { background: rgba(52,211,153,.16); color: #34d399; }
+      .pill.warn { background: rgba(251,191,36,.16); color: #fbbf24; }
+      .pill.bad { background: rgba(248,113,113,.16); color: #f87171; }
+
+      /* ---------------- Un modèle ---------------- */
+
+      .model { margin-bottom: 46px; }
+      .model > header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 7px; }
+      .idx {
+        flex: none; width: 26px; height: 26px; border-radius: 8px; display: grid;
+        place-items: center; font-size: 12px; font-weight: 800;
+        background: #1e2c49; color: #a8b6cb;
+      }
+      .tag {
+        font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+        padding: 3px 9px; border-radius: 99px; border: 1px solid #26375a; color: #7d8ca3;
+      }
+      .tag.best { border-color: #22d3ee; color: #22d3ee; background: rgba(34,211,238,.1); }
+      .why { color: #a8b6cb; font-size: 12.5px; line-height: 1.65; margin: 0 0 14px; max-width: 900px; }
+      .why b { color: #f1f5f9; font-weight: 600; }
+
+      .panel {
+        border: 1px solid #1c2942; border-radius: 14px;
+        background: #070c16; padding: 18px 18px 20px;
+        box-shadow: 0 26px 60px -36px rgba(0,0,0,.95);
+      }
+
+      /* ---------------- La bande de transition ---------------- */
+      /* Un seul dégradé continu, coupé en paliers. Les repères montrent où un
+         palier commence et où le suivant prend le relais. */
+
+      .strip { position: relative; margin-bottom: 6px; }
+      .strip .bar { height: 66px; border-radius: 11px; overflow: hidden; border: 1px solid #1c2942; }
+      .strip .ticks { position: relative; height: 22px; }
+      .strip .tick {
+        position: absolute; top: 0; height: 7px; width: 1px; background: #26375a;
+      }
+      .strip .tick span {
+        position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+        font-size: 9.5px; color: #7d8ca3; white-space: nowrap;
+      }
+      .strip .tick:first-child span { left: 0; transform: none; }
+      .strip .tick:last-child span { left: auto; right: 0; transform: none; }
+
+      /* ---------------- Le tableau des paliers ---------------- */
+
+      table.spec { width: 100%; border-collapse: collapse; margin-top: 16px; }
+      table.spec th {
+        text-align: left; font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em;
+        color: #7d8ca3; font-weight: 700; padding: 0 8px 9px; white-space: nowrap;
+      }
+      table.spec th.n, table.spec td.n { text-align: right; font-variant-numeric: tabular-nums; }
+      table.spec td { padding: 6px 8px; border-top: 1px solid #131e33; vertical-align: middle; }
+      table.spec tr:first-child td { border-top: none; }
+
+      .sw {
+        width: 46px; height: 30px; border-radius: 8px; border: 1px solid rgba(255,255,255,.10);
+      }
+      .tier {
+        font-size: 17px; font-weight: 800; width: 30px;
+      }
+      .hex { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12px; color: #cbd5e1; }
+      .deg { font-size: 11.5px; color: #7d8ca3; }
+      .bar-mini { width: 84px; height: 6px; border-radius: 3px; background: #16223a; overflow: hidden; }
+      .bar-mini i { display: block; height: 100%; border-radius: 3px; }
+
+      /* ---------------- Les pastilles, comme dans l'app ---------------- */
+
+      .previews { display: flex; gap: 26px; flex-wrap: wrap; margin-top: 20px; }
+      .previews > div { flex: 1 1 300px; min-width: 260px; }
+
+      .badges { display: flex; gap: 9px; align-items: flex-end; flex-wrap: wrap; }
+      .badge {
+        width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center;
+        font-weight: 800; font-size: 14px; color: #070c16;
+      }
+
+      /* ---------------- Un extrait de classement ---------------- */
+
+      table.rows { width: 100%; border-collapse: collapse; }
+      table.rows td { padding: 7px 9px; border-bottom: 1px solid rgba(28,41,66,.7); font-size: 12.5px; }
+      table.rows tr:last-child td { border-bottom: none; }
+      table.rows .r { font-weight: 800; width: 26px; color: #a8b6cb; }
+      table.rows .s { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+      table.rows .g {
+        width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+        font-weight: 800; font-size: 12px; color: #070c16;
+      }
+      table.rows tr.tinted td { background-image: linear-gradient(90deg, var(--tint) 0%, transparent 62%); }
+
+      .foot { color: #7d8ca3; font-size: 12px; line-height: 1.7; margin-top: 8px; }
+      .sep { height: 1px; background: #1c2942; margin: 44px 0; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <h1>Paliers de couleurs</h1>
+      <p class="lead">
+        Quatre palettes de sept tiers, mesurées plutôt qu'appréciées à l'œil. Chaque
+        tier a <strong>une couleur principale, un code HEX et une identité propre</strong>,
+        et chaque palette se lit comme <strong>un seul dégradé continu coupé en paliers</strong>.
+        Ce qui distingue les modèles n'est pas le style mais la <strong>stratégie d'espacement</strong> :
+        où placer les sept teintes pour que deux voisines soient à la fois proches
+        (transition fluide) et différentes (tiers reconnaissable).
+      </p>
+
+      <div class="callout">
+        <b>Pourquoi cette page existe.</b> La palette actuelle a un défaut mesurable.
+        Ses écarts entre teintes consécutives sont :
+        <span class="m">S→A 52° · A→B 56° · B→C 54° · C→D 112° · D→E 24° · E→F 14°</span>.
+        Le haut est bien réparti, mais <span class="m">C→D</span> fait un bond de 112°
+        et les trois derniers paliers tiennent dans <span class="m">38°</span> : D, E et F
+        se ressemblent au point d'être difficiles à distinguer. C'est exactement la
+        tension que tu décris, et elle se corrige en répartissant les teintes autrement.
+      </div>
+
+      <div class="keys">
+        <div><span class="pill ok">ΔE ≥ 20</span> deux tiers se distinguent au premier regard</div>
+        <div><span class="pill warn">10 – 20</span> différence perceptible mais faible</div>
+        <div><span class="pill bad">&lt; 10</span> les deux tiers se confondent</div>
+        <div>Le contraste est celui de la lettre sombre sur la couleur, seuil 4.5:1.</div>
+      </div>
+
+      <div id="models"></div>
+
+      <div class="sep"></div>
+
+      <h2>Comparaison des quatre modèles</h2>
+      <div class="panel" style="margin-top:14px">
+        <table class="spec" id="summary"></table>
+      </div>
+
+      <p class="why" style="margin-top:18px">
+        <b>Mon avis.</b> Le modèle <b>4</b> répond le plus directement à ta demande : les
+        sept couleurs sont les sept tranches d'un seul dégradé, donc la continuité est
+        structurelle et non rattrapée après coup, et chaque pastille porte le dégradé de
+        sa propre tranche. Le modèle <b>2</b> est le plus rigoureux sur la distinction,
+        parce qu'il espace les teintes selon l'écart ressenti et non selon l'angle : c'est
+        lui qui corrige vraiment le défaut de la palette actuelle. Les modèles <b>1</b> et
+        <b>3</b> servent de repères, le 1 pour la régularité, le 3 parce qu'il conserve les
+        repères actuels (vert au C, bleu au B) au cas où tu y sois attaché.
+      </p>
+    </div>
+
+    <script>
+      /* ================================================================
+         Mesures de couleur
+         ================================================================ */
+
+      function hslToRgb(h, s, l) {
+        h = ((h % 360) + 360) % 360
+        const S = s / 100
+        const L = l / 100
+        const c = (1 - Math.abs(2 * L - 1)) * S
+        const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+        const m = L - c / 2
+        const seg = Math.floor(h / 60) % 6
+        const table = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]]
+        const [r, g, b] = table[seg]
+        return [
+          Math.round((r + m) * 255),
+          Math.round((g + m) * 255),
+          Math.round((b + m) * 255)
+        ]
+      }
+
+      const rgbToHex = (rgb) =>
+        '#' + rgb.map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase()
+
+      const hexToRgb = (hex) => {
+        const v = hex.replace('#', '')
+        return [
+          parseInt(v.slice(0, 2), 16),
+          parseInt(v.slice(2, 4), 16),
+          parseInt(v.slice(4, 6), 16)
+        ]
+      }
+
+      const toLinear = (c) => {
+        const v = c / 255
+        return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
+      }
+
+      /** Luminance relative, celle qui sert au calcul de contraste WCAG. */
+      function luminance(rgb) {
+        const [r, g, b] = rgb.map(toLinear)
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+      }
+
+      /** Rapport de contraste WCAG entre deux couleurs. */
+      function contrast(a, b) {
+        const la = luminance(hexToRgb(a))
+        const lb = luminance(hexToRgb(b))
+        const hi = Math.max(la, lb)
+        const lo = Math.min(la, lb)
+        return (hi + 0.05) / (lo + 0.05)
+      }
+
+      /** Couleur vers CIELAB, pour mesurer une différence perçue. */
+      function toLab(hex) {
+        const [r, g, b] = hexToRgb(hex).map(toLinear)
+        const X = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047
+        const Y = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        const Z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883
+        const f = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116)
+        const fx = f(X)
+        const fy = f(Y)
+        const fz = f(Z)
+        return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)]
+      }
+
+      /** Distance CIE76 : approximativement la différence que l'œil perçoit. */
+      function deltaE(hexA, hexB) {
+        const [l1, a1, b1] = toLab(hexA)
+        const [l2, a2, b2] = toLab(hexB)
+        return Math.sqrt((l1 - l2) ** 2 + (a1 - a2) ** 2 + (b1 - b2) ** 2)
+      }
+
+      /* ----------------------------------------------------------------
+         Lab vers sRGB, et recherche du chroma maximal tenable.
+
+         Pour obtenir des écarts vraiment constants, il faut travailler dans
+         Lab et non dans HSL : un déplacement d'angle constant y décrit un arc
+         de cercle, donc la distance entre voisins devient constante. Le chroma
+         est ensuite choisi le plus haut possible sans sortir du gamut sRGB,
+         car un écrêtage silencieux fausserait justement la mesure.
+         ---------------------------------------------------------------- */
+
+      const XN = 0.95047
+      const YN = 1
+      const ZN = 1.08883
+
+      /** Lab -> sRGB, sans écrêtage, pour pouvoir détecter une sortie de gamut. */
+      function labToRgbRaw(L, a, b) {
+        const fy = (L + 16) / 116
+        const fx = fy + a / 500
+        const fz = fy - b / 200
+        const finv = (t) => {
+          const t3 = t * t * t
+          return t3 > 0.008856 ? t3 : (t - 16 / 116) / 7.787
+        }
+        const X = XN * finv(fx)
+        const Y = YN * finv(fy)
+        const Z = ZN * finv(fz)
+        const lin = [
+          3.2406 * X - 1.5372 * Y - 0.4986 * Z,
+          -0.9689 * X + 1.8758 * Y + 0.0415 * Z,
+          0.0557 * X - 0.204 * Y + 1.057 * Z
+        ]
+        return lin.map((v) => {
+          const c = v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055
+          return c * 255
+        })
+      }
+
+      const inGamut = (rgb) => rgb.every((v) => v >= -0.5 && v <= 255.5)
+
+      /** Lab -> HEX, en bornant les canaux pour l'affichage. */
+      const labToHex = (L, a, b) =>
+        rgbToHex(labToRgbRaw(L, a, b).map((v) => Math.max(0, Math.min(255, Math.round(v)))))
+
+      /**
+       * Un arc de teintes Lab à chroma constant.
+       *
+       * `angles` en degrés de l'angle Lab (atan2(b, a)) : 40 est le rouge, 136
+       * le vert, 232 le bleu, 328 le magenta. En descendant le chroma jusqu'à
+       * ce que les sept couleurs tiennent dans le gamut, on obtient des écarts
+       * réellement constants : la distance entre deux voisins d'un arc vaut
+       * 2 · C · sin(Δθ / 2), donc elle ne dépend plus de l'endroit du cercle.
+       */
+      function evenLabArc(angles, L) {
+        for (let C = 88; C >= 24; C -= 1) {
+          const points = angles.map((deg) => {
+            const rad = (deg * Math.PI) / 180
+            const rgb = labToRgbRaw(L, C * Math.cos(rad), C * Math.sin(rad))
+            return { deg, C, rgb, ok: inGamut(rgb) }
+          })
+          if (points.every((p) => p.ok)) {
+            return points.map((p) => ({
+              labHue: p.deg,
+              labL: L,
+              labC: C,
+              hex: rgbToHex(p.rgb.map((v) => Math.max(0, Math.min(255, Math.round(v)))))
+            }))
+          }
+        }
+        return null
+      }
+
+      /* ================================================================
+         Les palettes
+         ================================================================ */
+
+      const APP_BG = '#070c16'
+
+      /** hsl -> {hex, rgb}, pour définir une palette par teinte/sat/lum. */
+      const pick = (h, s, l) => {
+        const rgb = hslToRgb(h, s, l)
+        return { h, s, l, hex: rgbToHex(rgb) }
+      }
+
+      const MODELS = [
+        {
+          tag: 'Régulier',
+          name: 'Équidistant',
+          strategy: 'Un pas de teinte constant de 54° entre chaque palier.',
+          why: `Le modèle le plus simple à comprendre et à faire évoluer : chaque palier
+            occupe exactement <b>54° du cercle chromatique</b>, donc aucun voisin n'est
+            ni plus proche ni plus lointain qu'un autre. Le dégradé est parfaitement
+            régulier et les sept tiers se distinguent tous.
+            <br /><br />Sa limite est que l'œil ne perçoit pas les teintes de façon
+            uniforme : 54° dans les jaunes-verts (D, E) se voient beaucoup plus que 54°
+            dans les bleus (A, B). La régularité est donc géométrique, pas ressentie.`,
+          // S -> F
+          colors: [
+            ['S', pick(332, 74, 66)],
+            ['A', pick(278, 72, 68)],
+            ['B', pick(224, 74, 66)],
+            ['C', pick(170, 62, 56)],
+            ['D', pick(116, 58, 55)],
+            ['E', pick(62, 76, 58)],
+            ['F', pick(8, 76, 62)]
+          ]
+        },
+        {
+          tag: 'Le plus rigoureux',
+          name: 'Écarts réellement constants',
+          strategy: 'Les paliers sont posés dans l\'espace Lab, où la distance correspond à ce que l\'œil perçoit.',
+          why: `Les modèles 1, 3 et 4 raisonnent en degrés de teinte. Or un même pas
+            de 54° ne produit pas la même différence perçue selon l'endroit du cercle :
+            c'est pourquoi leurs écarts vont du simple au double.
+            <br /><br />Ici les sept paliers sont placés sur <b>un arc de chroma constant
+            dans l'espace Lab</b>, où la distance entre deux couleurs correspond à la
+            différence qu'on perçoit. La distance entre deux voisins d'un arc vaut
+            <span class="m">2 · C · sin(Δθ / 2)</span> : elle devient donc identique
+            partout. Le tableau le confirme, la colonne ΔE de ce modèle est la plus
+            plate des quatre.
+            <br /><br />Contrepartie assumée, et elle est visible : la luminosité et le
+            chroma sont les mêmes pour tous les paliers, donc la palette est très
+            régulière mais aussi la plus <b>terne</b> des quatre. Le S ne paraît pas plus
+            « premium » que le F, et le F tombe sur un saumon plutôt que sur un rouge
+            franc, parce qu'un chroma constant ne laisse pas la place à un rouge profond.
+            En échange, aucun palier ne se confond avec son voisin, et c'est mesurable.`,
+          labArc: { L: 62, angles: [328, 280, 232, 184, 136, 88, 40] }
+        },
+        {
+          tag: 'Conservateur',
+          name: 'Ancrage sémantique',
+          strategy: 'Garde les repères actuels, desserre seulement le bas de l\'échelle.',
+          why: `Cette palette <b>conserve les couleurs auxquelles tu es habitué</b> — vert
+            au C, bleu au B, violet au A, rose au S — et ne touche qu'aux trois derniers
+            paliers, ceux qui se confondaient. D passe de 46° à 100°, E de 22° à 46° et
+            F de 8° à 6°, ce qui remplace <span class="m">24° et 14°</span> par
+            <span class="m">54° et 40°</span>.
+            <br /><br />Le compromis est visible dans le tableau : l'écart C→D reste le
+            plus grand de la palette, parce que corriger le bas sans déplacer le haut
+            laisse ce trou.`,
+          colors: [
+            ['S', pick(320, 72, 66)],
+            ['A', pick(268, 72, 68)],
+            ['B', pick(212, 74, 66)],
+            ['C', pick(158, 60, 55)],
+            ['D', pick(100, 56, 58)],
+            ['E', pick(46, 80, 60)],
+            ['F', pick(6, 78, 62)]
+          ]
+        },
+        {
+          tag: 'Recommandé',
+          name: 'Une seule bande',
+          strategy: 'Un dégradé unique découpé en sept tranches ; chaque palier porte la sienne.',
+          why: `Le plus proche de ce que tu décris. La palette n'est pas sept couleurs
+            posées côte à côte : c'est <b>un seul dégradé, découpé en sept tranches
+            égales de 47°</b>. La couleur principale d'un palier est le milieu de sa
+            tranche, et sa pastille porte <b>le dégradé de cette tranche</b> — donc la
+            pastille de A finit exactement là où celle de B commence.
+            <br /><br />La continuité est ainsi <b>structurelle</b> : elle ne peut pas se
+            rompre, puisqu'il n'y a qu'un dégradé. Les paliers restent nets parce que
+            chaque tranche est présentée d'un bloc, et surtout parce que la
+            <b>luminosité progresse avec le tier</b> : les paliers bas sont profonds, les
+            hauts lumineux. C'est cette seconde dimension qui donne à chaque tier son
+            identité, là où la seule teinte ne suffirait pas.`,
+          // Une bande unique de 8 bornes, découpée en 7 tranches.
+          // Les bornes sont posées pour que le milieu de la première tranche
+          // tombe sur le rouge et celui de la dernière sur le rose : sans cela
+          // le palier F sortait orange et le S bleu-violet.
+          window: true,
+          bounds: [-18, 34, 87, 140, 193, 246, 298, 351],
+          // Luminosité par palier, du F au S : vers le haut, plus lumineux.
+          // C'est la seconde dimension de la progression, celle qui donne à
+          // chaque palier une identité que la seule teinte ne suffirait pas à
+          // porter.
+          lightness: [63, 61, 58, 56, 62, 66, 69],
+          sat: [78, 78, 64, 64, 76, 72, 74]
+        }
+      ]
+
+      /* ---------------- Construire les couleurs du modèle 4 ---------------- */
+
+      MODELS.forEach((model) => {
+        if (!model.window) return
+        const letters = ['F', 'E', 'D', 'C', 'B', 'A', 'S']
+        model.colors = letters.map((letter, i) => {
+          const from = model.bounds[i]
+          const to = model.bounds[i + 1]
+          const mid = (from + to) / 2
+          const l = model.lightness[i]
+          const s = model.sat[i]
+          // Une pastille porte le dégradé de sa tranche, pas une couleur plate.
+          return [
+            letter,
+            {
+              hex: rgbToHex(hslToRgb(mid, s, l)),
+              gradient: `linear-gradient(135deg, ${rgbToHex(hslToRgb(from, s, l + 5))}, ${rgbToHex(
+                hslToRgb(to, s, l - 5)
+              )})`,
+              from,
+              to,
+              mid
+            }
+          ]
+        })
+        // Affichage du meilleur au moins bon, comme les autres modèles.
+        model.colors.reverse()
+      })
+
+      /* ---------------- Construire les couleurs du modèle 2 ---------------- */
+
+      MODELS.forEach((model) => {
+        if (!model.labArc) return
+        const points = evenLabArc(model.labArc.angles, model.labArc.L)
+        if (!points) {
+          // Le chroma le plus bas du balayage n'a pas suffi : mieux vaut le dire
+          // que d'afficher une palette écrêtée en silence.
+          console.warn('evenLabArc: aucun chroma ne tient dans le gamut')
+          return
+        }
+        const letters = ['S', 'A', 'B', 'C', 'D', 'E', 'F']
+        model.colors = letters.map((letter, i) => [letter, points[i]])
+        model.chroma = points[0].labC
+      })
+
+      /* ================================================================
+         Rendu
+         ================================================================ */
+
+      const esc = (s) => String(s)
+      const tintRgb = (hex) => {
+        const [r, g, b] = hexToRgb(hex)
+        return `rgba(${r},${g},${b},0.20)`
+      }
+
+      /** La bande : un dégradé continu, avec un repère à chaque frontière. */
+      function strip(model) {
+        const stops = model.colors.map(([, c]) => c.hex)
+        // Le dégradé va du pire au meilleur, comme la progression naturelle des notes.
+        const bar = `linear-gradient(in oklab, ${[...stops].reverse().join(', ')})`
+        const n = model.colors.length
+        const ticks = Array.from({ length: n }, (_, i) => {
+          const pct = (i / (n - 1)) * 100
+          return `<div class="tick" style="left:${pct}%"><span>${model.colors[n - 1 - i][0]}</span></div>`
+        }).join('')
+        return `<div class="strip">
+          <div class="bar" style="background:${bar}"></div>
+          <div class="ticks">${ticks}</div>
+        </div>`
+      }
+
+      /** Le tableau des paliers, avec les mesures. */
+      function spec(model) {
+        const rows = model.colors
+          .map(([letter, c], i) => {
+            const prev = model.colors[i - 1]
+            const dE = prev ? deltaE(prev[1].hex, c.hex) : null
+            // La lettre posée sur la pastille est sombre, comme dans l'app.
+            const cr = contrast(c.hex, APP_BG)
+            const crBg = contrast(c.hex, '#070c16')
+            const cls = dE === null ? '' : dE >= 20 ? 'ok' : dE >= 10 ? 'warn' : 'bad'
+            const label = dE === null ? '—' : dE.toFixed(1)
+            const pct = dE === null ? 0 : Math.min(100, (dE / 45) * 100)
+            const barHue = dE === null ? '#26375a' : dE >= 20 ? '#34d399' : dE >= 10 ? '#fbbf24' : '#f87171'
+            return `<tr>
+              <td><span class="tier" style="color:${c.hex}">${letter}</span></td>
+              <td><span class="sw" style="background:${c.gradient ?? c.hex}"></span></td>
+              <td><span class="hex">${c.hex}</span></td>
+              <td class="deg">${
+                c.labHue !== undefined
+                  ? `${Math.round(c.labHue)}° Lab`
+                  : c.mid !== undefined
+                    ? `${Math.round(c.from)}–${Math.round(c.to)}°`
+                    : `${c.h}°`
+              }</td>
+              <td class="n">
+                ${
+                  dE === null
+                    ? '<span class="deg">—</span>'
+                    : `<span class="pill ${cls}">${label}</span>`
+                }
+              </td>
+              <td style="width:96px"><span class="bar-mini"><i style="width:${pct}%;background:${barHue}"></i></span></td>
+              <td class="n"><span class="hex">${crBg.toFixed(1)}:1</span></td>
+            </tr>`
+          })
+          .join('')
+
+        return `<table class="spec">
+          <thead>
+            <tr>
+              <th>Tier</th><th>Couleur</th><th>HEX</th><th>Teinte</th>
+              <th class="n">ΔE avec le voisin</th><th></th>
+              <th class="n">Contraste lettre</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`
+      }
+
+      /** Les pastilles telles qu'elles apparaissent dans l'app. */
+      function badges(model) {
+        return model.colors
+          .map(
+            ([letter, c]) =>
+              `<span class="badge" style="background:${c.gradient ?? c.hex}">${letter}</span>`
+          )
+          .join('')
+      }
+
+      /** Un extrait de classement, pour voir la couleur en situation. */
+      function rows(model) {
+        const byLetter = Object.fromEntries(model.colors.map(([l, c]) => [l, c]))
+        const data = [
+          ['1', 'Sousou no Frieren', 28, 95.6, 'S'],
+          ['2', 'Jujutsu Kaisen', 59, 81.6, 'A'],
+          ['4', 'Chainsaw Man', 12, 72.4, 'B'],
+          ['7', 'Tokyo Ghoul', 12, 52.7, 'C'],
+          ['9', 'Kakegurui', 12, 33.9, 'D'],
+          ['12', 'Tengoku Daimakyou', 13, 15.2, 'E'],
+          ['14', 'Takopii no Genzai', 6, 6.4, 'F']
+        ]
+        return `<table class="rows">${data
+          .map(([rank, title, eps, score, letter]) => {
+            const c = byLetter[letter]
+            return `<tr class="tinted" style="--tint:${tintRgb(c.hex)}">
+              <td class="r">${rank}</td>
+              <td>${title}<div class="deg">${eps} ép.</div></td>
+              <td class="s">${score.toFixed(1)}</td>
+              <td><span class="g" style="background:${c.gradient ?? c.hex}">${letter}</span></td>
+            </tr>`
+          })
+          .join('')}</table>`
+      }
+
+      document.getElementById('models').innerHTML = MODELS.map(
+        (m, i) => `<section class="model">
+          <header>
+            <span class="idx">${i + 1}</span>
+            <h2>${m.name} <span class="tag${m.tag === 'Recommandé' ? ' best' : ''}">${m.tag}</span></h2>
+          </header>
+          <p class="why" style="margin-bottom:6px"><b>Principe :</b> ${esc(m.strategy)}</p>
+          <p class="why">${m.why}</p>
+          <div class="panel">
+            ${strip(m)}
+            ${m.chroma !== undefined ? `<p class="foot"><b>Chromas retenus :</b> ${m.chroma}, soit la valeur la plus haute qui garde les sept couleurs dans le gamut sRGB sans écrêter aucun canal.</p>` : ''}
+            ${spec(m)}
+            <div class="previews">
+              <div>
+                <h3>Les pastilles de tier</h3>
+                <div class="badges">${badges(m)}</div>
+              </div>
+              <div>
+                <h3>Dans le classement</h3>
+                ${rows(m)}
+              </div>
+            </div>
+          </div>
+        </section>`
+      ).join('')
+
+      /* ---------------- Le tableau de synthèse ---------------- */
+
+      function stats(model) {
+        const ds = []
+        for (let i = 1; i < model.colors.length; i += 1) {
+          ds.push(deltaE(model.colors[i - 1][1].hex, model.colors[i][1].hex))
+        }
+        const min = Math.min(...ds)
+        const max = Math.max(...ds)
+        const contrastes = model.colors.map(([, c]) => contrast(c.hex, APP_BG))
+        const minC = Math.min(...contrastes)
+        return { min, max, minC, ds }
+      }
+
+      document.getElementById('summary').innerHTML = `
+        <thead><tr>
+          <th>Modèle</th><th class="n">ΔE min</th><th class="n">ΔE max</th>
+          <th class="n">Écart min / max</th><th class="n">Contraste min</th><th>Verdict</th>
+        </tr></thead>
+        <tbody>${MODELS.map((m, i) => {
+          const s = stats(m)
+          const evenness = s.max / s.min
+          const verdict =
+            s.min >= 20 && s.minC >= 4.5
+              ? `<span class="pill ok">tous les tiers distincts</span>`
+              : `<span class="pill warn">à surveiller</span>`
+          // Un rapport de 1 signifie des écarts rigoureusement constants. Les
+          // palettes construites en degrés de teinte ne peuvent pas y arriver,
+          // donc les seuils sont calés sur ce qui est atteignable : la palette
+          // actuelle, elle, est à 4.7×.
+          const evenTag =
+            evenness <= 1.15
+              ? 'constant'
+              : evenness <= 2.7
+                ? 'régulier'
+                : evenness <= 3.6
+                  ? 'irrégulier'
+                  : 'très irrégulier'
+          return `<tr>
+            <td><b>${i + 1}. ${m.name}</b></td>
+            <td class="n"><span class="pill ${s.min >= 20 ? 'ok' : s.min >= 10 ? 'warn' : 'bad'}">${s.min.toFixed(1)}</span></td>
+            <td class="n">${s.max.toFixed(1)}</td>
+            <td class="n"><span class="deg">${evenness.toFixed(2)}× · ${evenTag}</span></td>
+            <td class="n"><span class="hex">${s.minC.toFixed(1)}:1</span></td>
+            <td>${verdict}</td>
+          </tr>`
+        }).join('')}</tbody>`
+
+      /* ---------------- La palette actuelle, mesurée pareil ---------------- */
+
+      const CURRENT = ['S', 'A', 'B', 'C', 'D', 'E', 'F'].map((letter, i, all) => {
+        const hues = [320, 268, 212, 158, 46, 22, 8]
+        // La pastille actuelle est un dégradé 135° de hsl(h 78% 62%) à hsl(h 70% 46%).
+        const hex = rgbToHex(hslToRgb(hues[i], 74, 54))
+        return [letter, { hex, h: hues[i] }]
+      })
+
+      const cs = stats({ colors: CURRENT })
+      document.getElementById('summary').insertAdjacentHTML(
+        'afterend',
+        `<p class="why" style="margin-top:16px">
+          <b>Rappel de la palette actuelle, mesurée de la même façon :</b>
+          ΔE minimum <span class="m">${cs.min.toFixed(1)}</span> (entre E et F),
+          écart min/max <span class="m">${(cs.max / cs.min).toFixed(2)}×</span>,
+          contraste minimum <span class="m">${cs.minC.toFixed(1)}:1</span>.
+          Les modèles 1 à 4 remontent tous le ΔE minimum au-dessus de
+          <span class="m">${Math.min(...MODELS.map((m) => stats(m).min)).toFixed(0)}</span>.
+        </p>`
+      )
+    </script>
+  </body>
+</html>

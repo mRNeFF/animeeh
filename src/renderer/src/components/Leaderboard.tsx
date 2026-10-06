@@ -1,8 +1,10 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { criterionKey, useI18n } from '../i18n'
 import { grade, rankAnime, scoreParts } from '../scoring'
+import { highlightSegments, includesQuery } from '../search'
 import { useStore } from '../store'
 import { GradeBadge } from './ui'
+import { IconChevronDown, IconChevronUp, IconClose, IconSearch } from './Icons'
 import { CRITERIA, isFilmLike, isMovie, type Anime, type ComponentKey } from '../types'
 
 type SortKey = 'rank' | ComponentKey
@@ -17,6 +19,50 @@ function scopeFilter(scope: Scope): (anime: Anime) => boolean {
   return (anime) => !isFilmLike(anime)
 }
 
+/**
+ * The nearest ancestor that actually scrolls vertically.
+ *
+ * `row.scrollIntoView({ block: 'center' })` was tried first and landed the row
+ * around 150px below the middle: the table wrapper scrolls horizontally, which
+ * makes it a scrollport, so the browser centred the row inside *that* — where
+ * there is nothing to scroll — rather than inside the page. Walking up to the
+ * first ancestor with real vertical overflow skips it and is independent of
+ * class names.
+ */
+function scrollingParent(element: HTMLElement): HTMLElement | null {
+  let node = element.parentElement
+  while (node) {
+    const { overflowY } = getComputedStyle(node)
+    if (
+      (overflowY === 'auto' || overflowY === 'scroll') &&
+      node.scrollHeight > node.clientHeight + 1
+    ) {
+      return node
+    }
+    node = node.parentElement
+  }
+  return null
+}
+
+/**
+ * Renders `text` with the parts matching `query` wrapped in `<mark>`.
+ *
+ * Returns the text untouched when there is no query, so the common case adds no
+ * markup to the table.
+ */
+function Highlighted({ text, query }: { text: string; query: string }): ReactNode {
+  if (query.trim() === '') return <>{text}</>
+  return (
+    <>
+      {highlightSegments(text, query).map((segment, index) =>
+        segment.match
+          ? <mark key={index}>{segment.text}</mark>
+          : <span key={index}>{segment.text}</span>
+      )}
+    </>
+  )
+}
+
 export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): ReactNode {
   const { data } = useStore()
   const { t } = useI18n()
@@ -29,6 +75,14 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
   const [scope, setScope] = useState<Scope>('global')
   const [sortKey, setSortKey] = useState<SortKey>('rank')
   const [dir, setDir] = useState<Dir>('desc')
+
+  /**
+   * The find bar highlights rather than filters, so the ranking keeps its order
+   * and the reader keeps their place in it.
+   */
+  const [find, setFind] = useState('')
+  const [current, setCurrent] = useState(0)
+  const rowRefs = useRef(new Map<string, HTMLTableRowElement>())
 
   const pool = useMemo(
     () => data.anime.filter(scopeFilter(scope)),
@@ -68,6 +122,56 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
 
   const arrow = (key: SortKey): string => (key === sortKey ? (dir === 'desc' ? ' ▾' : ' ▴') : '')
 
+  /** Ids of the rows matching the query, in the order they are displayed. */
+  const matchIds = useMemo(() => {
+    const query = find.trim()
+    if (query === '') return []
+    return rows
+      .filter(
+        ({ entry }) =>
+          includesQuery(entry.anime.title, query) ||
+          includesQuery(entry.anime.englishTitle, query) ||
+          includesQuery(entry.anime.studio, query)
+      )
+      .map(({ entry }) => entry.anime.id)
+  }, [rows, find])
+
+  const matchSet = useMemo(() => new Set(matchIds), [matchIds])
+
+  /**
+   * Taken modulo the number of matches so the position stays valid when the
+   * query, the scope or the sort order changes the list under it.
+   */
+  const activeIndex =
+    matchIds.length === 0 ? -1 : ((current % matchIds.length) + matchIds.length) % matchIds.length
+  const activeId = activeIndex === -1 ? null : matchIds[activeIndex]
+
+  /**
+   * Bring the current match to the middle of the scrolling area. `center` is what
+   * spares the reader from hunting for the row at the edge of the viewport, and
+   * refreshing on `find` means refining the query re-centres the row it still
+   * points at. A row near either end cannot be centred, and the browser clamps
+   * the scroll there, which is the correct outcome.
+   */
+  useEffect(() => {
+    if (activeId === null) return
+    const row = rowRefs.current.get(activeId)
+    if (!row) return
+    const container = scrollingParent(row)
+    if (!container) return
+
+    const rowBox = row.getBoundingClientRect()
+    const areaBox = container.getBoundingClientRect()
+    const delta = rowBox.top + rowBox.height / 2 - (areaBox.top + areaBox.height / 2)
+    container.scrollTo({ top: container.scrollTop + delta, behavior: 'smooth' })
+  }, [activeId, find])
+
+  /** Moves to the next or previous match, wrapping around. */
+  const step = (delta: number): void => {
+    if (matchIds.length === 0) return
+    setCurrent((index) => index + delta)
+  }
+
   const counts = useMemo(() => {
     const films = data.anime.filter(isFilmLike).length
     return { all: data.anime.length, films, series: data.anime.length - films }
@@ -82,6 +186,69 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
   return (
     <>
       <div className="toolbar">
+        <div className="find">
+          <IconSearch size={14} />
+          <input
+            type="search"
+            value={find}
+            placeholder={t('board.find')}
+            aria-label={t('board.find')}
+            onChange={(event) => {
+              setFind(event.target.value)
+              setCurrent(0)
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                step(event.shiftKey ? -1 : 1)
+              } else if (event.key === 'Escape') {
+                event.preventDefault()
+                setFind('')
+              }
+            }}
+          />
+          {find.trim() !== '' && (
+            <>
+              <span className={`find-count${matchIds.length === 0 ? ' none' : ''}`}>
+                {matchIds.length === 0
+                  ? t('board.findNone')
+                  : t('board.findCount', {
+                      current: activeIndex + 1,
+                      total: matchIds.length
+                    })}
+              </span>
+              <button
+                type="button"
+                className="find-step"
+                title={t('board.findPrev')}
+                aria-label={t('board.findPrev')}
+                disabled={matchIds.length === 0}
+                onClick={() => step(-1)}
+              >
+                <IconChevronUp size={14} />
+              </button>
+              <button
+                type="button"
+                className="find-step"
+                title={t('board.findNext')}
+                aria-label={t('board.findNext')}
+                disabled={matchIds.length === 0}
+                onClick={() => step(1)}
+              >
+                <IconChevronDown size={14} />
+              </button>
+              <button
+                type="button"
+                className="find-step"
+                title={t('board.findClear')}
+                aria-label={t('board.findClear')}
+                onClick={() => setFind('')}
+              >
+                <IconClose size={14} />
+              </button>
+            </>
+          )}
+        </div>
         <div className="chips">
           {tabs.map((tab) => (
             <button
@@ -147,10 +314,25 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
                 {rows.map(({ entry, parts }) => {
                   const g = grade(entry.score)
                   const epAvg = parts.get('episodeAverage')?.value ?? null
+                  const isMatch = matchSet.has(entry.anime.id)
+                  const isCurrent = entry.anime.id === activeId
+                  // The English title is not normally on screen, so it is shown
+                  // when it is the only thing the query matched.
+                  const matchedEnglish =
+                    find.trim() !== '' &&
+                    !!entry.anime.englishTitle &&
+                    includesQuery(entry.anime.englishTitle, find) &&
+                    !includesQuery(entry.anime.title, find)
                   return (
                     <tr
                       key={entry.anime.id}
-                      className="clickable"
+                      ref={(element) => {
+                        if (element) rowRefs.current.set(entry.anime.id, element)
+                        else rowRefs.current.delete(entry.anime.id)
+                      }}
+                      className={`clickable${isMatch ? ' row-match' : ''}${
+                        isCurrent ? ' row-current' : ''
+                      }`}
                       onClick={() => onOpen(entry.anime.id)}
                     >
                       <td className={`rank-cell${entry.rank > 0 && entry.rank <= 3 ? ' top' : ''}`}>
@@ -158,7 +340,7 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
                       </td>
                       <td>
                         <div className="t-title">
-                          {entry.anime.title}
+                          <Highlighted text={entry.anime.title} query={find} />
                           {isFilmLike(entry.anime) && (
                             <span className="film-tag">
                               {isMovie(entry.anime) ? t('form.film') : t('form.ova')}
@@ -166,8 +348,24 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
                           )}
                         </div>
                         <div className="t-sub">
-                          {[entry.anime.year, entry.anime.studio].filter(Boolean).join(' · ') ||
-                            t('board.noDetails')}
+                          {entry.anime.year && (
+                            <>
+                              {entry.anime.year}
+                              {entry.anime.studio ? ' · ' : ''}
+                            </>
+                          )}
+                          {entry.anime.studio && (
+                            <Highlighted text={entry.anime.studio} query={find} />
+                          )}
+                          {!entry.anime.year && !entry.anime.studio && t('board.noDetails')}
+                          {/* Shown only when the English title is what matched, so
+                              the highlight has something to point at. */}
+                          {matchedEnglish && (
+                            <>
+                              {' · '}
+                              <Highlighted text={entry.anime.englishTitle as string} query={find} />
+                            </>
+                          )}
                         </div>
                       </td>
                       <td className="num">{entry.anime.episodes.length}</td>

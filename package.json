@@ -49,7 +49,10 @@
     "typecheck": "tsc --noEmit",
     "check:utf8": "node scripts/check-i18n-bytes.mjs",
     "verify:split": "npm run build && node scripts/verify-dragonball-ova.mjs",
-    "diagnose:dragonball": "node scripts/diagnose-dragonball-each.mjs"
+    "diagnose:dragonball": "node scripts/diagnose-dragonball-each.mjs",
+    "smoke:find": "npm run build && node scripts/smoke-find.mjs",
+    "check:search": "node scripts/check-search.mjs",
+    "preview:find": "npm run build && node scripts/preview-find.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

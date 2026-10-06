@@ -120,6 +120,18 @@ export const IconClose = (p: IconProps) => (
   </svg>
 )
 
+export const IconChevronUp = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m6 15 6-6 6 6" />
+  </svg>
+)
+
+export const IconChevronDown = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+)
+
 export const IconCalendar = (p: IconProps) => (
   <svg {...base(p)}>
     <rect x="3" y="5" width="18" height="16" rx="2" />

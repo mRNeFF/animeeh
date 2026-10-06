@@ -552,6 +552,29 @@ tbody tr:hover {
 tbody tr.clickable {
   cursor: pointer;
 }
+
+/* Leaderboard find results. Declared after the hover rule on purpose: the
+   specificity is identical, so source order decides, and a match has to stay
+   visible while the pointer happens to rest on it. */
+tbody tr.row-match {
+  background: rgba(34, 211, 238, 0.09);
+}
+tbody tr.row-current,
+tbody tr.row-current:hover {
+  background: rgba(34, 211, 238, 0.2);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+tbody tr.row-current .t-title {
+  color: #fff;
+}
+
+/* The matched words inside a title. */
+mark {
+  padding: 0 1px;
+  border-radius: 3px;
+  background: rgba(34, 211, 238, 0.38);
+  color: inherit;
+}
 .rank-cell {
   font-weight: 800;
   color: var(--muted);
@@ -915,6 +938,78 @@ tbody tr.clickable {
   transform: translateY(-50%);
   color: var(--muted-2);
   pointer-events: none;
+}
+
+/* Find bar in the leaderboard.
+   Matches are highlighted rather than filtered, so the ranking keeps its order
+   and the reader keeps their place in it. The counter and the two step buttons
+   live inside the field, which is what makes the keyboard route discoverable. */
+.find {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+  min-width: 230px;
+  max-width: 360px;
+  padding: 0 5px 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--pill);
+  background: var(--panel);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.find:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18);
+}
+.find > svg {
+  flex: none;
+  color: var(--muted-2);
+}
+.find input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.find input::-webkit-search-cancel-button {
+  display: none;
+}
+.find-count {
+  flex: none;
+  padding: 0 2px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-2);
+  white-space: nowrap;
+}
+.find-count.none {
+  color: var(--bad);
+}
+.find-step {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.find-step:hover:not(:disabled) {
+  background: var(--panel-3);
+  color: var(--text);
+}
+.find-step:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .chips {

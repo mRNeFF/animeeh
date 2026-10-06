@@ -32,6 +32,7 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - **Seven criteria per anime** — Characters, Story, Animation, OST, Opening, Key Factor, Originality.
 - **Weighted global score**, with the episode average as a first-class component.
 - **Seven views**: Anime (series), Films & OVA, Leaderboard, Rankings by criteria, Calendar, Statistics, Settings.
+- **Find a title in the ranking.** The leaderboard keeps its order and its reader's place: a search there highlights the matching rows and scrolls the current match to the middle of the page, rather than filtering the table. Enter and Shift+Enter walk the matches, Escape clears, and accents are ignored, so `pokemon` finds `Pokémon`.
 - **Release calendar.** Upcoming episodes of shows you follow, announced continuations of shows you already have, and the season's new shows kept in a separate section so your own tracking stays clean.
 - **Series and everything else are kept apart.** Searching series never returns a film or an OVA. Both live in the Films tab and are ranked there, so a film is never placed against a series; each row is badged `Film` or `OVA`. A film is rated on six criteria rather than seven, since it has no opening sequence, while an OVA keeps all seven and its episodes.
 - **AniList lookup**: type a title and the app pre-fills the year, studio, episode count **and the individual episode titles**, all of which you can still edit by hand.
@@ -308,6 +309,7 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run smoke:update` | Tests updating against a fake local feed |
 | `npm run smoke:update:live` | Tests updating against the real GitHub releases |
 | `npm run smoke:films` | Films tab, leaderboard scopes and grade thresholds |
+| `npm run smoke:find` | Leaderboard find bar: highlighting, centring and accent matching |
 | `npm run smoke:stats` | Statistics figures and the film criteria set |
 | `npm run smoke:schedule` | Release calendar end to end, against the live API |
 | `npm run check:schedule` | Prints the calendar for your own data, with sanity checks |
@@ -315,6 +317,7 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run audit:i18n` | Fails if any user-facing English text bypasses the dictionaries |
 | `npm run audit:translations` | Reports values identical in both languages, and English raised in the main process |
 | `npm run check:franchise "query"` | Prints how a franchise is grouped and ordered, against the live AniList API |
+| `npm run check:search` | Tests the find-bar matching and highlight offsets, offline |
 | `npm run check:numbering` | Asserts episode titles land on the correct episode numbers |
 | `npm run check:series` | Tests the "different series or continuation?" rule on real title pairs, offline |
 | `npm run check:guard` | Reports which franchises in your library the series rule would split |

@@ -22,7 +22,7 @@ import { useI18n, type MessageKey } from './i18n'
 import { useStore } from './store'
 import { useUpdate } from './useUpdate'
 import { applySeasonSpans, buildEpisodes } from './scoring'
-import { createAnime, type Anime } from './types'
+import { createAnime, isFilmLike, type Anime } from './types'
 
 type View = 'library' | 'films' | 'leaderboard' | 'criteria' | 'schedule' | 'stats' | 'settings'
 
@@ -184,6 +184,23 @@ export default function App(): ReactNode {
 
   const episodes = data.anime.reduce((sum, a) => sum + a.episodes.length, 0)
 
+  /**
+   * What each tab actually holds, so a badge counts what its own tab shows.
+   *
+   * Counting the whole collection under "Anime" made the badge disagree with the
+   * list beside it: two series and one film showed "3" above a view reading
+   * "2 of 2". Films and OVAs belong to the other tab and are counted there.
+   */
+  const filmCount = data.anime.filter(isFilmLike).length
+  const seriesCount = data.anime.length - filmCount
+
+  /** The badge beside a nav item, or null when that tab has no count to show. */
+  const navCount = (key: View): number | null => {
+    if (key === 'library') return seriesCount
+    if (key === 'films') return filmCount
+    return null
+  }
+
   return (
     <div className="app">
       <aside className="sidebar">
@@ -198,6 +215,7 @@ export default function App(): ReactNode {
         {NAV.map((item) => {
           const Icon = item.icon
           const active = view === item.key && !inDetail
+          const count = navCount(item.key)
           return (
             <button
               key={item.key}
@@ -209,9 +227,7 @@ export default function App(): ReactNode {
             >
               <Icon size={17} />
               <span className="nav-label">{t(item.labelKey)}</span>
-              {item.key === 'library' && data.anime.length > 0 && (
-                <span className="nav-count">{data.anime.length}</span>
-              )}
+              {count !== null && count > 0 && <span className="nav-count">{count}</span>}
             </button>
           )
         })}
@@ -221,7 +237,10 @@ export default function App(): ReactNode {
             <i />
             {saving ? t('shell.saving') : t('shell.saved')}
           </div>
-          <div>{t('shell.summary', { anime: data.anime.length, episodes })}</div>
+          <div>
+            {t('shell.summary', { anime: seriesCount, episodes })}
+            {filmCount > 0 && ` · ${t('shell.films', { count: filmCount })}`}
+          </div>
         </div>
       </aside>
 

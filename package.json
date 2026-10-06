@@ -53,7 +53,9 @@
     "smoke:find": "npm run build && node scripts/smoke-find.mjs",
     "check:search": "node scripts/check-search.mjs",
     "preview:find": "npm run build && node scripts/preview-find.mjs",
-    "diagnose:find": "node scripts/diagnose-find-scroll.mjs"
+    "diagnose:find": "node scripts/diagnose-find-scroll.mjs",
+    "smoke:counts": "npm run build && node scripts/smoke-counts.mjs",
+    "preview:library": "npm run build && node scripts/preview-library.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

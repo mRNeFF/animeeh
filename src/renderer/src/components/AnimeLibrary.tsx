@@ -187,7 +187,10 @@ export function AnimeLibrary({
       ) : (
         <>
           <div className="hint" style={{ marginBottom: 12 }}>
-            {t('library.count', { shown: visible.length, total: scoped.length })}
+            {t(mode === 'film' ? 'library.countFilms' : 'library.count', {
+              shown: visible.length,
+              total: scoped.length
+            })}
           </div>
           <div className="grid">
             {visible.map((a) => (

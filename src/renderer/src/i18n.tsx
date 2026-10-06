@@ -96,6 +96,7 @@ const en = {
   'shell.saved': 'Saved locally',
   'shell.saving': 'Saving…',
   'shell.summary': '{anime} anime · {episodes} episodes',
+  'shell.films': '{count} in Films & OVA',
 
   'title.library': 'Anime',
   'subtitle.library': 'Everything you have watched and scored',
@@ -165,6 +166,7 @@ const en = {
   'library.all': 'All',
   'library.sort': 'Sort: {label}',
   'library.count': '{shown} of {total} anime',
+  'library.countFilms': '{shown} of {total} in Films & OVA',
   'library.episodeCount': '{count} eps',
   'library.genre': 'Genre',
   'library.allGenres': 'All genres',
@@ -480,6 +482,7 @@ const fr: Record<MessageKey, string> = {
   'shell.saved': 'Enregistré localement',
   'shell.saving': 'Enregistrement…',
   'shell.summary': '{anime} animés · {episodes} épisodes',
+  'shell.films': '{count} en Films & OVA',
 
   'title.library': 'Animé',
   'subtitle.library': 'Tout ce que vous avez vu et noté',
@@ -550,6 +553,7 @@ const fr: Record<MessageKey, string> = {
   'library.all': 'Tous',
   'library.sort': 'Tri : {label}',
   'library.count': '{shown} sur {total} animés',
+  'library.countFilms': '{shown} sur {total} en Films & OVA',
   'library.episodeCount': '{count} ép.',
   'library.genre': 'Genre',
   'library.allGenres': 'Tous les genres',

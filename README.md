@@ -36,7 +36,7 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - **Find a title in the ranking.** The leaderboard keeps its order and its reader's place: a search there highlights the matching rows in amber and jumps the current match to the middle of the page, rather than filtering the table. `/` puts the focus in the field, Enter and Shift+Enter walk the matches, Escape clears then releases the focus, and accents are ignored, so `pokemon` finds `Pokémon`. Amber rather than the cyan accent on purpose: cyan already means "selected", so a search result has to read as something else.
   The toolbar sticks to the top of the page, which is a fix rather than a flourish — see [Why the find bar has to be sticky](#why-the-find-bar-has-to-be-sticky).
 - **Release calendar.** Upcoming episodes of shows you follow, announced continuations of shows you already have, and the season's new shows kept in a separate section so your own tracking stays clean.
-- **Series and everything else are kept apart.** Searching series never returns a film or an OVA. Both live in the Films tab and are ranked there, so a film is never placed against a series; each row is badged `Film` or `OVA`. A film is rated on six criteria rather than seven, since it has no opening sequence, while an OVA keeps all seven and its episodes.
+- **Series and everything else are kept apart.** Searching series never returns a film or an OVA. Both live in the Films tab and are ranked there, so a film is never placed against a series; each row is badged `Film` or `OVA`. A film is rated on six criteria rather than seven, since it has no opening sequence, while an OVA keeps all seven and its episodes. Every count follows the same split: the **Anime** badge counts series and the **Films & OVA** badge counts films and OVAs, so a badge always matches the list beside it.
 - **AniList lookup**: type a title and the app pre-fills the year, studio, episode count **and the individual episode titles**, all of which you can still edit by hand.
 - **Seasons are merged into one entry.** Search "shingeki no kyojin" and you get one row, not seventeen: the app follows AniList's sequel links and creates a single entry holding all six TV seasons, with episodes numbered continuously and tagged by season.
 - **Distinct series in one universe stay distinct.** Dragon Ball, Dragon Ball Z, GT, Super and DAIMA are linked as sequels on AniList but are five separate series, and the app keeps them that way — see [When a sequel is not a season](#when-a-sequel-is-not-a-season).
@@ -350,6 +350,7 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run smoke:update` | Tests updating against a fake local feed |
 | `npm run smoke:update:live` | Tests updating against the real GitHub releases |
 | `npm run smoke:films` | Films tab, leaderboard scopes and grade thresholds |
+| `npm run smoke:counts` | Sidebar badges, view counts and the footer, in both languages |
 | `npm run smoke:find` | Leaderboard find bar: highlighting, centring and accent matching, typed rather than pasted |
 | `npm run smoke:stats` | Statistics figures and the film criteria set |
 | `npm run smoke:schedule` | Release calendar end to end, against the live API |

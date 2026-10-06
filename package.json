@@ -57,7 +57,9 @@
     "smoke:counts": "npm run build && node scripts/smoke-counts.mjs",
     "preview:library": "npm run build && node scripts/preview-library.mjs",
     "design:gradients": "node scripts/serve-design.mjs 4180 leaderboard-gradients.html",
-    "design:palette": "node scripts/serve-design.mjs 4182 leaderboard-palette.html"
+    "design:palette": "node scripts/serve-design.mjs 4182 leaderboard-palette.html",
+    "check:palette": "node scripts/check-palette.mjs",
+    "preview:palette": "npm run build && node scripts/preview-palette.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

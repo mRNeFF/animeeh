@@ -440,25 +440,26 @@
             <b>luminosité progresse avec le tier</b> : les paliers bas sont profonds, les
             hauts lumineux. C'est cette seconde dimension qui donne à chaque tier son
             identité, là où la seule teinte ne suffirait pas.`,
-          // Une bande unique de 8 bornes, découpée en 7 tranches.
-          // Les bornes sont posées pour que le milieu de la première tranche
-          // tombe sur le rouge et celui de la dernière sur le rose : sans cela
-          // le palier F sortait orange et le S bleu-violet.
-          window: true,
-          bounds: [-18, 34, 87, 140, 193, 246, 298, 351],
-          // Luminosité par palier, du F au S : vers le haut, plus lumineux.
-          // C'est la seconde dimension de la progression, celle qui donne à
-          // chaque palier une identité que la seule teinte ne suffirait pas à
-          // porter.
-          lightness: [63, 61, 58, 56, 62, 66, 69],
-          sat: [78, 78, 64, 64, 76, 72, 74]
+          // Les couleurs telles qu'elles ont été retenues dans palette.ts, avec
+          // la mesure corrigée : les deux extrémités du dégradé sont vérifiées,
+          // et non plus seulement la couleur plate du milieu.
+          explicit: true,
+          colors: [
+            ['S', { hex: '#EA8CEE', gradient: 'linear-gradient(135deg, #EA8CEE, #E75F74)', from: 298, to: 351 }],
+            ['A', { hex: '#8A80EA', gradient: 'linear-gradient(135deg, #8A80EA, #DE54E3)', from: 246, to: 298 }],
+            ['B', { hex: '#6BCFEB', gradient: 'linear-gradient(135deg, #6BCFEB, #7D70EC)', from: 193, to: 246 }],
+            ['C', { hex: '#5CDB86', gradient: 'linear-gradient(135deg, #5CDB86, #32AFD2)', from: 140, to: 193 }],
+            ['D', { hex: '#A7DD64', gradient: 'linear-gradient(135deg, #A7DD64, #3AD46E)', from: 87, to: 140 }],
+            ['E', { hex: '#ECB165', gradient: 'linear-gradient(135deg, #ECB165, #98E637)', from: 34, to: 87 }],
+            ['F', { hex: '#ED6E94', gradient: 'linear-gradient(135deg, #ED6E94, #E79F40)', from: -18, to: 34 }]
+          ]
         }
       ]
 
       /* ---------------- Construire les couleurs du modèle 4 ---------------- */
 
       MODELS.forEach((model) => {
-        if (!model.window) return
+        if (!model.window || model.explicit) return
         const letters = ['F', 'E', 'D', 'C', 'B', 'A', 'S']
         model.colors = letters.map((letter, i) => {
           const from = model.bounds[i]
@@ -510,6 +511,48 @@
         return `rgba(${r},${g},${b},0.20)`
       }
 
+      /** An hsl(…) or #hex token to an rgb triple. */
+      function tokenToRgb(token) {
+        if (token.startsWith('#')) return hexToRgb(token)
+        const m = token.match(/hsl\(([-\d.]+)\s+([\d.]+)%\s+([\d.]+)%\)/)
+        return hslToRgb(Number(m[1]), Number(m[2]), Number(m[3]))
+      }
+
+      /**
+       * The two colours a badge actually paints.
+       *
+       * The first version of this page measured the flat middle colour, which is
+       * not what is rendered: a badge paints a gradient across the whole slice,
+       * and B's dark end reached 2.9:1 while its middle looked fine. Both ends are
+       * measured now.
+       */
+      function gradientEnds(c) {
+        if (!c.gradient) return [hexToRgb(c.hex), hexToRgb(c.hex)]
+        const tokens = [...c.gradient.matchAll(/#[0-9A-Fa-f]{6}|hsl\([^)]+\)/g)].map((m) => m[0])
+        if (tokens.length < 2) return [hexToRgb(c.hex), hexToRgb(c.hex)]
+        return [tokenToRgb(tokens[0]), tokenToRgb(tokens[1])]
+      }
+
+      const contrastRgb = (a, b) => {
+        const la = luminance(a)
+        const lb = luminance(b)
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
+      }
+
+      const DARK_LETTER = '#070c16'
+      const LIGHT_LETTER = '#ffffff'
+
+      /** The letter colour a tier takes, and its worst contrast across the badge. */
+      function letterOn(c) {
+        const ends = gradientEnds(c)
+        const worst = (text) => Math.min(...ends.map((e) => contrastRgb(e, hexToRgb(text))))
+        const dark = worst(DARK_LETTER)
+        const light = worst(LIGHT_LETTER)
+        return dark >= light
+          ? { text: DARK_LETTER, worst: dark, name: 'sombre' }
+          : { text: LIGHT_LETTER, worst: light, name: 'claire' }
+      }
+
       /** La bande : un dégradé continu, avec un repère à chaque frontière. */
       function strip(model) {
         const stops = model.colors.map(([, c]) => c.hex)
@@ -532,9 +575,10 @@
           .map(([letter, c], i) => {
             const prev = model.colors[i - 1]
             const dE = prev ? deltaE(prev[1].hex, c.hex) : null
-            // La lettre posée sur la pastille est sombre, comme dans l'app.
-            const cr = contrast(c.hex, APP_BG)
-            const crBg = contrast(c.hex, '#070c16')
+            // La lettre est mesurée sur les deux extrémités du dégradé, et sa
+            // couleur (sombre ou claire) est celle que retient la palette.
+            const ink = letterOn(c)
+            const crCls = ink.worst >= 4.5 ? 'ok' : ink.worst >= 3 ? 'warn' : 'bad'
             const cls = dE === null ? '' : dE >= 20 ? 'ok' : dE >= 10 ? 'warn' : 'bad'
             const label = dE === null ? '—' : dE.toFixed(1)
             const pct = dE === null ? 0 : Math.min(100, (dE / 45) * 100)
@@ -546,7 +590,7 @@
               <td class="deg">${
                 c.labHue !== undefined
                   ? `${Math.round(c.labHue)}° Lab`
-                  : c.mid !== undefined
+                  : c.from !== undefined && c.to !== undefined
                     ? `${Math.round(c.from)}–${Math.round(c.to)}°`
                     : `${c.h}°`
               }</td>
@@ -558,7 +602,10 @@
                 }
               </td>
               <td style="width:96px"><span class="bar-mini"><i style="width:${pct}%;background:${barHue}"></i></span></td>
-              <td class="n"><span class="hex">${crBg.toFixed(1)}:1</span></td>
+              <td class="n">
+                <span class="pill ${crCls}">${ink.worst.toFixed(1)}:1</span>
+                <div class="deg">lettre ${ink.name}</div>
+              </td>
             </tr>`
           })
           .join('')
@@ -645,15 +692,17 @@
         }
         const min = Math.min(...ds)
         const max = Math.max(...ds)
-        const contrastes = model.colors.map(([, c]) => contrast(c.hex, APP_BG))
-        const minC = Math.min(...contrastes)
+        // La lettre, mesurée sur les deux extrémités du dégradé et non sur la
+        // couleur plate : c'est cet écart-là qui comptait et qui avait été manqué.
+        const contrasts = model.colors.map(([, c]) => letterOn(c).worst)
+        const minC = Math.min(...contrasts)
         return { min, max, minC, ds }
       }
 
       document.getElementById('summary').innerHTML = `
         <thead><tr>
           <th>Modèle</th><th class="n">ΔE min</th><th class="n">ΔE max</th>
-          <th class="n">Écart min / max</th><th class="n">Contraste min</th><th>Verdict</th>
+          <th class="n">Écart min / max</th><th class="n">Lettre min</th><th>Verdict</th>
         </tr></thead>
         <tbody>${MODELS.map((m, i) => {
           const s = stats(m)
@@ -700,10 +749,31 @@
           <b>Rappel de la palette actuelle, mesurée de la même façon :</b>
           ΔE minimum <span class="m">${cs.min.toFixed(1)}</span> (entre E et F),
           écart min/max <span class="m">${(cs.max / cs.min).toFixed(2)}×</span>,
-          contraste minimum <span class="m">${cs.minC.toFixed(1)}:1</span>.
-          Les modèles 1 à 4 remontent tous le ΔE minimum au-dessus de
-          <span class="m">${Math.min(...MODELS.map((m) => stats(m).min)).toFixed(0)}</span>.
+          contraste de lettre minimum <span class="m">${cs.minC.toFixed(1)}:1</span>.
+          Les modèles 1 à 4 remontent tous les deux premiers au-dessus de
+          <span class="m">${Math.min(...MODELS.map((m) => stats(m).min)).toFixed(0)}</span>
+          et <span class="m">${Math.min(...MODELS.map((m) => stats(m).minC)).toFixed(1)}:1</span>.
         </p>`
+      )
+
+      /* Ce que la première version de cette page avait manqué. */
+      document.getElementById('summary').insertAdjacentHTML(
+        'afterend',
+        `<div class="callout" style="margin-top:22px;border-left-color:#f87171;background:rgba(248,113,113,.06)">
+          <b style="color:#f87171">Correction de la mesure.</b> La première version de
+          cette page mesurait <span class="m">la couleur plate du milieu</span> de chaque
+          palier. Ce n'est pas ce qui est rendu : une pastille peint un
+          <span class="m">dégradé sur toute la tranche</span>. Le bleu du palier B se
+          terminait sur un bleu profond, et cette extrémité atteignait
+          <span class="m">2,9:1</span> alors que son milieu semblait correct — pire que la
+          palette remplacée, que cette page accusait justement sur ce point.
+          <br /><br />
+          Deux corrections en ont découlé. La luminosité de chaque extrémité est
+          désormais <b>dérivée</b> pour que les deux passent le seuil, et la couleur de
+          la lettre est <b>choisie par contraste</b> au lieu d'être supposée sombre.
+          Le tableau ci-dessus mesure maintenant les deux extrémités du dégradé.
+          <span class="m">npm run check:palette</span> refait ces mesures sur le code réel.
+        </div>`
       )
     </script>
   </body>

@@ -1,5 +1,6 @@
 import { useEffect, type CSSProperties, type ReactNode } from 'react'
 import { useI18n } from '../i18n'
+import { tierGradient, tierOf, tierTextColor } from '../palette'
 
 /* ------------------------------------------------------------------ */
 /* Deterministic hue + cover gradient                                  */
@@ -172,22 +173,21 @@ export function Bar({
 
 export function GradeBadge({
   letter,
-  hue,
   className,
   style
 }: {
   letter: string
-  hue: number
   className?: string
   style?: CSSProperties
 }): ReactNode {
-  const background =
-    letter === '—'
-      ? 'rgba(255,255,255,0.08)'
-      : `linear-gradient(135deg, hsl(${hue} 78% 62%), hsl(${hue} 70% 46%))`
-  // Text on a coloured badge: the page background, so it stays legible on the
-  // pale end of the gradient whatever hue the grade uses.
-  const color = letter === '—' ? 'var(--muted-2)' : 'var(--bg)'
+  const tier = tierOf(letter)
+  // A badge carries its own tier's slice of the palette gradient, so it leads
+  // into the badge of the neighbouring tier rather than standing alone.
+  const background = tier === null ? 'rgba(255,255,255,0.08)' : tierGradient(tier)
+  // Which letter colour to use is decided by contrast, not fixed. The blue and
+  // violet tiers are intrinsically dark, so a dark letter on them reached only
+  // 2.9:1; those tiers take a light letter instead.
+  const color = tier === null ? 'var(--muted-2)' : tierTextColor(tier)
   return (
     <div className={className} style={{ background, color, ...style }}>
       {letter}

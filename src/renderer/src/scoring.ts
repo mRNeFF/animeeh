@@ -18,6 +18,7 @@ import {
   type StoreData,
   type Weights
 } from './types'
+import { tierHue, tierOf, type Tier } from './palette'
 
 /* ------------------------------------------------------------------ */
 /* Episode helpers                                                     */
@@ -307,16 +308,20 @@ export interface Grade {
  * Letter grades.
  *
  * S 90-100 · A 75-89.9 · B 65-74.9 · C 50-64.9 · D 30-49.9 · E 10-29.9 · F 0-9.9
+ *
+ * The hue is the middle of the tier's slice in the palette, so that everything
+ * drawing a flat colour from a grade — a bar, a dot, a gauge — follows the same
+ * palette the badges do. See palette.ts for the slices themselves.
  */
 export function grade(score: number | null): Grade {
   if (score === null) return { letter: '—', hue: 0 }
-  if (score >= 90) return { letter: 'S', hue: 320 }
-  if (score >= 75) return { letter: 'A', hue: 268 }
-  if (score >= 65) return { letter: 'B', hue: 212 }
-  if (score >= 50) return { letter: 'C', hue: 158 }
-  if (score >= 30) return { letter: 'D', hue: 46 }
-  if (score >= 10) return { letter: 'E', hue: 22 }
-  return { letter: 'F', hue: 8 }
+  if (score >= 90) return { letter: 'S', hue: tierHue(tierOf('S') as Tier) }
+  if (score >= 75) return { letter: 'A', hue: tierHue(tierOf('A') as Tier) }
+  if (score >= 65) return { letter: 'B', hue: tierHue(tierOf('B') as Tier) }
+  if (score >= 50) return { letter: 'C', hue: tierHue(tierOf('C') as Tier) }
+  if (score >= 30) return { letter: 'D', hue: tierHue(tierOf('D') as Tier) }
+  if (score >= 10) return { letter: 'E', hue: tierHue(tierOf('E') as Tier) }
+  return { letter: 'F', hue: tierHue(tierOf('F') as Tier) }
 }
 
 /* ------------------------------------------------------------------ */

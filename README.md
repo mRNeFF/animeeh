@@ -15,6 +15,7 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 
 - [What it does](#what-it-does)
 - [How seasons are merged](#how-seasons-are-merged)
+- [The grade palette](#the-grade-palette)
 - [When a sequel is not a season](#when-a-sequel-is-not-a-season)
 - [Why the find bar has to be sticky](#why-the-find-bar-has-to-be-sticky)
 - [The scoring model](#the-scoring-model)
@@ -33,6 +34,7 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - **Seven criteria per anime** — Characters, Story, Animation, OST, Opening, Key Factor, Originality.
 - **Weighted global score**, with the episode average as a first-class component.
 - **Seven views**: Anime (series), Films & OVA, Leaderboard, Rankings by criteria, Calendar, Statistics, Settings.
+- **Grade colours that carry information.** The seven letter grades share one palette, defined in `src/renderer/src/palette.ts`. Each tier owns a slice of a single gradient, and a slice ends exactly where the next begins, so the badges read as one continuous gradient cut into steps. The tier's colour washes the row and fills the badge, and the letter colour is chosen by contrast rather than assumed dark — the blue and violet slices are intrinsically dark, where a dark letter reached only 2.9:1. See [The grade palette](#the-grade-palette).
 - **Find a title in the ranking.** The leaderboard keeps its order and its reader's place: a search there highlights the matching rows in amber and jumps the current match to the middle of the page, rather than filtering the table. `/` puts the focus in the field, Enter and Shift+Enter walk the matches, Escape clears then releases the focus, and accents are ignored, so `pokemon` finds `Pokémon`. Amber rather than the cyan accent on purpose: cyan already means "selected", so a search result has to read as something else.
   The toolbar sticks to the top of the page, which is a fix rather than a flourish — see [Why the find bar has to be sticky](#why-the-find-bar-has-to-be-sticky).
 - **Release calendar.** Upcoming episodes of shows you follow, announced continuations of shows you already have, and the season's new shows kept in a separate section so your own tracking stays clean.
@@ -84,8 +86,64 @@ Verify the assembly against the live API at any time:
 npm run check:franchise "shingeki no kyojin" "sousou no frieren"
 ```
 
-## When a sequel is not a season
+## The grade palette
 
+The seven letter grades share one palette, in `src/renderer/src/palette.ts`. Each
+tier owns a **slice of a single gradient**, and a slice ends exactly where the next
+begins, so the badges read as one continuous gradient cut into steps rather than
+seven colours chosen apart. The continuity is structural and cannot break, because
+there is only ever one gradient.
+
+Each tier therefore carries a *range* of hue rather than a hue. Two progressions
+run together: within a tier the hue sweeps its slice, and between tiers the hue
+steps on. The tier's colour washes its row and fills its badge, and the same value
+drives the bar under a card and the dot beside a criterion.
+
+Three things are measured rather than eyeballed, by `npm run check:palette`:
+
+| | This palette | The one it replaced |
+|---|---|---|
+| Worst perceived gap between neighbours (ΔE, CIE76) | **27.7** | 21.5 |
+| Ratio of widest to narrowest gap | **2.28×** | 4.73× |
+| Worst letter contrast on a badge | **5.0:1** | 3.3:1 ✗ |
+
+The third row is the one that mattered most. 4.5:1 is the threshold for text this
+size, and the old palette missed it: the letter is drawn in the page background
+colour on every badge, which fails wherever the badge is dark.
+
+### Three corrections worth keeping
+
+**Why the lightness is derived rather than set.** Contrast is a function of
+luminance, and the same HSL lightness gives very different luminance at different
+hues. The blue end of B's slice is intrinsically dark, and giving it the same
+lightness as the rest produced 2.9:1 — worse than the palette being replaced. Each
+end of a slice now has its lightness derived so it clears the threshold.
+
+**Why the letter colour is chosen, not assumed.** Those same blue and violet
+slices want a light letter while the amber and lime ones want a dark one. The
+letter colour is picked by contrast, per tier.
+
+**Why clamping beats holding the luminance flat.** Holding luminance flat across a
+slice is tidier on paper and ruins any slice containing yellow: E's identity colour
+is bright, and forcing its orange end to the same luminance turned it cream. Only
+the ends that would fall under the readable floor are lifted, so E keeps its colour
+and B's dark blue end is raised from `#4F3EE5` to `#7D70EC`.
+
+A first version of the comparison page got this wrong in an instructive way: it
+measured the flat middle colour of each tier, which is not what a badge paints, so
+it reported B as fine while the rendered badge failed. The page now measures both
+ends of the gradient, and this is the reason `check:palette` reads the colours back
+out of the gradient the app renders instead of recomputing them.
+
+The four palettes that were compared, with their measurements, are recorded in
+`design/leaderboard-palette.html`:
+
+```powershell
+npm run design:palette      # then open http://127.0.0.1:4182/
+npm run preview:palette     # screenshots it in place, on a copy of your library
+```
+
+## When a sequel is not a season
 Following `SEQUEL` links blindly merged **Dragon Ball, Z, GT, Super and DAIMA** into one
 entry of 825 episodes across 8 "seasons". They are linked as sequels, but they are five
 different series.
@@ -360,6 +418,9 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run audit:translations` | Reports values identical in both languages, and English raised in the main process |
 | `npm run check:franchise "query"` | Prints how a franchise is grouped and ordered, against the live AniList API |
 | `npm run check:search` | Tests the find-bar matching and highlight offsets, offline |
+| `npm run check:palette` | Measures the grade palette: contiguity, perceived gaps, letter contrast |
+| `npm run preview:palette` | Screenshots the palette in place, on a copy of your library |
+| `npm run design:palette` | Serves the palette comparison page |
 | `npm run check:numbering` | Asserts episode titles land on the correct episode numbers |
 | `npm run check:series` | Tests the "different series or continuation?" rule on real title pairs, offline |
 | `npm run check:guard` | Reports which franchises in your library the series rule would split |

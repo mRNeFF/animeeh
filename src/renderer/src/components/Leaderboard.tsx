@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { criterionKey, useI18n } from '../i18n'
 import { grade, rankAnime, scoreParts } from '../scoring'
 import { highlightSegments, includesQuery } from '../search'
+import { tierOf, tierRowWash } from '../palette'
 import { useStore } from '../store'
 import { GradeBadge } from './ui'
 import { IconChevronDown, IconChevronUp, IconClose, IconSearch } from './Icons'
@@ -42,6 +43,18 @@ function scrollingParent(element: HTMLElement): HTMLElement | null {
     node = node.parentElement
   }
   return null
+}
+
+/**
+ * The wash behind a ranked row, from the tier its score falls into.
+ *
+ * Returns `none` for an unrated entry, so a row with no score carries no colour
+ * rather than the colour of a zero.
+ */
+function rowWash(score: number | null): string {
+  if (score === null) return 'none'
+  const tier = tierOf(grade(score).letter)
+  return tier === null ? 'none' : tierRowWash(tier)
 }
 
 /**
@@ -379,9 +392,13 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
                         if (element) rowRefs.current.set(entry.anime.id, element)
                         else rowRefs.current.delete(entry.anime.id)
                       }}
-                      className={`clickable${isMatch ? ' row-match' : ''}${
+                      className={`clickable row-wash${isMatch ? ' row-match' : ''}${
                         isCurrent ? ' row-current' : ''
                       }`}
+                      // The tier's wash goes in a custom property rather than a
+                      // background, so the find bar's highlight, which paints a
+                      // background colour on the same row, is not overwritten.
+                      style={{ '--row-wash': rowWash(entry.score) } as CSSProperties}
                       onClick={() => onOpen(entry.anime.id)}
                     >
                       <td className={`rank-cell${entry.rank > 0 && entry.rank <= 3 ? ' top' : ''}`}>
@@ -433,7 +450,6 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
                       <td>
                         <GradeBadge
                           letter={g.letter}
-                          hue={g.hue}
                           style={{
                             width: 30,
                             height: 30,

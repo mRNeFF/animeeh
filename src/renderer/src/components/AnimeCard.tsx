@@ -26,7 +26,7 @@ export function AnimeCard({
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpen()}>
       <Cover title={anime.title} hue={hue} src={anime.coverImage} className="card-cover" />
       {rank !== null && rank > 0 && <div className="card-rank">#{rank}</div>}
-      <GradeBadge letter={g.letter} hue={g.hue} className="card-grade" />
+      <GradeBadge letter={g.letter} className="card-grade" />
       <div className="card-body">
         <div className="card-title">{anime.title}</div>
         <div className="card-meta">

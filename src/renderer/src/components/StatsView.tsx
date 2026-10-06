@@ -363,7 +363,6 @@ export function StatsView(): ReactNode {
               <span className="grade-legend-item" key={g.letter}>
                 <GradeBadge
                   letter={g.letter}
-                  hue={g.hue}
                   style={{
                     width: 22,
                     height: 22,
@@ -509,7 +508,6 @@ function Row({
       {letter && hue !== undefined && (
         <GradeBadge
           letter={letter}
-          hue={hue}
           style={{
             width: 24,
             height: 24,

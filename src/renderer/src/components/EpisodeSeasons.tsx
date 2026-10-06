@@ -146,7 +146,6 @@ export function EpisodeSeasons({
                   <span className="season-avg">{t('season.avg', { value: avg.toFixed(1) })}</span>
                   <GradeBadge
                     letter={g.letter}
-                    hue={g.hue}
                     style={{
                       width: 24,
                       height: 24,
@@ -196,7 +195,6 @@ export function EpisodeSeasons({
                       <div style={{ textAlign: 'center' }}>
                         <GradeBadge
                           letter={grade(ep.score).letter}
-                          hue={grade(ep.score).hue}
                           style={{
                             width: 28,
                             height: 28,

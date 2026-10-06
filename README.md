@@ -172,12 +172,17 @@ Two earlier attempts are worth recording, because both looked right and both wer
 - **normalising before comparing** turned `√A` into the plain word `a`, which then read as
   a distinct series and broke Tokyo Ghoul again.
 
-### Dragon Ball cannot be decided by titles
+### Dragon Ball and Naruto cannot be decided by titles
 
 `Z`, `GT`, `Super` and `DAIMA` are real words, so they survive every step above by
-design. No title rule can tell `Dragon Ball Z` apart from `Dragon Ball: Some Subtitle`
-without also breaking something else. Those entries are therefore listed explicitly in
-`FRANCHISE_SPLITS`, keyed by AniList id so it holds whatever the entries are named:
+design. No title rule can tell `Dragon Ball Z` apart from `Dragon Ball: Some
+Subtitle` without also breaking something else.
+
+Naruto has the opposite problem with the same cause. `Naruto: Shippuden` reads as a
+subtitle, and the rule treats a subtitle as a continuation — correctly, most of the
+time. Bleach's `Sennen Kessen-hen` *is* a subtitle and genuinely continues Bleach, so
+merging it is right. Shippuden is a different series. Nothing about the two titles
+tells those cases apart, so both answers are stated rather than inferred:
 
 | Series | Ids | Episodes |
 |---|---|---|
@@ -187,11 +192,17 @@ without also breaking something else. Those entries are therefore listed explici
 | Dragon Ball Super | 21175 | 131 |
 | Dragon Ball DAIMA | 170083 | 20 |
 | Dragon Ball Kai + its 2014 recut | 6033, 20635 | 166 |
+| Naruto | 20 | 220 |
+| Naruto: Shippuden | 1735 | 500 |
 
-Ids sharing a group still join; ids in different groups never do. `FRANCHISE_GROUPS` is
-the opposite list — pairs that join despite reading as different series (Steins;Gate and
-Steins;Gate 0, and Fate/Zero with Fate/stay night, which the library already stored as
-one entry before this rule existed).
+Ids sharing a group still join; ids in different groups never do. `FRANCHISE_GROUPS`
+is the opposite list — pairs that join despite reading as different series
+(Steins;Gate and Steins;Gate 0, and Fate/Zero with Fate/stay night, which the
+library already stored as one entry before this rule existed).
+
+Note what the title rule does on its own for Naruto, because it explains the bug:
+`Naruto Shippuden`, without a colon, is separated; `Naruto: Shippuden`, with one, is
+merged. AniList writes the latter, so the merging branch is the one that fired.
 
 `shouldChainLink` is the single function that decides, and both the app and the checks
 call it, so they cannot drift apart.
@@ -426,6 +437,7 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run check:guard` | Reports which franchises in your library the series rule would split |
 | `npm run check:kinds` | Asserts the film search and the series search stay disjoint, against the live API |
 | `npm run diagnose:dragonball` | Assembles each Dragon Ball series on its own, against the live API |
+| `npm run verify:ids` | Confirms the AniList ids the curated splits are keyed on |
 | `npm run diagnose:find "query"` | Prints the scroll layout and how far the matched row sits from the middle |
 | `npm run diagnose:ova` | Lists the OVA, SPECIAL and ONA entries attached to the shows in your library |
 | `npm run diagnose:episodes` | Reports episode-name coverage and gaps for your data file |

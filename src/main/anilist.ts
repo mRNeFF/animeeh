@@ -80,16 +80,22 @@ const MAX_FRANCHISE_ENTRIES = 15
 /**
  * Entries AniList links as sequels that are nevertheless separate series.
  *
- * Dragon Ball is the case. Every installment is "Dragon Ball" plus one short
- * word, and AniList chains them all with SEQUEL, so walking the links produced a
- * single entry of 825 episodes spanning Dragon Ball, Z, GT, Super and DAIMA.
- * Their titles carry no number and no subtitle to tell them apart, which is
- * precisely the signal the general rule relies on, so the answer is stated here
- * instead.
+ * Two shapes need this, and neither can be settled by the title rule:
  *
- * Ids in the same group still join: Kai and its 2014 recut are one season list.
- * Keying by id rather than by title keeps this working whatever AniList names
- * the entries.
+ *   - **Dragon Ball.** Every installment is "Dragon Ball" plus one short word, so
+ *     walking the links produced a single entry of 825 episodes spanning Dragon
+ *     Ball, Z, GT, Super and DAIMA. Their titles carry no number and no subtitle
+ *     to tell them apart, which is precisely the signal the rule relies on.
+ *
+ *   - **Naruto.** "Naruto: Shippuden" reads as a subtitle, and the rule treats a
+ *     subtitle as a continuation — correctly, most of the time. Bleach's
+ *     "Sennen Kessen-hen" is a subtitle and genuinely continues Bleach, so
+ *     merging it is right. Shippuden is a different series, and no inspection of
+ *     the two titles can tell those cases apart. The answer has to be stated.
+ *
+ * Ids in the same group still join: Kai and its 2014 recut are one season list,
+ * and so are Naruto's own seasons. Keying by id rather than by title keeps this
+ * working whatever AniList names the entries.
  */
 const FRANCHISE_SPLITS: Record<number, string> = {
   223: 'dragon-ball',
@@ -101,7 +107,12 @@ const FRANCHISE_SPLITS: Record<number, string> = {
   20635: 'dragon-ball-kai',
   // The 2026 retelling of the Battle of Gods arc, kept apart so Super stands
   // alone at its 131 episodes.
-  206814: 'dragon-ball-super-beerus'
+  206814: 'dragon-ball-super-beerus',
+
+  // Naruto, 220 episodes, and Naruto: Shippuden, 500. Boruto is a third series
+  // and is not listed, since AniList gives it a title of its own.
+  20: 'naruto',
+  1735: 'naruto-shippuden'
 }
 
 /** True when two ids are known to be different series. */

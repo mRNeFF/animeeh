@@ -35,6 +35,12 @@ if (typeof mod.looksLikeDifferentSeries !== 'function') {
 }
 const looksLikeDifferentSeries = mod.looksLikeDifferentSeries
 
+if (typeof mod.shouldChainLink !== 'function') {
+  console.error('shouldChainLink is not exported; add it to the module exports.')
+  process.exit(2)
+}
+const shouldChainLink = mod.shouldChainLink
+
 /**
  * Every consecutive season pair found in a real library, plus the Dragon Ball
  * cases. `split` true means the rule must treat them as two series.
@@ -91,7 +97,19 @@ const CASES = [
   // Other franchises that share a name but are separate works.
   ['Bleach', 'Bleach: Sennen Kessen-hen', false],
   ['Dr. STONE', 'Dr. STONE: Stone Wars', false],
-  ['HUNTER×HUNTER', 'HUNTER×HUNTER OVA', true]
+  ['HUNTER×HUNTER', 'HUNTER×HUNTER OVA', true],
+
+  // Naruto and Naruto: Shippuden are two series, but the title rule cannot see
+  // it: "Shippuden" reads as a subtitle, exactly as "Sennen Kessen-hen" does for
+  // Bleach, and Bleach's final arc genuinely is a subtitle. Titles alone cannot
+  // tell the two cases apart, so Naruto is separated by FRANCHISE_SPLITS.
+  //
+  // The asymmetry below is the whole problem in two lines: with a colon the rule
+  // reads a subtitle and merges, without one it reads a distinct name and splits.
+  // AniList writes "NARUTO: Shippuuden", so the merging branch is the one that
+  // fired in practice.
+  ['Naruto', 'Naruto: Shippuden', false],
+  ['Naruto', 'Naruto Shippuden', true]
 ]
 
 let failures = 0
@@ -109,4 +127,42 @@ for (const [a, b, expected] of CASES) {
 }
 
 console.log(`\n${failures === 0 ? `ALL ${CASES.length} CASES PASS` : `${failures} FAILURE(S)`}`)
-process.exit(failures === 0 ? 0 : 1)
+
+/* ---------------------------------------------------------------- */
+/* The curated decisions, which override the title rule              */
+/* ---------------------------------------------------------------- */
+
+/**
+ * A pair the title rule cannot settle, checked through the function the app
+ * actually calls.
+ *
+ * The cases above assert what the TITLE RULE does, and for these two pairs its
+ * answer is "merge" — which is wrong for Naruto and right for Steins;Gate. What
+ * matters is the final decision, so this checks that too.
+ */
+const CURATED = [
+  // AniList ids, so the split is exercised the way the app exercises it.
+  { from: { id: 20, title: 'NARUTO' }, to: { id: 1735, title: 'NARUTO: Shippuuden' }, link: false, why: 'two series' },
+  { from: { id: 1735, title: 'NARUTO: Shippuuden' }, to: { id: 20, title: 'NARUTO' }, link: false, why: 'two series, other direction' },
+  { from: { id: 223, title: 'Dragon Ball' }, to: { id: 813, title: 'Dragon Ball Z' }, link: false, why: 'two series' },
+  { from: { id: 6033, title: 'Dragon Ball Kai' }, to: { id: 20635, title: 'Dragon Ball Kai (2014)' }, link: true, why: 'one entry, a recut' },
+  { from: { id: 9253, title: 'Steins;Gate' }, to: { id: 21127, title: 'Steins;Gate 0' }, link: true, why: 'one entry by curation' }
+]
+
+console.log('\ncurated decisions, through shouldChainLink:\n')
+let curatedFailures = 0
+for (const c of CURATED) {
+  const actual = shouldChainLink(c.from, c.to)
+  const ok = actual === c.link
+  if (!ok) curatedFailures += 1
+  console.log(
+    `  ${ok ? 'OK  ' : 'FAIL'} ${c.link ? 'LINK' : 'SPLIT'}  ` +
+      `${c.from.title.slice(0, 22).padEnd(24)} / ${c.to.title.slice(0, 24).padEnd(26)} ${c.why}`
+  )
+}
+console.log(
+  `\n${curatedFailures === 0 ? `ALL ${CURATED.length} CURATED DECISIONS PASS` : `${curatedFailures} CURATED FAILURE(S)`}`
+)
+
+const total = failures + curatedFailures
+process.exit(total === 0 ? 0 : 1)

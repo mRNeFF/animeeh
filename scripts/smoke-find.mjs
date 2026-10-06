@@ -114,8 +114,10 @@ const centres = async () => {
 
 const type = async (text) => {
   await input().fill(text)
-  // Smooth scrolling plus the re-render need a moment to settle.
-  await sleep(1400)
+  // The scroll is instant and the matching is local, so this is only a frame or
+  // two of settle time. It is deliberately short: a smooth scroll would not have
+  // arrived yet, which is what makes the centring assertions meaningful.
+  await sleep(450)
 }
 
 try {
@@ -129,17 +131,45 @@ try {
   // Ranked order, used to line the detail lines up with their titles.
   const rowsTitles = (await win.locator('tbody .t-title').allInnerTexts()).map((s) => s.trim())
 
-  /* ---- 1. Nothing highlighted without a query ---- */
+  /* ---- 1. Nothing highlighted without a query, and the "/" hint is shown ---- */
   check('no match class before searching', await win.locator('tr.row-match').count(), 0)
   check('no mark before searching', await win.locator('tbody mark').count(), 0)
+  check('the "/" hint is offered', await win.locator('.find-kbd').count(), 1)
+  check('the counter is hidden before searching', await win.locator('.find-count').count(), 0)
+  await win.screenshot({ path: join(root, 'smoke-find-empty.png') })
 
-  /* ---- 2. One match, far down the table ---- */
+  /* ---- 2. The "/" shortcut focuses the field ---- */
+  // The table row click opens a detail view, so the board is re-entered to leave
+  // the focus somewhere that is not the find field.
+  await win.locator('tbody tr').first().click()
+  await sleep(600)
+  await win.getByRole('button', { name: /^Leaderboard/ }).click()
+  await sleep(700)
+
+  const focusInfo = () =>
+    win.evaluate(() => {
+      const active = document.activeElement
+      return {
+        tag: active?.tagName ?? '',
+        inFind: active !== null && active.closest('.find') !== null
+      }
+    })
+
+  const before = await focusInfo()
+  await win.keyboard.press('/')
+  await sleep(400)
+  const after = await focusInfo()
+  check('focus starts outside the find field', before.inFind, false)
+  check('"/" focuses the find field', after.inFind && after.tag === 'INPUT', true)
+
+  /* ---- 3. One match, far down the table ---- */
   await type('zelda no densetsu')
   const matched = await win.locator('tr.row-match').count()
   check('both Zelda rows match', matched, 2)
   check('exactly one is the current match', await win.locator('tr.row-current').count(), 1)
   check('the counter names the position', (await win.locator('.find-count').innerText()).trim(), '1 / 2')
   check('the matched words are marked', await win.locator('tr.row-current mark').count(), 1)
+  check('the "/" hint gives way to the counter', await win.locator('.find-kbd').count(), 0)
   check(
     'the mark holds the searched words',
     (await win.locator('tr.row-current mark').first().innerText()).trim().toLowerCase(),
@@ -163,10 +193,12 @@ try {
 
   await win.screenshot({ path: join(root, 'smoke-find-single.png') })
 
-  /* ---- 3. Stepping to the next match re-centres it ---- */
+  /* ---- 4. Stepping to the next match re-centres it, instantly ---- */
   const firstTitle = (await win.locator('tr.row-current .t-title').innerText()).trim()
   await input().press('Enter')
-  await sleep(1400)
+  // Deliberately far shorter than a smooth scroll would need, so arriving centred
+  // this quickly is evidence that the jump is instant.
+  await sleep(120)
   const second = await centres()
   const secondTitle = (await win.locator('tr.row-current .t-title').innerText()).trim()
   console.log(`   after Enter — "${secondTitle}" at ${second.row}px, off by ${second.delta}px`)
@@ -174,12 +206,12 @@ try {
   check('Enter moved to the other match', secondTitle !== firstTitle, true)
   check('the second match is centred too', second.delta !== null && second.delta <= 4, true)
 
-  /* ---- 4. Shift+Enter goes back ---- */
+  /* ---- 5. Shift+Enter goes back ---- */
   await win.locator('.find input').press('Shift+Enter')
-  await sleep(1400)
+  await sleep(450)
   check('Shift+Enter stepped back', (await win.locator('.find-count').innerText()).trim(), '1 / 2')
 
-  /* ---- 5. Many matches, and accents ---- */
+  /* ---- 6. Many matches, and accents ---- */
   await type('anime')
   const many = await win.locator('tr.row-match').count()
   check('every seeded row matches "anime"', many, 40)
@@ -219,21 +251,42 @@ try {
   check('no row matches a miss', await win.locator('tr.row-match').count(), 0)
   check('a miss says so', (await win.locator('.find-count').innerText()).trim(), 'No match')
 
-  /* ---- 8. Clearing ---- */
+  /* ---- 8. Clearing, and typing a literal slash ---- */
+  // A slash typed INTO the field must stay a slash, not re-trigger the shortcut.
+  await type('/')
+  check('a slash inside the field stays literal', await input().inputValue(), '/')
+  check('and finds nothing', (await win.locator('.find-count').innerText()).trim(), 'No match')
+
   await win.locator('.find-step').last().click()
-  await sleep(500)
+  await sleep(400)
   check('the clear button empties the field', await input().inputValue(), '')
   check('no match class after clearing', await win.locator('tr.row-match').count(), 0)
   check('no mark after clearing', await win.locator('tbody mark').count(), 0)
   check('the counter is hidden when empty', await win.locator('.find-count').count(), 0)
+  check('the "/" hint comes back', await win.locator('.find-kbd').count(), 1)
+  check(
+    'the clear button keeps the field focused',
+    await win.evaluate(() => (document.activeElement?.tagName ?? '') === 'INPUT'),
+    true
+  )
 
-  /* ---- 9. Escape clears, and the ranking order is untouched ---- */
+  /* ---- 9. Escape clears first, then releases the focus ---- */
   await type('anime 07')
   check('one row matches', await win.locator('tr.row-match').count(), 1)
   check('the row is not removed from the table', await win.locator('tbody tr').count(), 44)
   await input().press('Escape')
-  await sleep(500)
-  check('Escape empties the field', await input().inputValue(), '')
+  await sleep(400)
+  check('the first Escape empties the field', await input().inputValue(), '')
+  const stillFocused = await win.evaluate(
+    () => document.activeElement !== null && document.activeElement.closest('.find') !== null
+  )
+  check('and keeps the focus, so the search can be retyped', stillFocused, true)
+  await win.keyboard.press('Escape')
+  await sleep(400)
+  const releasedFocus = await win.evaluate(
+    () => document.activeElement !== null && document.activeElement.closest('.find') !== null
+  )
+  check('a second Escape gives the keyboard back to the page', releasedFocus, false)
   check('the table still holds every row', await win.locator('tbody tr').count(), 44)
 
   const ranked = (await win.locator('tbody .t-title').allInnerTexts()).map((s) => s.trim())

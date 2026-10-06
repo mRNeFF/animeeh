@@ -23,6 +23,11 @@
   --warn: #fbbf24;
   --bad: #f87171;
 
+  /* Leaderboard find results. Amber, deliberately not the cyan accent, which
+     already means "selected": a search result has to read as something else.
+     Held as channels so the three uses can be tuned together. */
+  --find-rgb: 251, 191, 36;
+
   --radius: 14px;
   --radius-sm: 10px;
   --pill: 99px;
@@ -553,26 +558,24 @@ tbody tr.clickable {
   cursor: pointer;
 }
 
-/* Leaderboard find results. Declared after the hover rule on purpose: the
-   specificity is identical, so source order decides, and a match has to stay
-   visible while the pointer happens to rest on it. */
+/* Leaderboard find results. Deliberately quiet: the row is there to be found, not
+   to shout over the ranking. Declared after the hover rule on purpose, since the
+   specificity is identical and source order decides, so a match stays visible
+   while the pointer happens to rest on it. */
 tbody tr.row-match {
-  background: rgba(34, 211, 238, 0.09);
+  background: rgba(var(--find-rgb), 0.055);
 }
 tbody tr.row-current,
 tbody tr.row-current:hover {
-  background: rgba(34, 211, 238, 0.2);
-  box-shadow: inset 3px 0 0 var(--accent);
-}
-tbody tr.row-current .t-title {
-  color: #fff;
+  background: rgba(var(--find-rgb), 0.11);
+  box-shadow: inset 2px 0 0 rgba(var(--find-rgb), 0.65);
 }
 
 /* The matched words inside a title. */
 mark {
   padding: 0 1px;
   border-radius: 3px;
-  background: rgba(34, 211, 238, 0.38);
+  background: rgba(var(--find-rgb), 0.2);
   color: inherit;
 }
 .rank-cell {
@@ -978,6 +981,19 @@ mark {
 }
 .find input::-webkit-search-cancel-button {
   display: none;
+}
+/* The "/" hint, shown while the field is empty. It occupies the slot the counter
+   takes over, so nothing shifts when a query starts. */
+.find-kbd {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--muted-2);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.5;
 }
 .find-count {
   flex: none;

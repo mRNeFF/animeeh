@@ -287,6 +287,7 @@ const en = {
   'board.findPrev': 'Previous match',
   'board.findNext': 'Next match',
   'board.findClear': 'Clear the search',
+  'board.findShortcut': 'Press / to search',
 
   'settings.language': 'Language',
   'settings.languageSub': 'Language used across the interface.',
@@ -673,6 +674,7 @@ const fr: Record<MessageKey, string> = {
   'board.findPrev': 'Résultat précédent',
   'board.findNext': 'Résultat suivant',
   'board.findClear': 'Effacer la recherche',
+  'board.findShortcut': 'Appuyez sur / pour rechercher',
 
   'settings.language': 'Langue',
   'settings.languageSub': 'Langue utilisée dans toute l’interface.',

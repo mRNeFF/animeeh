@@ -83,6 +83,29 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
   const [find, setFind] = useState('')
   const [current, setCurrent] = useState(0)
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>())
+  const findInput = useRef<HTMLInputElement>(null)
+
+  /**
+   * `/` moves the focus into the find field, the way a page-level search usually
+   * does. Ignored while a field already has focus, so a slash typed into an input
+   * stays a literal slash.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return
+      const target = event.target
+      if (target instanceof HTMLElement) {
+        const tag = target.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) {
+          return
+        }
+      }
+      event.preventDefault()
+      findInput.current?.focus()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   const pool = useMemo(
     () => data.anime.filter(scopeFilter(scope)),
@@ -152,6 +175,9 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
    * refreshing on `find` means refining the query re-centres the row it still
    * points at. A row near either end cannot be centred, and the browser clamps
    * the scroll there, which is the correct outcome.
+   *
+   * Instant rather than smooth: the jump is the point of typing, and an animation
+   * on every keystroke reads as lag.
    */
   useEffect(() => {
     if (activeId === null) return
@@ -163,7 +189,7 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
     const rowBox = row.getBoundingClientRect()
     const areaBox = container.getBoundingClientRect()
     const delta = rowBox.top + rowBox.height / 2 - (areaBox.top + areaBox.height / 2)
-    container.scrollTo({ top: container.scrollTop + delta, behavior: 'smooth' })
+    container.scrollTo({ top: container.scrollTop + delta })
   }, [activeId, find])
 
   /** Moves to the next or previous match, wrapping around. */
@@ -190,6 +216,7 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
           <IconSearch size={14} />
           <input
             type="search"
+            ref={findInput}
             value={find}
             placeholder={t('board.find')}
             aria-label={t('board.find')}
@@ -203,11 +230,18 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
                 step(event.shiftKey ? -1 : 1)
               } else if (event.key === 'Escape') {
                 event.preventDefault()
-                setFind('')
+                // Clearing first, then leaving the field: one Escape to undo the
+                // search, a second to give the keyboard back to the page.
+                if (find === '') findInput.current?.blur()
+                else setFind('')
               }
             }}
           />
-          {find.trim() !== '' && (
+          {find.trim() === '' ? (
+            <kbd className="find-kbd" title={t('board.findShortcut')}>
+              /
+            </kbd>
+          ) : (
             <>
               <span className={`find-count${matchIds.length === 0 ? ' none' : ''}`}>
                 {matchIds.length === 0
@@ -242,7 +276,10 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
                 className="find-step"
                 title={t('board.findClear')}
                 aria-label={t('board.findClear')}
-                onClick={() => setFind('')}
+                onClick={() => {
+                  setFind('')
+                  findInput.current?.focus()
+                }}
               >
                 <IconClose size={14} />
               </button>

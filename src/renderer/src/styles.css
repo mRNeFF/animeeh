@@ -513,10 +513,19 @@ textarea {
 /* Table                                                               */
 /* ------------------------------------------------------------------ */
 
+/* `clip`, not `hidden`, and that distinction is load-bearing.
+   `overflow: hidden` still creates a scroll container, so a sticky child positions
+   itself against THIS box rather than against `.content`. The leaderboard's column
+   headers did exactly that: their `top` offset — the toolbar's height — pushed them
+   down inside this wrapper, on top of the first row, which is what made the top of
+   the ranking look broken. `clip` cuts the corners off without becoming a scroll
+   container, so the headers stick against the page's scrolling area as intended.
+   Horizontal scrolling is unaffected: `.content` scrolls sideways when the window is
+   too narrow for the table. */
 .table-wrap {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
+  overflow: clip;
   background: var(--panel);
 }
 table {
@@ -948,6 +957,17 @@ mark {
   white-space: nowrap;
 }
 
+/* A view whose toolbar is stuck to the top of the scrolling area wants no padding
+   above it: that padding is what showed as a gap between the page heading and the
+   search bar, with the toolbar's opaque band starting 24px lower. Keyed off the
+   toolbar's presence rather than the active view, so it holds for any view that
+   adopts the sticky toolbar. A negative margin on the toolbar itself does not work
+   here: a sticky element is laid out against its containing block, so the pull-up is
+   clamped away. */
+.content:has(> .toolbar-sticky) {
+  padding-top: 0;
+}
+
 /* Leaderboard toolbar, which holds the find field.
    Sticking it is a correctness fix, not a decoration. The browser scrolls a
    focused field back into view as the caret moves, and while the field sat inside
@@ -955,17 +975,25 @@ mark {
    keystroke, undoing the jump to the matched row. With the toolbar stuck it never
    needs revealing. It also keeps the search and the scope tabs at hand while
    reading a long ranking.
+
    Opaque, deliberately. It was 90% opaque with a blur, which let the rows scrolling
    underneath show through as a ghost row of figures — visible, and ugly. */
 .toolbar-sticky {
   position: sticky;
   top: 0;
   z-index: 6;
-  padding-top: 8px;
+  padding-top: 24px;
   padding-bottom: 14px;
   margin-bottom: 6px;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
+}
+
+/* The heading band and the toolbar below it are one strip, so they share a colour.
+   The heading was translucent over the page gradient while the toolbar is opaque,
+   which put a visible seam exactly where the two met. */
+.topbar {
+  background: var(--bg);
 }
 
 /* Column headers stick below the toolbar rather than under it.

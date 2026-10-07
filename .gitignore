@@ -10,6 +10,7 @@ smoke-*.png
 live-*.png
 verify-*.png
 preview-*.png
+preview-*.json
 ab-*.png
 diagnose-scroll-*.png
 

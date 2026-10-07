@@ -361,7 +361,11 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
           <div className="hint" style={{ marginBottom: 12 }}>
             {t('board.hint')} {t('board.tabHint')}
           </div>
-          <div className="table-wrap" style={{ overflowX: 'auto' }}>
+          {/* No `overflowX` here on purpose: making this wrapper scrollable would make
+              it a scroll container, and the sticky column headers would then position
+              against it instead of against the page. `.content` scrolls sideways when
+              the window is narrower than the table. */}
+          <div className="table-wrap">
             <table style={{ minWidth: 900 }}>
               <thead>
                 <tr>

@@ -1,6 +1,6 @@
 {
   "name": "animeeh",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "description": "ANIMEEH — track and rank every anime you watch, episode by episode.",
   "main": "./out/main/index.js",
   "author": "Axel",

@@ -54,7 +54,6 @@ const en = {
   'stats.empty.body': 'Add and rate some anime, and your statistics will appear here.',
   'stats.series': 'Series',
   'stats.films': 'Films & OVA',
-  'stats.ovas': 'OVAs',
   'stats.watchTimeDetail': 'How the watch time is built',
   'stats.watchTimeSub':
     'Only episodes you have rated count as watched. The listed figure is the upper bound, for the case where you watched everything in your list.',
@@ -309,12 +308,6 @@ const en = {
   'settings.export': 'Export backup',
   'settings.import': 'Import backup',
   'settings.reveal': 'Show data file',
-  'settings.importList': 'Import the N.xlsx list',
-  'settings.importListSub':
-    'Adds the {count} anime extracted from N.xlsx. Entries already in your library are left untouched, so importing again is harmless.',
-  'settings.importDone': 'Imported {added} anime{skipped}.',
-  'settings.importNothing': 'Nothing to import — all {count} entries are already in your library.',
-  'settings.importSkipped': ' ({count} already present)',
   'settings.genres': 'Genres',
   'settings.genresSub': 'Genres present in your library, from the reference source.',
 
@@ -439,7 +432,6 @@ const fr: Record<MessageKey, string> = {
   'stats.empty.body': 'Ajoutez et notez des animés, vos statistiques apparaîtront ici.',
   'stats.series': 'Séries',
   'stats.films': 'Films & OVA',
-  'stats.ovas': 'OVAs',
   'stats.watchTime': 'Temps de visionnage estimé',
   'stats.watchTimeDetail': 'Comment le temps est calculé',
   'stats.watchTimeSub':
@@ -698,12 +690,6 @@ const fr: Record<MessageKey, string> = {
   'settings.export': 'Exporter une sauvegarde',
   'settings.import': 'Importer une sauvegarde',
   'settings.reveal': 'Afficher le fichier de données',
-  'settings.importList': 'Importer la liste N.xlsx',
-  'settings.importListSub':
-    'Ajoute les {count} animés extraits de N.xlsx. Les fiches déjà présentes ne sont pas modifiées : réimporter est sans risque.',
-  'settings.importDone': '{added} animés importés{skipped}.',
-  'settings.importNothing': 'Rien à importer — les {count} fiches sont déjà dans votre liste.',
-  'settings.importSkipped': ' ({count} déjà présents)',
   'settings.genres': 'Genres',
   'settings.genresSub': 'Genres présents dans votre liste, issus de la source de référence.',
 

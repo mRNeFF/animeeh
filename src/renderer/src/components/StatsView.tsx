@@ -39,7 +39,6 @@ function minutesPerEpisode(
 interface Totals {
   seriesCount: number
   filmCount: number
-  ovaCount: number
   episodesRated: number
   episodesListed: number
   /** Minutes for episodes that carry a rating. */
@@ -64,7 +63,6 @@ interface Totals {
 function computeTotals(anime: Anime[], weights: Parameters<typeof globalScore>[1]): Totals {
   let seriesCount = 0
   let filmCount = 0
-  let ovaCount = 0
   let episodesRated = 0
   let episodesListed = 0
   let minutesRated = 0
@@ -85,11 +83,11 @@ function computeTotals(anime: Anime[], weights: Parameters<typeof globalScore>[1
   let longest: Anime | null = null
 
   for (const item of anime) {
-    // Counted as one sitting only for a film. An OVA has episodes, so it goes
-    // through the episode path.
+    // Films and OVAs are counted in one figure, matching the badge on the tab
+    // that lists them. Watch time still tells them apart: a film is one sitting,
+    // while an OVA has episodes and is counted through the episode path below.
     const film = isMovie(item)
-    if (film) filmCount += 1
-    else if (isFilmLike(item)) ovaCount += 1
+    if (isFilmLike(item)) filmCount += 1
     else seriesCount += 1
 
     if (item.favorite) favourites += 1
@@ -186,7 +184,6 @@ function computeTotals(anime: Anime[], weights: Parameters<typeof globalScore>[1
   return {
     seriesCount,
     filmCount,
-    ovaCount,
     episodesRated,
     episodesListed,
     minutesRated,
@@ -264,7 +261,6 @@ export function StatsView(): ReactNode {
       })
     },
     { label: t('stats.films'), value: String(totals.filmCount) },
-    { label: t('stats.ovas'), value: String(totals.ovaCount) },
     {
       label: t('stats.watchTime'),
       value: formatHours(totals.minutesRated),

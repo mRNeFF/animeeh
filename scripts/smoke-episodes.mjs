@@ -7,13 +7,59 @@
  * all, while Kitsu lists all 24, so it exercises the new primary source.
  */
 import { _electron as electron } from 'playwright-core'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const userDataDir = mkdtempSync(join(tmpdir(), 'animeeh-episodes-'))
+
+/**
+ * The library is written directly rather than imported through the settings
+ * screen. That screen used to offer the bundled N.xlsx list, and this test seeded
+ * itself with it; the option is gone, so the fixture stands on its own now.
+ *
+ * Vinland Saga is the only entry needed, and it is created with no episodes and
+ * no titles, which is what the load has to fill in.
+ */
+writeFileSync(
+  join(userDataDir, 'animeeh-data.json'),
+  JSON.stringify({
+    version: 1,
+    settings: {
+      weights: {
+        characters: 1, story: 1, animation: 1, ost: 1,
+        opening: 1, keyFactor: 1, originality: 1, episodeAverage: 1
+      },
+      checkForUpdatesOnStartup: false,
+      language: 'en'
+    },
+    anime: [
+      {
+        id: 'vinland',
+        title: 'VINLAND SAGA',
+        status: 'completed',
+        format: 'TV',
+        year: 2019,
+        episodes: [],
+        criteria: {},
+        source: {
+          provider: 'anilist',
+          anilistId: 101348,
+          malId: 40144,
+          siteUrl: 'https://anilist.co/anime/101348'
+        },
+        seasons: [
+          { season: 1, anilistId: 101348, malId: 40144, title: 'VINLAND SAGA', year: 2019, episodes: 24 }
+        ],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ]
+  }),
+  'utf-8'
+)
 
 const errors = []
 const app = await electron.launch({ args: [root, `--user-data-dir=${userDataDir}`], cwd: root })
@@ -27,13 +73,6 @@ try {
   await win.waitForLoadState('domcontentloaded')
   await sleep(1600)
 
-  /* ---- Import the bundled list ---- */
-  await win.getByRole('button', { name: 'Settings' }).click()
-  await sleep(600)
-  await win.getByRole('button', { name: /Import the N\.xlsx list/i }).click()
-  await sleep(2500)
-  console.log(`SETUP: ${(await win.locator('.mono').first().innerText()).trim()}`)
-
   /* ---- Open Vinland Saga ---- */
   await win.locator('.sidebar .nav-item').first().click()
   await sleep(900)
@@ -41,6 +80,7 @@ try {
   await sleep(700)
   const cards = await win.locator('.card').count()
   console.log(`EPISODES: search "vinland" -> ${cards} card(s)`)
+  if (cards === 0) throw new Error('the seeded Vinland Saga entry did not appear')
   await win.locator('.card').first().click()
   await sleep(900)
 

@@ -1793,14 +1793,6 @@ mark {
   text-transform: capitalize;
 }
 
-.sched-day-rel {
-  font-size: 11px;
-  color: var(--accent);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
 .sched-row {
   display: flex;
   align-items: center;

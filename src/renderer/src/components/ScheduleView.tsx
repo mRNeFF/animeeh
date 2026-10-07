@@ -8,7 +8,6 @@ import { IconRefresh } from './Icons'
 function useDateFormatters(): {
   dayLabel: (unix: number) => string
   timeLabel: (unix: number) => string
-  relative: (unix: number) => string
 } {
   const { language } = useI18n()
   const locale = language === 'fr' ? 'fr-FR' : 'en-GB'
@@ -21,18 +20,7 @@ function useDateFormatters(): {
         month: 'long'
       }),
     timeLabel: (unix) =>
-      new Date(unix * 1000).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }),
-    relative: (unix) => {
-      const dayMs = 86_400_000
-      const start = new Date()
-      start.setHours(0, 0, 0, 0)
-      const days = Math.round(
-        (new Date(unix * 1000).setHours(0, 0, 0, 0) - start.getTime()) / dayMs
-      )
-      if (days === 0) return 'today'
-      if (days === 1) return 'tomorrow'
-      return `${days}`
-    }
+      new Date(unix * 1000).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
   }
 }
 
@@ -143,7 +131,6 @@ export function ScheduleView(): ReactNode {
                 <div className="sched-day" key={key}>
                   <div className="sched-day-head">
                     <span className="sched-day-name">{fmt.dayLabel(episodes[0].airingAt)}</span>
-                    <span className="sched-day-rel">{fmt.relative(episodes[0].airingAt)}</span>
                   </div>
                   {episodes.map((e) => (
                     <div className="sched-row" key={`${e.anilistId}-${e.episode}-${e.airingAt}`}>

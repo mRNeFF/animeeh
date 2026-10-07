@@ -16,6 +16,7 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - [What it does](#what-it-does)
 - [How seasons are merged](#how-seasons-are-merged)
 - [The grade palette](#the-grade-palette)
+- [How the calendar finds a continuation](#how-the-calendar-finds-a-continuation)
 - [When a sequel is not a season](#when-a-sequel-is-not-a-season)
 - [Why the find bar has to be sticky](#why-the-find-bar-has-to-be-sticky)
 - [The scoring model](#the-scoring-model)
@@ -37,7 +38,7 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - **Grade colours that carry information.** The seven letter grades share one palette, defined in `src/renderer/src/palette.ts`. Each tier owns a slice of a single gradient, and a slice ends exactly where the next begins, so the badges read as one continuous gradient cut into steps. The tier's colour washes the row and fills the badge, and the letter colour is chosen by contrast rather than assumed dark — the blue and violet slices are intrinsically dark, where a dark letter reached only 2.9:1. See [The grade palette](#the-grade-palette).
 - **Find a title in the ranking.** The leaderboard keeps its order and its reader's place: a search there highlights the matching rows in amber and jumps the current match to the middle of the page, rather than filtering the table. `/` puts the focus in the field, Enter and Shift+Enter walk the matches, Escape clears then releases the focus, and accents are ignored, so `pokemon` finds `Pokémon`. Amber rather than the cyan accent on purpose: cyan already means "selected", so a search result has to read as something else.
   The toolbar sticks to the top of the page, which is a fix rather than a flourish — see [Why the find bar has to be sticky](#why-the-find-bar-has-to-be-sticky).
-- **Release calendar.** Upcoming episodes of shows you follow, announced continuations of shows you already have, and the season's new shows kept in a separate section so your own tracking stays clean.
+- **Release calendar.** Upcoming episodes of shows you follow, announced continuations of shows you already have, and the season's new shows kept in a separate section so your own tracking stays clean. Announced continuations are found by walking the SEQUEL chain up to four hops, because one hop is not enough — see [How the calendar finds a continuation](#how-the-calendar-finds-a-continuation).
 - **Series and everything else are kept apart.** Searching series never returns a film or an OVA. Both live in the Films tab and are ranked there, so a film is never placed against a series; each row is badged `Film` or `OVA`. A film is rated on six criteria rather than seven, since it has no opening sequence, while an OVA keeps all seven and its episodes. Every count follows the same split: the **Anime** badge counts series and the **Films & OVA** badge counts films and OVAs, so a badge always matches the list beside it.
 - **AniList lookup**: type a title and the app pre-fills the year, studio, episode count **and the individual episode titles**, all of which you can still edit by hand.
 - **Seasons are merged into one entry.** Search "shingeki no kyojin" and you get one row, not seventeen: the app follows AniList's sequel links and creates a single entry holding all six TV seasons, with episodes numbered continuously and tagged by season.
@@ -141,6 +142,42 @@ The four palettes that were compared, with their measurements, are recorded in
 ```powershell
 npm run design:palette      # then open http://127.0.0.1:4182/
 npm run preview:palette     # screenshots it in place, on a copy of your library
+```
+
+## How the calendar finds a continuation
+
+The calendar read the `SEQUEL` relations of the library's own ids, **one hop**, and
+that quietly hid announcements. Made in Abyss: Mezameru Shinpi, a film announced for
+23 October 2026, hangs three hops from the ids the library holds:
+
+```
+Made in Abyss (S1)  --SEQUEL-->  Fukaki Tamashii no Reimei (2020 film, finished)
+                    --SEQUEL-->  Retsujitsu no Ougonkyou (S2, finished)
+                    --SEQUEL-->  Mezameru Shinpi (the announced film)
+```
+
+Neither intermediate step is itself upcoming, so a walk that stopped at the first
+upcoming entry found nothing. The chain is now followed up to **four hops**, and
+every reached entry is traversed while only the upcoming ones are announced.
+
+Three related fixes came with it:
+
+- **Relations are filtered to anime.** A `SEQUEL` can point at an adaptation:
+  Cyberpunk: Edgerunners MADNESS is a manga, and it was being listed as a
+  continuation of an anime.
+- **The announcement prefers an entry you own.** When a continuation is reachable
+  from several parents, the line reads "after Made in Abyss" in preference to an
+  intermediate film the chain happened to pass through.
+- **The count went from 7 to 13** announced continuations on a library of 72,
+  which is what the one-hop limit had been hiding.
+
+Each hop is cheap after the first, because the frontier shrinks fast: the library's
+138 ids lead to 47, then 25, then 10, so the extra hops add two or three batched
+requests rather than a proportional cost.
+
+```powershell
+npm run check:schedule              # prints the calendar for your own data
+npm run diagnose:mia                # why a given entry is or is not reachable
 ```
 
 ## When a sequel is not a season
@@ -424,6 +461,7 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run smoke:stats` | Statistics figures and the film criteria set |
 | `npm run smoke:schedule` | Release calendar end to end, against the live API |
 | `npm run check:schedule` | Prints the calendar for your own data, with sanity checks |
+| `npm run diagnose:mia` | Shows how far a given entry sits from an announced continuation |
 | `npm run smoke:bugfix` | Guards the fixed bugs: delete wording, button label, film picking |
 | `npm run audit:i18n` | Fails if any user-facing English text bypasses the dictionaries |
 | `npm run audit:translations` | Reports values identical in both languages, and English raised in the main process |

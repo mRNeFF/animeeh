@@ -1,18 +1,56 @@
 /**
- * Verifies the four features added on top of the base app:
- *   1. the N.xlsx list import (bundled seed),
- *   2. cover thumbnails,
- *   3. genre tags and filtering,
- *   4. the English/French language switch.
+ * Verifies three features that do not depend on the reference sources:
+ *   1. cover thumbnails,
+ *   2. genre tags and filtering,
+ *   3. the English/French language switch.
+ *
+ * It used to also cover the N.xlsx import button, which no longer exists. The
+ * library is now written straight into the profile instead, using the same seed
+ * module the button called, so the rest of the checks keep running against a
+ * realistic list.
  */
 import { _electron as electron } from 'playwright-core'
-import { mkdtempSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { build } from 'esbuild'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const userDataDir = mkdtempSync(join(tmpdir(), 'animeeh-seed-'))
+
+/* ---- Build the library from the bundled list, without going through the UI ---- */
+
+const seedOut = join(mkdtempSync(join(tmpdir(), 'seed-')), 's.mjs')
+await build({
+  entryPoints: [join(root, 'src/renderer/src/seed.ts')],
+  bundle: true,
+  format: 'esm',
+  platform: 'node',
+  target: 'node22',
+  outfile: seedOut,
+  logLevel: 'error'
+})
+const { buildSeedImport, seedCount } = await import(pathToFileURL(seedOut).href)
+const { added } = buildSeedImport([])
+console.log(`SEED: built ${added.length} entries from the bundled list (of ${seedCount()})`)
+
+writeFileSync(
+  join(userDataDir, 'animeeh-data.json'),
+  JSON.stringify({
+    version: 1,
+    settings: {
+      weights: {
+        characters: 1, story: 1, animation: 1, ost: 1,
+        opening: 1, keyFactor: 1, originality: 1, episodeAverage: 1
+      },
+      checkForUpdatesOnStartup: false,
+      language: 'en'
+    },
+    anime: added
+  }),
+  'utf-8'
+)
 
 const errors = []
 const app = await electron.launch({ args: [root, `--user-data-dir=${userDataDir}`], cwd: root })
@@ -26,7 +64,7 @@ try {
   await win.waitForLoadState('domcontentloaded')
   await sleep(1600)
 
-  /* ---- 4. Language switch ---- */
+  /* ---- 3. Language switch ---- */
   await win.getByRole('button', { name: 'Settings' }).click()
   await sleep(600)
 
@@ -38,19 +76,7 @@ try {
   console.log(`LANG: nav "${enNav}" -> "${frNav}"`)
   console.log(`LANG: nav labels = ${frTitles.join(' | ')}`)
 
-  /* ---- 1. Seed import ---- */
-  const importBtn = win.getByRole('button', { name: /Importer la liste N\.xlsx/i })
-  const importVisible = await importBtn.count()
-  console.log(`SEED: import button present = ${importVisible === 1}`)
-  await importBtn.click()
-  await sleep(2500)
-
-  const message = (await win.locator('.mono').first().innerText()).replace(/\s+/g, ' ').trim()
-  console.log(`SEED: result = ${message}`)
-  await shot('seed-imported')
-
-  // The Settings summary panel was replaced by the Statistics tab, so the count
-  // is read from there.
+  /* ---- The statistics panel, from the list just written ---- */
   await win.locator('.sidebar .nav-item', { hasText: /Statistiques/ }).click()
   await sleep(1000)
 
@@ -63,7 +89,7 @@ try {
   const seriesTile = tiles.find((t) => (t.label ?? '').includes('Séries'))
   const filmTile = tiles.find((t) => (t.label ?? '').includes('Films'))
   console.log(`SEED: summary tiles = ${tiles.map((t) => `${t.label}=${t.value}`).join(' / ')}`)
-  console.log(`SEED: series=${seriesTile?.value} films=${filmTile?.value} (expected 84 series)`)
+  console.log(`SEED: series=${seriesTile?.value} films=${filmTile?.value}`)
 
   /* ---- 3. Genre tags ---- */
   const genrePanel = win.locator('.panel', { hasText: 'Genres' })

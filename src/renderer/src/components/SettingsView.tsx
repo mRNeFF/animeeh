@@ -1,7 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useI18n, LANGUAGES, criterionKey } from '../i18n'
 import { useStore } from '../store'
-import { buildSeedImport, seedCount, seedSource } from '../seed'
 import { COMPONENTS, DEFAULT_WEIGHTS, type ComponentKey, type Language, type StoreData } from '../types'
 import { IconDownload, IconFolder, IconTrash, IconUpload } from './Icons'
 import { EpisodeNamesPanel } from './EpisodeNamesPanel'
@@ -9,7 +8,7 @@ import { Modal } from './ui'
 import { UpdatePanel } from './UpdatePanel'
 
 export function SettingsView(): ReactNode {
-  const { data, updateSettings, addAnimeMany, replaceAll, clearAnime } = useStore()
+  const { data, updateSettings, replaceAll, clearAnime } = useStore()
   const { t, language } = useI18n()
   const [message, setMessage] = useState<string | null>(null)
   const [clearing, setClearing] = useState(false)
@@ -49,25 +48,6 @@ export function SettingsView(): ReactNode {
   const onReveal = async (): Promise<void> => {
     const path = await window.animeeh.reveal()
     setMessage(path)
-  }
-
-  /** Merge the bundled N.xlsx list, leaving existing entries untouched. */
-  const onImportSeed = (): void => {
-    const { added, skipped } = buildSeedImport(data.anime)
-
-    if (added.length === 0) {
-      setMessage(t('settings.importNothing', { count: seedCount() }))
-      return
-    }
-
-    addAnimeMany(added)
-    setMessage(
-      t('settings.importDone', {
-        added: added.length,
-        skipped:
-          skipped.length > 0 ? t('settings.importSkipped', { count: skipped.length }) : ''
-      })
-    )
   }
 
   return (
@@ -172,9 +152,6 @@ export function SettingsView(): ReactNode {
         <h3>{t('settings.backups')}</h3>
         <div className="panel-sub">{t('settings.backupsSub')}</div>
         <div className="panel-actions">
-          <button className="btn primary" onClick={onImportSeed}>
-            <IconDownload size={15} /> {t('settings.importList')}
-          </button>
           <button className="btn" onClick={onExport}>
             <IconDownload size={15} /> {t('settings.export')}
           </button>
@@ -184,9 +161,6 @@ export function SettingsView(): ReactNode {
           <button className="btn" onClick={onReveal}>
             <IconFolder size={15} /> {t('settings.reveal')}
           </button>
-        </div>
-        <div className="hint" style={{ marginTop: 10 }}>
-          {t('settings.importListSub', { count: seedCount() })} ({seedSource()})
         </div>
       </div>
 

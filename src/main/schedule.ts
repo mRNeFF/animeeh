@@ -29,6 +29,21 @@ const BATCH = 20
 /** How far ahead episodes are collected. */
 const WINDOW_DAYS = 21
 
+/** Formats that are anime. A relation can point at something else entirely. */
+const ANIME_FORMATS = new Set(['TV', 'TV_SHORT', 'ONA', 'OVA', 'MOVIE', 'SPECIAL', 'MUSIC'])
+
+/**
+ * How far the SEQUEL chain is followed, and a ceiling on entries visited.
+ *
+ * One hop is what this used to do, and it kept a film releasing in three weeks
+ * off the calendar: Made in Abyss: Mezameru Shinpi hangs three hops from the ids
+ * the library holds, through entries that are themselves finished. Four hops
+ * costs two or three extra batched requests, because the frontier shrinks fast
+ * after the first.
+ */
+const CHAIN_HOPS = 4
+const CHAIN_MAX_ENTRIES = 300
+
 /** What the renderer sends: the shows it wants watched. */
 export interface ScheduleRequestEntry {
   anilistId: number
@@ -229,83 +244,121 @@ export async function buildSchedule(
   const seasons: UpcomingSeason[] = []
   let airingEntries = 0
 
-  const ids = [...owner.keys()]
-  for (let i = 0; i < ids.length; i += BATCH) {
-    const slice = ids.slice(i, i + BATCH)
-    const data = await graphql<{ Page: { media: RawMedia[] } }>(LIBRARY_QUERY(slice))
+  /** Collect the upcoming episodes of one entry, from data already fetched. */
+  const collectEpisodes = (media: RawMedia, entry: ScheduleRequestEntry | undefined): void => {
+    const nodes = (media.airingSchedule?.nodes ?? []).filter(
+      (n) => n.airingAt >= now && n.airingAt <= horizon
+    )
+    if (nodes.length > 0) airingEntries += 1
+    for (const node of nodes) {
+      episodes.push({
+        anilistId: media.id,
+        title: titleOf(media),
+        coverImage: media.coverImage?.large ?? null,
+        episode: node.episode,
+        airingAt: node.airingAt,
+        seasonNumber: null,
+        inLibrary: true,
+        libraryStatus: entry?.status ?? null
+      })
+    }
+  }
 
-    for (const media of data.Page?.media ?? []) {
-      const entry = owner.get(media.id)
+  /**
+   * Record a continuation, without the "already seen?" bookkeeping.
+   *
+   * `status` is passed in rather than read from the node, because the caller has
+   * already narrowed it to one of the two upcoming states.
+   */
+  const announce = (node: RawMedia, from: RawMedia, status: string): void => {
+    const date = startDateOf(node)
+    seasons.push({
+      fromAnilistId: from.id,
+      fromTitle: titleOf(from),
+      seasonId: node.id,
+      title: titleOf(node),
+      status,
+      precision: date.precision,
+      startDate: date.value,
+      seasonLabel: seasonLabelOf(node),
+      firstEpisodeAt: node.nextAiringEpisode?.airingAt ?? null,
+      format: node.format ?? null
+    })
+  }
 
-      // --- upcoming episodes of the user's own shows ---
-      const nodes = (media.airingSchedule?.nodes ?? []).filter(
-        (n) => n.airingAt >= now && n.airingAt <= horizon
-      )
-      if (nodes.length > 0) airingEntries += 1
-      for (const node of nodes) {
-        episodes.push({
-          anilistId: media.id,
-          title: titleOf(media),
-          coverImage: media.coverImage?.large ?? null,
-          episode: node.episode,
-          airingAt: node.airingAt,
-          seasonNumber: null,
-          inLibrary: true,
-          libraryStatus: entry?.status ?? null
-        })
-      }
+  /**
+   * Walk the SEQUEL chain outwards, one batch of entries per hop.
+   *
+   * A single hop is not enough, and this is what kept a film releasing in three
+   * weeks off the calendar: Made in Abyss: Mezameru Shinpi hangs three hops from
+   * the ids the library holds — season 1, then the 2020 film, then season 2, then
+   * the film — and none of those intermediate steps is itself upcoming.
+   *
+   * So every reached entry is followed, not only the upcoming ones, while only
+   * the upcoming ones are announced. Each hop is cheap after the first: the
+   * frontier shrinks (138 ids lead to 47, then 25, then 10), because the library
+   * ids are what cost the requests.
+   */
+  const seen = new Set<number>(owner.keys())
+  let frontier = [...owner.keys()]
 
-      // --- announced or starting continuations ---
-      for (const edge of media.relations?.edges ?? []) {
-        if (edge.relationType !== 'SEQUEL') continue
-        const node = edge.node
-        if (!node) continue
-        if (node.status !== 'NOT_YET_RELEASED' && node.status !== 'RELEASING') continue
-        // Already tracked means it is not a gap to surface.
-        if (owner.has(node.id)) continue
+  for (let hop = 0; hop <= CHAIN_HOPS && frontier.length > 0; hop += 1) {
+    const next: number[] = []
 
-        const date = startDateOf(node)
-        seasons.push({
-          fromAnilistId: media.id,
-          fromTitle: titleOf(media),
-          seasonId: node.id,
-          title: titleOf(node),
-          status: node.status,
-          precision: date.precision,
-          startDate: date.value,
-          seasonLabel: seasonLabelOf(node),
-          firstEpisodeAt: node.nextAiringEpisode?.airingAt ?? null,
-          format: node.format ?? null
-        })
+    for (let i = 0; i < frontier.length; i += BATCH) {
+      const slice = frontier.slice(i, i + BATCH)
+      const data = await graphql<{ Page: { media: RawMedia[] } }>(LIBRARY_QUERY(slice))
 
-        // A continuation that is already airing belongs in the calendar too:
-        // this is the weekly episode the user actually wants to see.
-        if (node.status === 'RELEASING') {
-          const sequelNodes = (node.airingSchedule?.nodes ?? []).filter(
-            (n) => n.airingAt >= now && n.airingAt <= horizon
-          )
-          for (const n of sequelNodes) {
-            episodes.push({
-              anilistId: node.id,
-              title: titleOf(node),
-              coverImage: node.coverImage?.large ?? null,
-              episode: n.episode,
-              airingAt: n.airingAt,
-              seasonNumber: null,
-              inLibrary: true,
-              libraryStatus: entry?.status ?? null
-            })
+      for (const media of data.Page?.media ?? []) {
+        const entry = owner.get(media.id)
+
+        // Upcoming episodes. For the library's own entries, always; for a reached
+        // continuation, only while it is airing, since its weekly episode is what
+        // the user wants to see.
+        if (hop === 0 || media.status === 'RELEASING') collectEpisodes(media, entry)
+
+        for (const edge of media.relations?.edges ?? []) {
+          if (edge.relationType !== 'SEQUEL') continue
+          const node = edge.node
+          if (!node) continue
+          // A relation can point at an adaptation rather than an anime: Cyberpunk:
+          // Edgerunners MADNESS is a manga linked as a SEQUEL, and a release
+          // calendar must not list a manga.
+          if (!ANIME_FORMATS.has(node.format ?? '')) continue
+          // Already tracked means it is not a gap to surface.
+          if (owner.has(node.id)) continue
+
+          if (node.status === 'NOT_YET_RELEASED' || node.status === 'RELEASING') {
+            announce(node, media, node.status)
           }
-          if (sequelNodes.length > 0) airingEntries += 1
+
+          // Follow it either way, since the film that leads to the next season is
+          // finished by the time the season is announced.
+          if (!seen.has(node.id) && seen.size < CHAIN_MAX_ENTRIES) {
+            seen.add(node.id)
+            next.push(node.id)
+          }
         }
       }
     }
+
+    frontier = next
   }
 
   // A continuation might be announced by more than one entry; keep one each.
   const uniqueSeasons = new Map<number, UpcomingSeason>()
   for (const season of seasons) {
-    if (!uniqueSeasons.has(season.seasonId)) uniqueSeasons.set(season.seasonId, season)
+    const existing = uniqueSeasons.get(season.seasonId)
+    if (!existing) {
+      uniqueSeasons.set(season.seasonId, season)
+      continue
+    }
+    // Prefer the announcement hanging off an entry the user actually has, so the
+    // line reads "after Made in Abyss" rather than after the intermediate film
+    // the chain happened to pass through.
+    const existingOwned = owner.has(existing.fromAnilistId)
+    const candidateOwned = owner.has(season.fromAnilistId)
+    if (!existingOwned && candidateOwned) uniqueSeasons.set(season.seasonId, season)
   }
 
   const sortedSeasons = [...uniqueSeasons.values()].sort((a, b) => {

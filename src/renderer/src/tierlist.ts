@@ -18,7 +18,6 @@ import {
   type Anime,
   type TierItem,
   type TierList,
-  type TierListKind,
   type TierRow,
   type Weights
 } from './types'
@@ -37,13 +36,12 @@ export function defaultRows(): TierRow[] {
   }))
 }
 
-/** A fresh, empty tier list of the given kind. */
-export function createTierList(name: string, kind: TierListKind): TierList {
+/** A fresh, empty tier list. Nothing restricts what may be put in it. */
+export function createTierList(name: string): TierList {
   const now = new Date().toISOString()
   return {
     id: newId(),
     name,
-    kind,
     rows: defaultRows(),
     items: [],
     createdAt: now,

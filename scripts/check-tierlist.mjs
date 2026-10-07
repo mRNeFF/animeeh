@@ -74,11 +74,14 @@ const weights = {
 /* ---------------- 1. A fresh list ---------------- */
 
 console.log('\n1. A new tier list\n')
-const fresh = T.createTierList('Mes animés', 'anime')
+const fresh = T.createTierList('Mes animés')
 check('seven rows', fresh.rows.length, 7)
 check('best first', fresh.rows.map((r) => r.label).join(''), 'SABCDEF')
 check('no elements yet', fresh.items.length, 0)
 check('the rows are distinct', new Set(fresh.rows.map((r) => r.id)).size, 7)
+// A list is not restricted to one kind of element any more: creating one takes
+// only a name, and the filters narrow each search instead.
+check('creating takes only a name', T.createTierList.length, 1)
 
 /* ---------------- 2. Elements from the library ---------------- */
 
@@ -194,18 +197,47 @@ const withLists = normaliseStore({
   anime: [],
   settings: {},
   tierLists: [
-    { id: 't1', name: 'Mine', kind: 'anime', rows: [{ id: 'r1', label: 'S', letter: 'S' }], items: [] },
+    { id: 't1', name: 'Mine', rows: [{ id: 'r1', label: 'S', letter: 'S' }], items: [] },
     // Garbage must be dropped rather than taking the whole list down.
-    { name: 'No id', kind: 'nonsense', rows: 'not an array', items: [{ label: 'x', rowId: 'gone' }] },
+    { name: 'No id', rows: 'not an array', items: [{ label: 'x', rowId: 'gone' }] },
     null
   ]
 })
 check('two valid lists survive the third being null', withLists.tierLists.length, 2)
 check('the first keeps its name', withLists.tierLists[0].name, 'Mine')
-check('an unknown kind falls back', withLists.tierLists[1].kind, 'anime')
 check('a non-array rows becomes empty', withLists.tierLists[1].rows, [])
 check('an item pointing at a missing row goes to the pool', withLists.tierLists[1].items[0].rowId, null)
 check('a missing id is generated', withLists.tierLists[1].id.length > 0, true)
+
+// A file written when a list was tied to one kind still carries a `kind` on the
+// list and `op`/`ed` on its elements. The list's kind is dropped, and the element
+// kinds fold into `theme`.
+const legacyKinds = normaliseStore({
+  version: 1,
+  anime: [],
+  settings: {},
+  tierLists: [
+    {
+      id: 't2',
+      name: 'Old',
+      kind: 'op',
+      rows: [{ id: 'r1', label: 'S', letter: 'S' }],
+      items: [
+        { id: 'i1', label: 'Yuusha', sublabel: '', rowId: null, kind: 'op' },
+        { id: 'i2', label: 'Anytime', sublabel: '', rowId: null, kind: 'ed' },
+        { id: 'i3', label: 'Frieren', sublabel: '', rowId: null, kind: 'anime' },
+        { id: 'i4', label: 'Nonsense', sublabel: '', rowId: null, kind: 'wat' }
+      ]
+    }
+  ]
+})
+const migrated = legacyKinds.tierLists[0]
+check('the list keeps its name', migrated.name, 'Old')
+check('the list kind is gone', 'kind' in migrated, false)
+check('op folds into theme', migrated.items[0].kind, 'theme')
+check('ed folds into theme too', migrated.items[1].kind, 'theme')
+check('anime is untouched', migrated.items[2].kind, 'anime')
+check('an unknown kind is dropped rather than guessed', migrated.items[3].kind, undefined)
 
 console.log(`\n${failures === 0 ? 'TIER LIST LOGIC OK' : `${failures} FAILURE(S)`}`)
 process.exit(failures === 0 ? 0 : 1)

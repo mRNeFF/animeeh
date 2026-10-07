@@ -150,7 +150,7 @@ export function TierListBoard({ list, onClose, onAddItems, onChange }: Props): R
   const onSortByScore = (): void => {
     const next = sortByScore(list, data.anime, data.settings.weights)
     if (next === list) {
-      setMessage(t('tierlist.picker.noScores'))
+      setMessage(t('tierlist.noScores'))
       return
     }
     onChange(() => next)
@@ -234,7 +234,6 @@ export function TierListBoard({ list, onClose, onAddItems, onChange }: Props): R
           </button>
         )}
 
-        <span className="pill">{t(`tierlist.kind.${list.kind}`)}</span>
         <span className="grow" />
 
         {selected.size > 0 && (

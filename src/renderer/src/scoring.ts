@@ -6,7 +6,6 @@ import {
   DEFAULT_WEIGHTS,
   EPISODE_AVG_KEY,
   STORE_VERSION,
-  TIER_LIST_KINDS,
   emptyCriteria,
   newId,
   type Anime,
@@ -20,8 +19,8 @@ import {
   type StoreData,
   type TierItem,
   type TierList,
-  type TierListKind,
   type TierRow,
+  type TierSourceKind,
   type Weights
 } from './types'
 import { tierHue, tierOf, type Tier } from './palette'
@@ -469,16 +468,10 @@ export function normaliseStore(input: unknown): StoreData {
   }
 }
 
-const TIER_LIST_KIND_SET = new Set<string>(TIER_LIST_KINDS)
-
 /** Reads one tier list back, dropping anything malformed rather than throwing. */
 export function normaliseTierList(input: unknown): TierList {
-  const raw = (input ?? {}) as Partial<TierList>
+  const raw = (input ?? {}) as Partial<TierList> & { kind?: unknown }
   const id = typeof raw.id === 'string' && raw.id ? raw.id : newId()
-  const kind: TierListKind =
-    typeof raw.kind === 'string' && TIER_LIST_KIND_SET.has(raw.kind)
-      ? (raw.kind as TierListKind)
-      : 'anime'
 
   const rows: TierRow[] = Array.isArray(raw.rows)
     ? raw.rows
@@ -496,27 +489,41 @@ export function normaliseTierList(input: unknown): TierList {
   const items: TierItem[] = Array.isArray(raw.items)
     ? raw.items
         .filter((i): i is TierItem => !!i && typeof i === 'object')
-        .map((i) => ({
-          id: typeof i.id === 'string' && i.id ? i.id : newId(),
-          label: typeof i.label === 'string' ? i.label : '',
-          sublabel: typeof i.sublabel === 'string' ? i.sublabel : '',
-          image: typeof i.image === 'string' ? i.image : undefined,
-          rowId: typeof i.rowId === 'string' && rowIds.has(i.rowId) ? i.rowId : null,
-          animeId: typeof i.animeId === 'string' ? i.animeId : undefined,
-          anilistId: typeof i.anilistId === 'number' ? i.anilistId : undefined
-        }))
+        .map((i) => {
+          const item = i as TierItem & { kind?: unknown }
+          return {
+            id: typeof item.id === 'string' && item.id ? item.id : newId(),
+            label: typeof item.label === 'string' ? item.label : '',
+            sublabel: typeof item.sublabel === 'string' ? item.sublabel : '',
+            image: typeof item.image === 'string' ? item.image : undefined,
+            rowId: typeof item.rowId === 'string' && rowIds.has(item.rowId) ? item.rowId : null,
+            // A list saved before the kinds were mixed carries `op` or `ed` per
+            // item; both mean a theme now. Anything unrecognised is dropped.
+            kind: normaliseItemKind(item.kind),
+            animeId: typeof item.animeId === 'string' ? item.animeId : undefined,
+            anilistId: typeof item.anilistId === 'number' ? item.anilistId : undefined
+          }
+        })
     : []
 
   const now = new Date().toISOString()
   return {
     id,
     name: typeof raw.name === 'string' && raw.name ? raw.name : 'Tier list',
-    kind,
     rows: rows.length > 0 ? rows : [],
     items,
     createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : now,
     updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : now
   }
+}
+
+/** Reads an element's kind, folding the older `op`/`ed` values into `theme`. */
+function normaliseItemKind(value: unknown): TierSourceKind | undefined {
+  if (value === 'anime' || value === 'season' || value === 'character' || value === 'ost') {
+    return value
+  }
+  if (value === 'op' || value === 'ed' || value === 'theme') return 'theme'
+  return undefined
 }
 
 

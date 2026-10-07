@@ -22,8 +22,10 @@
  */
 import { CodedError } from '../shared/errors'
 import type {
+  TierAnime,
   TierCharacter,
-  TierCharactersOutcome,
+  TierSearchOutcome,
+  TierSearchResult,
   TierTheme,
   TierThemesOutcome,
   ThemeLookupEntry
@@ -34,7 +36,6 @@ const ANIMETHEMES = process.env['ANIMEEH_ANIMETHEMES_ENDPOINT'] ?? 'https://api.
 const USER_AGENT = 'ANIMEEH (https://github.com/mRNeFF/animeeh)'
 
 const REQUEST_TIMEOUT_MS = 20_000
-const BATCH = 20
 /** AnimeThemes allows 90 a minute; a second between calls stays well inside it. */
 const THEME_PACING_MS = 700
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000
@@ -71,120 +72,219 @@ function cacheSet(key: string, value: unknown): void {
 /* ------------------------------------------------------------------ */
 
 async function fetchJson<T>(url: string, init: RequestInit, service: 'anilist' | 'animethemes'): Promise<T> {
-  let response: Response
-  try {
-    response = await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
-  } catch (err) {
-    const aborted = err instanceof Error && err.name === 'TimeoutError'
-    throw new CodedError(
-      aborted ? 'Request timed out' : `Could not reach the service`,
-      aborted ? 'timeout' : 'unreachable',
-      { service }
-    )
+  // A rate limit is worth waiting out rather than reporting: AniList allows about
+  // thirty requests a minute, and a user typing quickly can reach that on their
+  // own. Two retries with a growing wait cover a momentary burst, and a limit that
+  // persists is still reported as a limit.
+  for (let attempt = 0; attempt <= 2; attempt += 1) {
+    let response: Response
+    try {
+      response = await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
+    } catch (err) {
+      const aborted = err instanceof Error && err.name === 'TimeoutError'
+      throw new CodedError(
+        aborted ? 'Request timed out' : `Could not reach the service`,
+        aborted ? 'timeout' : 'unreachable',
+        { service }
+      )
+    }
+
+    if (response.status === 429) {
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 3000 * (attempt + 1)))
+        continue
+      }
+      throw new CodedError('Rate limited', 'rateLimit', { status: 429, service })
+    }
+    if (!response.ok) {
+      throw new CodedError(`HTTP ${response.status}`, 'http', { status: response.status, service })
+    }
+    return (await response.json()) as T
   }
-  if (response.status === 429) {
-    throw new CodedError('Rate limited', 'rateLimit', { status: 429, service })
-  }
-  if (!response.ok) {
-    throw new CodedError(`HTTP ${response.status}`, 'http', { status: response.status, service })
-  }
-  return (await response.json()) as T
+
+  // Unreachable, but TypeScript needs a return on every path.
+  throw new CodedError('Rate limited', 'rateLimit', { status: 429, service })
 }
 
 /* ------------------------------------------------------------------ */
-/* Characters, from AniList                                            */
+/* Searching everything, in one request                                */
 /* ------------------------------------------------------------------ */
 
-interface RawCharacterEdge {
-  role?: string | null
-  node?: {
-    id?: number
-    name?: { full?: string | null } | null
-    image?: { large?: string | null } | null
-    favourites?: number | null
-  } | null
+interface RawSearchMedia {
+  id?: number
+  title?: { romaji?: string | null; english?: string | null } | null
+  coverImage?: { large?: string | null } | null
+  format?: string | null
+  episodes?: number | null
+  genres?: string[] | null
+  startDate?: { year?: number | null } | null
+}
+
+interface RawSearchCharacter {
+  id?: number
+  name?: { full?: string | null } | null
+  image?: { large?: string | null } | null
+  favourites?: number | null
+  media?: { nodes?: RawSearchMedia[] | null } | null
 }
 
 /**
- * The characters of several entries, batched.
+ * Anime and characters for one query, in a single AniList request.
  *
- * Only the first page is taken. A long-running show can list hundreds of
- * characters and most are supernumeraries; the first page is ordered by role and
- * relevance, so it holds the ones anyone would want to rank.
+ * Both searches are aliased into one `Page`, so a search box costs one request
+ * rather than two. That matters because the box is typed into: at ten keystrokes
+ * a debounce still means a handful of requests, and AniList allows about thirty a
+ * minute.
+ *
+ * The catalogue is searched, not the library: a tier list is often about shows the
+ * user has not rated. The library is only consulted to mark which results are
+ * already tracked.
  */
-async function fetchCharactersFor(
-  batch: { anilistId: number; animeId: string }[]
-): Promise<{ found: TierCharacter[]; missing: number }> {
-  const aliases = batch
-    .map(
-      (entry, index) => `p${index}: Media(id: ${entry.anilistId}) {
-        characters(page: 1, perPage: 25, sort: [ROLE, RELEVANCE, ID]) {
-          edges { role node { id name { full } image { large } favourites } }
-        }
-      }`
-    )
-    .join('\n')
-
-  const data = await fetchJson<{ data?: Record<string, { characters?: { edges?: RawCharacterEdge[] } } | null>; errors?: { message: string }[] }>(
-    ANILIST,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ query: `query {\n${aliases}\n}` })
-    },
-    'anilist'
-  )
-
-  if (data.errors?.length) {
-    throw new CodedError(data.errors[0].message, 'http', { service: 'anilist' })
+export async function searchEverything(
+  query: string,
+  library: { anilistId: number; id: string }[]
+): Promise<TierSearchOutcome> {
+  const trimmed = query.trim()
+  if (trimmed.length < 2) {
+    return { ok: true, data: { anime: [], characters: [] } }
   }
 
-  const found: TierCharacter[] = []
-  let missing = 0
+  const byAnilist = new Map(library.map((entry) => [entry.anilistId, entry.id]))
 
-  batch.forEach((entry, index) => {
-    const edges = data.data?.[`p${index}`]?.characters?.edges ?? []
-    if (edges.length === 0) {
-      missing += 1
-      return
+  /**
+   * One round trip, for one term.
+   *
+   * Both searches are aliased into a single `Page`, so a search box costs one
+   * request rather than two. That matters because the box is typed into: at ten
+   * keystrokes a debounce still means a handful of requests, and AniList allows
+   * about thirty a minute.
+   *
+   * The catalogue is searched, not the library: a tier list is often about shows
+   * the user has not rated. The library is only consulted to mark which results are
+   * already tracked.
+   */
+  const run = async (term: string): Promise<TierSearchResult> => {
+    const data = await fetchJson<{
+      data?: {
+        media?: { media?: RawSearchMedia[] | null } | null
+        chars?: { characters?: RawSearchCharacter[] | null } | null
+      }
+      errors?: { message: string }[]
+    }>(
+      ANILIST,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          query: `query ($q: String) {
+            media: Page(page: 1, perPage: 24) {
+              media(search: $q, type: ANIME, sort: SEARCH_MATCH) {
+                id title { romaji english } coverImage { large } format episodes genres startDate { year }
+              }
+            }
+            chars: Page(page: 1, perPage: 24) {
+              characters(search: $q, sort: [FAVOURITES_DESC]) {
+                id name { full } image { large } favourites
+                media(perPage: 1) { nodes { id title { romaji } } }
+              }
+            }
+          }`,
+          variables: { q: term }
+        })
+      },
+      'anilist'
+    )
+
+    if (data.errors?.length) {
+      throw new CodedError(data.errors[0].message, 'http', { service: 'anilist' })
     }
-    for (const edge of edges) {
-      const node = edge.node
-      if (!node?.id) continue
-      const name = node.name?.full?.trim()
-      if (!name) continue
-      found.push({
-        anilistId: node.id,
-        name,
-        image: node.image?.large ?? null,
-        role: edge.role ?? 'SUPPORTING',
-        favourites: node.favourites ?? 0,
-        animeId: entry.animeId
-      })
-    }
-  })
 
-  return { found, missing }
-}
+    const anime: TierAnime[] = (data.data?.media?.media ?? []).flatMap((media) => {
+      if (typeof media.id !== 'number') return []
+      const title = media.title?.romaji?.trim() || media.title?.english?.trim()
+      if (!title) return []
+      const libraryId = byAnilist.get(media.id) ?? null
+      return [
+        {
+          anilistId: media.id,
+          title,
+          englishTitle: media.title?.english?.trim() ?? null,
+          image: media.coverImage?.large ?? null,
+          format: media.format ?? null,
+          year: media.startDate?.year ?? null,
+          episodes: media.episodes ?? null,
+          genres: media.genres ?? [],
+          inLibrary: libraryId !== null,
+          libraryId
+        }
+      ]
+    })
 
-export async function loadCharacters(
-  entries: { anilistId: number; animeId: string }[]
-): Promise<TierCharactersOutcome> {
-  const usable = entries.filter((entry) => Number.isSafeInteger(entry.anilistId) && entry.anilistId > 0)
-  if (usable.length === 0) {
-    return { ok: false, code: 'noReference', service: 'anilist', error: 'no entries with an AniList id' }
+    const characters: TierCharacter[] = (data.data?.chars?.characters ?? []).flatMap((character) => {
+      if (typeof character.id !== 'number') return []
+      const name = character.name?.full?.trim()
+      if (!name) return []
+      const from = character.media?.nodes?.[0]
+      return [
+        {
+          anilistId: character.id,
+          name,
+          image: character.image?.large ?? null,
+          // A global character search does not report a role, since a character
+          // can be main in one entry and a cameo in another.
+          role: '',
+          favourites: character.favourites ?? 0,
+          animeTitle: from?.title?.romaji?.trim() ?? null
+        }
+      ]
+    })
+
+    return { anime, characters }
   }
 
   try {
-    const characters: TierCharacter[] = []
-    let missing = 0
-    for (let i = 0; i < usable.length; i += BATCH) {
-      const slice = usable.slice(i, i + BATCH)
-      const result = await fetchCharactersFor(slice)
-      characters.push(...result.found)
-      missing += result.missing
+    let found = await run(trimmed)
+
+    /**
+     * A full name often finds nothing, because the catalogue stores only part of
+     * it. "Levi Ackerman" returns zero while "Levi" finds him, since the entry is
+     * named "Levi" — and the anime search behaves the same way.
+     *
+     * So a two-word query with no results is retried on each of its words and the
+     * answers are merged, rather than picking one word and hoping. Picking the
+     * longest would have been wrong here: "ackerman" returns the whole family and
+     * not the character asked for.
+     *
+     * The merged characters are ranked by favourites, which is a sound proxy for
+     * "the one people mean" and is what puts Levi (38173) above Mikasa Ackerman
+     * (25485) when both words are searched. Two extra requests, only in the case
+     * where the user would otherwise see an empty list.
+     */
+    if (found.anime.length === 0 && found.characters.length === 0 && /\s/.test(trimmed)) {
+      const words = [...new Set(trimmed.split(/\s+/).filter((word) => word.length >= 3))].slice(0, 2)
+      const animeById = new Map<number, TierAnime>()
+      const charactersById = new Map<number, TierCharacter>()
+      for (const word of words) {
+        const part = await run(word)
+        for (const entry of part.anime) {
+          if (!animeById.has(entry.anilistId)) animeById.set(entry.anilistId, entry)
+        }
+        for (const character of part.characters) {
+          const seen = charactersById.get(character.anilistId)
+          if (!seen || character.favourites > seen.favourites) {
+            charactersById.set(character.anilistId, character)
+          }
+        }
+      }
+      found = {
+        anime: [...animeById.values()].slice(0, 24),
+        characters: [...charactersById.values()]
+          .sort((a, b) => b.favourites - a.favourites)
+          .slice(0, 24)
+      }
     }
-    return { ok: true, data: { characters, missing } }
+
+    return { ok: true, data: found }
   } catch (err) {
     const coded = err as CodedError
     return {

@@ -28,7 +28,6 @@ const TIMEOUT_MS = 25_000
 const BATCH = 20
 /** How far ahead episodes are collected. */
 const WINDOW_DAYS = 21
-
 /** Formats that are anime. A relation can point at something else entirely. */
 const ANIME_FORMATS = new Set(['TV', 'TV_SHORT', 'ONA', 'OVA', 'MOVIE', 'SPECIAL', 'MUSIC'])
 

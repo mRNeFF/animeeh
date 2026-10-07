@@ -35,7 +35,7 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - **Rate every episode from 0 to 100.** An unrated episode is simply ignored, so you can create a whole season up front and score it as you watch, without skewing your average.
 - **Seven criteria per anime** — Characters, Story, Animation, OST, Opening, Key Factor, Originality.
 - **Weighted global score**, with the episode average as a first-class component.
-- **Tier lists.** Build rankings of your own, by universe: your anime, their seasons, their characters, their openings, their endings, or soundtracks typed by hand. Rows run S to F in the grade palette and are renamable. An element is placed by dragging it, or by selecting several and pressing the row's letter — which is what makes a list of sixty practical. One button places everything according to the scores you have already given, so you adjust rather than start from nothing. The board exports as a PNG. See [Where a tier list gets its elements](#where-a-tier-list-gets-its-elements).
+- **Tier lists.** Build rankings of your own, by universe. One click creates a list and one search box fills it: type a title and get the anime from the **whole catalogue**, its characters, their openings and endings in the same result, then narrow with a filter. A single list can hold an anime, two of its characters and its opening. Rows run S to F in the grade palette and are renamable. An element is placed by dragging it, or by selecting several and pressing the row's letter — which is what makes a list of sixty practical. One button places everything according to the scores you have already given. The board exports as a PNG. See [Where a tier list gets its elements](#where-a-tier-list-gets-its-elements).
 - **Seven views**: Anime (series), Films & OVA, TierList, Leaderboard, Rankings by criteria, Calendar, Statistics, Settings.
 - **Grade colours that carry information.** The seven letter grades share one palette, defined in `src/renderer/src/palette.ts`. Each tier owns a slice of a single gradient, and a slice ends exactly where the next begins, so the badges read as one continuous gradient cut into steps. The tier's colour washes the row and fills the badge, and the letter colour is chosen by contrast rather than assumed dark — the blue and violet slices are intrinsically dark, where a dark letter reached only 2.9:1. See [The grade palette](#the-grade-palette).
 - **Find a title in the ranking.** The leaderboard keeps its order and its reader's place: a search there highlights the matching rows in amber and jumps the current match to the middle of the page, rather than filtering the table. `/` puts the focus in the field, Enter and Shift+Enter walk the matches, Escape clears then releases the focus, and accents are ignored, so `pokemon` finds `Pokémon`. Amber rather than the cyan accent on purpose: cyan already means "selected", so a search result has to read as something else.
@@ -91,27 +91,29 @@ npm run check:franchise "shingeki no kyojin" "sousou no frieren"
 
 ## Where a tier list gets its elements
 
-Five kinds of element, and the cost of each is very different. Everything below was
-asked of the live services, because assuming cost a design: the first assumption was
-that AniList exposes openings, and it does not. `openingThemes` and `endingThemes` are
-**not in its schema**, so an "Openings" tab would have been built and then found
-unfillable.
+One search box catalogs everything, narrowed by a filter, so a single list can hold
+an anime, two of its characters and its opening. Nothing is chosen up front: a list
+is created with a name and nothing else.
 
-| Element | Source | What it gives | Cost |
+Everything below was asked of the live services, because assuming costs a design. The
+first assumption was that AniList exposes openings, and it does not — `openingThemes`
+is **not in its schema** — so a list that could only hold openings would have been
+built and then found unfillable.
+
+| Filter | Source | What it gives | Cost |
 |---|---|---|---|
-| Anime | your library | title, cover, year, score | none |
+| Anime | AniList, whole catalogue | title, cover, year, episodes, genres | 1 request |
+| Characters | AniList | name, **portrait**, favourites, their anime | in the same request |
 | Seasons | your library | one per season, from the multi-season entries | none |
-| Characters | AniList | name, **portrait**, role, favourites | 20 per request |
-| Openings, endings | AnimeThemes | song title, **artists**, hosted video | ~2 requests each |
+| Openings, endings | AnimeThemes | song title, **artists**, hosted video | 1 request per anime |
 | Soundtracks | none | — | typed by hand |
 
-**Matching is by id, never by title.** AnimeThemes is keyed on its own ids, but the
-records carry `AniList` and `MyAnimeList` links, so a candidate is only accepted once
-its AniList link names the id that was asked for. Title similarity is used to find
-candidates and never to accept one, which is the discipline the Dragon Ball and Naruto
-bugs taught.
+Anime and characters are searched **in one request**, since both fit in a single
+GraphQL query with aliases. That matters because the box is typed into. The library is
+consulted only to mark which results are already tracked, never to limit them: a tier
+list is often about shows you have not rated.
 
-### Three traps, each of which cost real time
+### Four traps, each of which cost real time
 
 **A filter that lies.** AnimeThemes' `filter[anime][id]` answers **HTTP 200 with
 unrelated themes** rather than an error, so a broken filter looks like a successful
@@ -121,22 +123,29 @@ this so it cannot be forgotten.
 **A null field that isn't.** AnimeThemes leaves its numeric `sequence` null for many
 entries while always filling the `slug` (`OP1`, `ED2`, `ED1-TV`). Reading the number
 from `sequence` produced labels with no number — and, worse, made two distinct openings
-of the same show compare equal, so they collapsed into one tile. The slug is used
-everywhere now.
+of the same show compare equal, so they collapsed into one tile.
 
 **A link that is not an image.** The catalogue serves WebM files and **no poster
 frame**, so an `<img>` pointing at a theme's video renders nothing. A theme's tile shows
-its anime's cover instead, which is the only thing that can be shown and also says which
-show the song belongs to.
+its anime's cover instead, which is also what says which show the song belongs to.
 
-A fourth was caught by a test rather than by eye: asking for songs and videos in one
-include requires both paths fully qualified. Writing `animethemeentries.videos` without
-the `animethemes.` prefix is answered with HTTP 422.
+**A name the catalogue does not hold in full.** AniList's character search matches a
+single token: `Levi Ackerman` returns **nothing** while `Levi` finds him, because the
+entry is named `Levi`. A two-word query with no results is therefore retried on each of
+its words and the answers are merged, ranked by favourites — which is what puts Levi
+(38173) above Mikasa Ackerman (25485) when both are searched. Picking the longest word
+would have been wrong: `ackerman` returns the whole family and not the character asked
+for.
+
+A fifth was caught by a test rather than by eye: asking AnimeThemes for songs and videos
+in one include requires both paths fully qualified. Writing `animethemeentries.videos`
+without the `animethemes.` prefix is answered with HTTP 422.
 
 ```powershell
-npm run check:tierlist         # the logic, offline: 38 checks
-npm run check:tiersources      # the live services, including the traps above
-npm run smoke:tierlist         # the whole tab, against a copy of your library
+npm run check:tierlist         # the logic, offline, including older data files
+npm run check:tiersearch       # the search, against the live services
+npm run check:tiersources      # the theme source, including the traps above
+npm run smoke:tierlist         # the whole tab, on a copy of your library
 npm run design:tierlist        # the design proposals it was built from
 ```
 
@@ -522,6 +531,7 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run check:search` | Tests the find-bar matching and highlight offsets, offline |
 | `npm run check:palette` | Measures the grade palette: contiguity, perceived gaps, letter contrast |
 | `npm run check:tierlist` | Tests the tier list logic offline, including damaged data |
+| `npm run check:tiersearch` | Verifies the unified search against the live catalogue |
 | `npm run check:tiersources` | Verifies the character and theme sources against the live services |
 | `npm run smoke:tierlist` | Drives the whole TierList tab on a copy of your library |
 | `npm run preview:palette` | Screenshots the palette in place, on a copy of your library |

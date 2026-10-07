@@ -1,22 +1,44 @@
 /**
- * The element picker: one place that catalogues what a tier list can be made of.
+ * The picker: one search bar that catalogues everything.
  *
- * What it offers depends on the list's kind, and so does the cost. Anime and
- * seasons come from the library and appear instantly. Characters and themes have
- * to be fetched, so they are behind a button and report progress; a library of
- * seventy costs about a minute for themes, because AnimeThemes is asked once per
- * anime. Soundtracks have no source at all, so the picker says why and takes a
- * typed title rather than showing an empty panel.
+ * The first version asked which kind of list you wanted before showing anything,
+ * which put a decision in front of the user before they had anything to decide
+ * with and made a mixed ranking impossible. This one searches the whole AniList
+ * catalogue and narrows with filters, per search rather than once and for all, so
+ * a single list can hold an anime, two of its characters and its opening.
+ *
+ * The filters exist because the sources cost different things:
+ *
+ *   anime       AniList, one request, returns everything a tile needs
+ *   characters  AniList, in the SAME request as the anime, since both searches
+ *               fit in one GraphQL query
+ *   seasons     the library, no request at all
+ *   themes      AnimeThemes, and this is the expensive one; see below
+ *   ost         no source anywhere
+ *
+ * Themes are the awkward case. AnimeThemes' own search covers song titles, but its
+ * results carry no links at all — a theme comes back as `{id, sequence, slug,
+ * type}`, with no song and no anime — so one request per theme would be needed to
+ * label them. Asking for the themes of an anime instead costs one request for the
+ * whole show, so the filter searches anime and opens their themes.
  */
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useI18n } from '../i18n'
 import { useStore } from '../store'
-import { addItems, itemsFromAnime, itemsFromSeasons } from '../tierlist'
-import { newId, type Anime, type TierItem, type TierList, type TierListKind } from '../types'
+import { itemsFromSeasons } from '../tierlist'
+import type { TierAnime, TierCharacter, TierTheme } from '../../../shared/tierlist'
+import {
+  newId,
+  type TierItem,
+  type TierList,
+  type TierSourceKind
+} from '../types'
 import { IconClose, IconPlus, IconSearch } from './Icons'
 
-/** How many entries are sent per theme request, so progress can be reported. */
-const THEME_BATCH = 6
+/** How long the box waits before searching, so a typed word costs one request. */
+const DEBOUNCE_MS = 420
+
+type Filter = 'all' | 'anime' | 'season' | 'character' | 'theme' | 'ost'
 
 interface Props {
   list: TierList
@@ -24,224 +46,259 @@ interface Props {
   onClose: () => void
 }
 
-/** A short line under a candidate, from whatever the item carries. */
-function itemSubtitle(item: TierItem): string {
-  return item.sublabel
-}
-
 export function TierItemPicker({ list, onAdd, onClose }: Props): ReactNode {
   const { t } = useI18n()
   const { data } = useStore()
 
+  const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
-  const [candidates, setCandidates] = useState<TierItem[] | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const [searching, setSearching] = useState(false)
   const [note, setNote] = useState('')
+  const [anime, setAnime] = useState<TierAnime[]>([])
+  const [characters, setCharacters] = useState<TierCharacter[]>([])
+  /** Themes per AniList id, filled in when an anime is opened. */
+  const [themes, setThemes] = useState<Map<number, TierTheme[]>>(new Map())
+  const [openThemes, setOpenThemes] = useState<Set<number>>(new Set())
+  const [loadingThemes, setLoadingThemes] = useState<number | null>(null)
   const [ostTitle, setOstTitle] = useState('')
 
-  const labels: Record<TierListKind, string> = {
-    anime: t('tierlist.kind.anime'),
-    season: t('tierlist.kind.season'),
-    character: t('tierlist.kind.character'),
-    op: t('tierlist.kind.op'),
-    ed: t('tierlist.kind.ed'),
-    ost: t('tierlist.kind.ost')
-  }
-
-  /** Entries that carry an AniList id, which is what the fetches need. */
-  const linked = useMemo(
+  /** The library ids the search needs, so a result can say it is already tracked. */
+  const tracked = useMemo(
     () =>
       data.anime.flatMap((entry) => {
         const anilistId = entry.source?.anilistId
         if (typeof anilistId !== 'number' || !Number.isSafeInteger(anilistId)) return []
-        return [{ entry, anilistId }]
+        return [{ anilistId, id: entry.id }]
       }),
     [data.anime]
   )
 
-  /** Already in the list, so a candidate can say so and not be offered twice. */
-  const present = useMemo(() => {
-    const ids = new Set<number>()
-    const labels2 = new Set<string>()
-    for (const item of list.items) {
-      if (item.anilistId) ids.add(item.anilistId)
-      labels2.add(item.label.toLowerCase())
+  /**
+   * The search itself, debounced.
+   *
+   * Results are ignored if the query changed while the request was in flight, so a
+   * fast typist cannot end up looking at the results of an earlier prefix.
+   */
+  const requestId = useRef(0)
+  useEffect(() => {
+    const trimmed = query.trim()
+    if (trimmed.length < 2) {
+      setAnime([])
+      setCharacters([])
+      setSearching(false)
+      return
     }
-    return { ids, labels: labels2 }
+
+    setSearching(true)
+    const id = ++requestId.current
+    const timer = setTimeout(() => {
+      window.animeeh
+        .tierSearch(trimmed, tracked)
+        .then((outcome) => {
+          if (id !== requestId.current) return
+          if (!outcome.ok) {
+            setNote(outcome.detail ?? outcome.error)
+            setAnime([])
+            setCharacters([])
+            return
+          }
+          setNote('')
+          setAnime(outcome.data.anime)
+          setCharacters(outcome.data.characters)
+        })
+        .catch(() => {
+          if (id === requestId.current) setNote(t('error.unreachable', { service: t('service.anilist') }))
+        })
+        .finally(() => {
+          if (id === requestId.current) setSearching(false)
+        })
+    }, DEBOUNCE_MS)
+
+    return () => clearTimeout(timer)
+    // `tracked` is read inside but changing it should not re-search, so it is
+    // deliberately left out of the dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query])
+
+  /* ---- Already in the list, so nothing is offered twice ---- */
+
+  const present = useMemo(() => {
+    const ids = new Set<string>()
+    for (const item of list.items) {
+      // The label plus the kind, because two openings of one show share a show
+      // and two characters of one show share a title.
+      ids.add(`${item.kind ?? '?'}::${item.label.toLowerCase()}`)
+      if (item.anilistId !== undefined && item.kind !== 'theme') {
+        ids.add(`${item.kind ?? '?'}::a:${item.anilistId}`)
+      }
+    }
+    return ids
   }, [list.items])
 
-  const isPresent = (item: TierItem): boolean =>
-    item.anilistId ? present.ids.has(item.anilistId) : present.labels.has(item.label.toLowerCase())
+  const keyOf = (kind: TierSourceKind, label: string, anilistId?: number): string =>
+    anilistId !== undefined && kind !== 'theme'
+      ? `${kind}::a:${anilistId}`
+      : `${kind}::${label.toLowerCase()}`
 
-  /* ---- Sources that need no network ---- */
+  const isPresent = (kind: TierSourceKind, label: string, anilistId?: number): boolean =>
+    present.has(keyOf(kind, label, anilistId))
 
-  const localCandidates = useMemo((): TierItem[] => {
-    if (list.kind === 'anime') return itemsFromAnime(data.anime, data.settings.weights)
-    if (list.kind === 'season') return itemsFromSeasons(data.anime)
-    return []
-  }, [list.kind, data.anime, data.settings.weights])
+  /* ---- Elements built from each source ---- */
 
-  const source = candidates ?? (list.kind === 'anime' || list.kind === 'season' ? localCandidates : [])
+  const animeToItem = (entry: TierAnime): TierItem => ({
+    id: newId(),
+    label: entry.title,
+    sublabel: [entry.year ? String(entry.year) : null, entry.episodes ? `${entry.episodes} ep.` : null]
+      .filter(Boolean)
+      .join(' · '),
+    image: entry.image ?? undefined,
+    rowId: null,
+    kind: 'anime',
+    animeId: entry.libraryId ?? undefined,
+    anilistId: entry.anilistId
+  })
 
-  const visible = useMemo(() => {
+  const characterToItem = (character: TierCharacter): TierItem => ({
+    id: newId(),
+    label: character.name,
+    sublabel: character.animeTitle ?? '',
+    image: character.image ?? undefined,
+    rowId: null,
+    kind: 'character',
+    anilistId: character.anilistId
+  })
+
+  const themeToItem = (theme: TierTheme, cover: string | null | undefined, entry: TierAnime): TierItem => ({
+    id: newId(),
+    label: theme.title,
+    sublabel: [theme.slug, ...theme.artists].filter(Boolean).join(' · '),
+    // The show's cover, not a video frame: AnimeThemes serves WebM files with no
+    // poster image, so the cover is the only thing that can be shown — and it says
+    // which anime the song belongs to.
+    image: cover ?? undefined,
+    rowId: null,
+    kind: 'theme',
+    animeId: entry.libraryId ?? undefined,
+    anilistId: undefined
+  })
+
+  /* ---- Seasons, which need no network ---- */
+
+  const seasons = useMemo(() => {
+    const all = itemsFromSeasons(data.anime).map((item) => ({ ...item, kind: 'season' as const }))
     const q = query.trim().toLowerCase()
-    const all = source
-    const filtered = q === '' ? all : all.filter((item) => item.label.toLowerCase().includes(q))
-    // Most relevant first, and anything already present last.
-    return [...filtered].sort((a, b) => {
-      const ap = isPresent(a) ? 1 : 0
-      const bp = isPresent(b) ? 1 : 0
-      if (ap !== bp) return ap - bp
-      return a.label.localeCompare(b.label)
+    return q === '' ? all : all.filter((item) => item.label.toLowerCase().includes(q))
+  }, [data.anime, query])
+
+  /* ---- Opening an anime's themes ---- */
+
+  const loadThemesFor = async (entry: TierAnime): Promise<void> => {
+    setLoadingThemes(entry.anilistId)
+    try {
+      const outcome = await window.animeeh.tierThemes([{ anilistId: entry.anilistId, title: entry.title }])
+      if (!outcome.ok) {
+        setNote(outcome.detail ?? outcome.error)
+        return
+      }
+      setThemes((current) => new Map(current).set(entry.anilistId, outcome.data.themes))
+      if (outcome.data.themes.length === 0) {
+        setNote(t('tierlist.picker.noThemes'))
+      }
+    } finally {
+      setLoadingThemes(null)
+    }
+  }
+
+  const toggleThemes = async (entry: TierAnime): Promise<void> => {
+    const next = new Set(openThemes)
+    if (next.has(entry.anilistId)) {
+      next.delete(entry.anilistId)
+      setOpenThemes(next)
+      return
+    }
+    next.add(entry.anilistId)
+    setOpenThemes(next)
+    if (!themes.has(entry.anilistId)) await loadThemesFor(entry)
+  }
+
+  /* ---- What the current filter shows ---- */
+
+  const showAnime = filter === 'all' || filter === 'anime' || filter === 'theme'
+  const showCharacters = filter === 'all' || filter === 'character'
+  const showSeasons = filter === 'season'
+  const showOst = filter === 'ost'
+
+  const sections: { key: Filter; title: string; count: number; themeMode: boolean }[] = []
+  // In the theme filter the same anime list is shown, but each row opens its
+  // themes instead of adding the show. The flag is carried on the section rather
+  // than re-read from the filter, because the section is built once and the flag
+  // is what the row rendering branches on.
+  const themeMode = filter === 'theme'
+  if (showAnime && anime.length > 0) {
+    sections.push({
+      key: 'anime',
+      title: themeMode ? t('tierlist.filter.theme') : t('tierlist.filter.anime'),
+      count: anime.length,
+      themeMode
     })
-    // isPresent closes over `present`, which is in the dependency list.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, query, present])
-
-  /* ---- Characters, from AniList ---- */
-
-  const loadCharacters = async (): Promise<void> => {
-    setBusy(true)
-    setNote('')
-    setCandidates([])
-    const collected: TierItem[] = []
-    try {
-      for (let i = 0; i < linked.length; i += 20) {
-        const slice = linked.slice(i, i + 20)
-        setProgress({ done: i, total: linked.length })
-        const outcome = await window.animeeh.tierCharacters(
-          slice.map(({ entry, anilistId }) => ({ anilistId, animeId: entry.id }))
-        )
-        if (!outcome.ok) {
-          setNote(outcome.detail ?? outcome.error)
-          break
-        }
-        const byAnime = new Map<string, Anime>(slice.map(({ entry }) => [entry.id, entry]))
-        for (const character of outcome.data.characters) {
-          collected.push({
-            id: newId(),
-            label: character.name,
-            sublabel: byAnime.get(character.animeId)?.title ?? '',
-            image: character.image ?? undefined,
-            rowId: null,
-            animeId: character.animeId,
-            anilistId: character.anilistId
-          })
-        }
-        // Streamed rather than waited on: the first batch is useful on its own,
-        // and a screen that stays empty until the last request looks broken.
-        setCandidates([...collected])
-      }
-      setNote(
-        collected.length === 0 ? t('tierlist.picker.none') : `${collected.length}`
-      )
-    } finally {
-      setBusy(false)
-      setProgress(null)
-    }
+  }
+  if (showCharacters && characters.length > 0) {
+    sections.push({ key: 'character', title: t('tierlist.filter.character'), count: characters.length, themeMode: false })
+  }
+  if (showSeasons && seasons.length > 0) {
+    sections.push({ key: 'season', title: t('tierlist.filter.season'), count: seasons.length, themeMode: false })
   }
 
-  /* ---- Themes, from AnimeThemes ---- */
+  const nothing =
+    note === '' &&
+    !searching &&
+    !showOst &&
+    (showSeasons ? seasons.length === 0 : anime.length === 0 && characters.length === 0)
+  const needsQuery = !showSeasons && !showOst && query.trim().length < 2
 
-  /**
-   * The slowest path: AnimeThemes is keyed on its own ids, so each entry costs a
-   * search plus a confirmation, paced to about one request a second. For a library
-   * of seventy that is a couple of minutes, which is why the results appear batch
-   * by batch instead of all at the end.
-   */
-  const loadThemes = async (): Promise<void> => {
-    setBusy(true)
-    setNote('')
-    setCandidates([])
-    const wanted = list.kind === 'op' ? 'OP' : 'ED'
-    const collected: TierItem[] = []
-    let unmatched = 0
-    let failed = false
-    try {
-      for (let i = 0; i < linked.length; i += THEME_BATCH) {
-        const slice = linked.slice(i, i + THEME_BATCH)
-        setProgress({ done: i, total: linked.length })
-        const outcome = await window.animeeh.tierThemes(
-          slice.map(({ entry, anilistId }) => ({ anilistId, title: entry.title }))
-        )
-        if (!outcome.ok) {
-          setNote(outcome.detail ?? outcome.error)
-          failed = true
-          break
-        }
-        unmatched += outcome.data.unmatched
-        const byAnime = new Map<string, Anime>(slice.map(({ entry }) => [entry.id, entry]))
-        for (const theme of outcome.data.themes) {
-          if (theme.type !== wanted) continue
-          const entry = [...byAnime.values()].find(
-            (candidate) => candidate.source?.anilistId === theme.anilistId
-          )
-          collected.push({
-            id: newId(),
-            label: theme.title,
-            sublabel: [theme.slug, ...theme.artists].filter(Boolean).join(' · '),
-            // The show's cover, not a video frame: AnimeThemes serves WebM files
-            // with no poster image, so the cover is the only thing that can be
-            // shown — and it says which anime the song belongs to.
-            image: entry?.coverImage,
-            rowId: null,
-            animeId: entry?.id,
-            // The song title is the identity, not the anime, so two openings of
-            // the same show stay distinct and the same opening is not added twice.
-            anilistId: undefined
-          })
-        }
-        setCandidates([...collected])
-        setNote(
-          `${t('tierlist.picker.loaded', { themes: collected.length, anime: i + slice.length })}${
-            unmatched > 0 ? ` · ${t('tierlist.picker.unmatched', { count: unmatched })}` : ''
-          }`
-        )
-      }
-      if (!failed && collected.length === 0) setNote(t('tierlist.picker.none'))
-    } finally {
-      setBusy(false)
-      setProgress(null)
-    }
+  const addAllAnime = (): void => {
+    const fresh = anime.filter((entry) => !isPresent('anime', entry.title, entry.anilistId))
+    if (fresh.length > 0) onAdd(fresh.map(animeToItem))
   }
-
-  const addOne = (item: TierItem): void => {
-    if (isPresent(item)) return
-    onAdd([item])
-  }
-
-  const addAll = (): void => {
-    const fresh = visible.filter((item) => !isPresent(item))
-    if (fresh.length === 0) return
-    onAdd(fresh)
-    setNote(t('tierlist.picker.added', { count: fresh.length }))
-  }
-
-  const addOst = (): void => {
-    const title = ostTitle.trim()
-    if (title === '') return
-    onAdd([
-      { id: newId(), label: title, sublabel: list.name, rowId: null, image: undefined }
-    ])
-    setOstTitle('')
-  }
-
-  const needsFetch = list.kind === 'character' || list.kind === 'op' || list.kind === 'ed'
-  const canFetch = list.kind === 'character' ? linked.length > 0 : linked.length > 0
 
   return (
     <aside className="tl-picker">
       <div className="tl-picker-head">
         <span className="t">{t('tierlist.picker.title')}</span>
-        <span className="pill">{labels[list.kind]}</span>
         <span className="grow" />
         <button className="icon-btn" title={t('tierlist.picker.close')} onClick={onClose}>
           <IconClose size={15} />
         </button>
       </div>
 
-      {list.kind === 'ost' ? (
+      <div className="tl-search">
+        <IconSearch size={14} />
+        <input
+          className="input"
+          autoFocus
+          placeholder={t('tierlist.picker.search')}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        {searching && <span className="tl-search-spin" />}
+      </div>
+
+      {/* The filters narrow one search rather than deciding a list's nature. */}
+      <div className="tl-filters">
+        {(['all', 'anime', 'character', 'season', 'theme', 'ost'] as Filter[]).map((key) => (
+          <button
+            key={key}
+            className={`tl-filter${filter === key ? ' on' : ''}`}
+            onClick={() => setFilter(key)}
+          >
+            {t(`tierlist.filter.${key}`)}
+          </button>
+        ))}
+      </div>
+
+      {note !== '' && <div className="hint">{note}</div>}
+
+      {showOst ? (
         <>
           <div className="note">{t('tierlist.picker.ostWhy')}</div>
           <input
@@ -250,106 +307,186 @@ export function TierItemPicker({ list, onAdd, onClose }: Props): ReactNode {
             value={ostTitle}
             onChange={(event) => setOstTitle(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') addOst()
+              if (event.key === 'Enter') {
+                const title = ostTitle.trim()
+                if (title === '') return
+                onAdd([{ id: newId(), label: title, sublabel: list.name, rowId: null, kind: 'ost' }])
+                setOstTitle('')
+              }
             }}
           />
-          <button className="btn primary" onClick={addOst} disabled={ostTitle.trim() === ''}>
+          <button
+            className="btn primary"
+            disabled={ostTitle.trim() === ''}
+            onClick={() => {
+              const title = ostTitle.trim()
+              if (title === '') return
+              onAdd([{ id: newId(), label: title, sublabel: list.name, rowId: null, kind: 'ost' }])
+              setOstTitle('')
+            }}
+          >
             <IconPlus size={14} /> {t('tierlist.picker.ostAdd')}
           </button>
-          <OstAlready list={list} onRemove={() => undefined} />
         </>
+      ) : needsQuery ? (
+        <div className="hint">{t('tierlist.picker.typeToSearch')}</div>
+      ) : nothing ? (
+        <div className="hint">{t('tierlist.picker.none')}</div>
       ) : (
-        <>
-          <div className="tl-search">
-            <IconSearch size={14} />
-            <input
-              className="input"
-              placeholder={t('tierlist.picker.search')}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </div>
-
-          {needsFetch && (
-            <button className="btn primary" onClick={list.kind === 'character' ? loadCharacters : loadThemes} disabled={busy || !canFetch}>
-              {busy ? t('tierlist.picker.loading') : list.kind === 'character' ? t('tierlist.picker.characters') : t('tierlist.picker.load')}
-            </button>
-          )}
-
-          {progress && (
-            <div>
-              <div className="progress">
-                <i style={{ width: `${Math.round((progress.done / Math.max(1, progress.total)) * 100)}%` }} />
-              </div>
-              <div className="hint" style={{ marginTop: 6 }}>
-                {progress.done} / {progress.total} · {t('tierlist.picker.step')}
-              </div>
-            </div>
-          )}
-
-          {note !== '' && <div className="hint">{note}</div>}
-
-          <div className="tl-picker-actions">
-            <span className="hint">{t('tierlist.picker.library')} · {visible.length}</span>
-            <span className="grow" />
-            <button className="btn sm" onClick={addAll} disabled={visible.length === 0}>
-              {t('tierlist.picker.all', { count: visible.filter((i) => !isPresent(i)).length })}
-            </button>
-          </div>
-
-          <div className="tl-results">
-            {visible.length === 0 ? (
-              <div className="hint">{t('tierlist.picker.none')}</div>
-            ) : (
-              visible.slice(0, 120).map((item) => {
-                const already = isPresent(item)
-                return (
-                  <button
-                    key={item.id}
-                    className={`tl-res${already ? ' on' : ''}`}
-                    onClick={() => addOne(item)}
-                    disabled={already}
-                    title={already ? `${item.label} — ${t('tierlist.picker.added', { count: 1 })}` : item.label}
-                  >
-                    {item.image ? (
-                      <img className="art" src={item.image} alt="" loading="lazy" draggable={false} />
-                    ) : (
-                      <span className="art empty" />
-                    )}
-                    <span className="txt">
-                      <span className="a">{item.label}</span>
-                      <span className="b">{itemSubtitle(item)}</span>
-                    </span>
-                    {!already && <IconPlus size={13} />}
+        <div className="tl-results">
+          {sections.map((section) => (
+            <div className="tl-section" key={section.key}>
+              <div className="tl-section-head">
+                <span className="t">
+                  {section.title} · {section.count}
+                </span>
+                <span className="grow" />
+                {section.key === 'anime' && !section.themeMode && (
+                  <button className="btn sm" onClick={addAllAnime}>
+                    {t('tierlist.picker.all', { count: section.count })}
                   </button>
-                )
-              })
-            )}
-          </div>
-        </>
+                )}
+              </div>
+
+              {section.key === 'season' &&
+                seasons.slice(0, 120).map((item) => (
+                  <Result
+                    key={item.id}
+                    image={item.image}
+                    title={item.label}
+                    sub={item.sublabel}
+                    added={isPresent('season', item.label, item.anilistId)}
+                    onAdd={() => onAdd([item])}
+                  />
+                ))}
+
+              {section.key === 'character' &&
+                characters.slice(0, 60).map((character) => (
+                  <Result
+                    key={character.anilistId}
+                    image={character.image}
+                    title={character.name}
+                    sub={character.animeTitle ?? ''}
+                    added={isPresent('character', character.name, character.anilistId)}
+                    onAdd={() => onAdd([characterToItem(character)])}
+                  />
+                ))}
+
+              {(section.key === 'anime' || section.key === 'theme') &&
+                anime.slice(0, 60).map((entry) => {
+                  const entryThemes = themes.get(entry.anilistId)
+                  const open = openThemes.has(entry.anilistId)
+                  return (
+                    <div key={entry.anilistId}>
+                      <Result
+                        image={entry.image}
+                        title={entry.title}
+                        sub={[
+                          [entry.format, entry.year].filter(Boolean).join(' '),
+                          entry.episodes ? `${entry.episodes} ep.` : null,
+                          entry.inLibrary ? t('tierlist.picker.tracked') : null
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                        added={!section.themeMode && isPresent('anime', entry.title, entry.anilistId)}
+                        onAdd={() => onAdd([animeToItem(entry)])}
+                        // In the theme filter, the whole point is the sub-list, so
+                        // the row opens it rather than adding the show itself.
+                        extra={
+                          section.themeMode ? (
+                            <button
+                              className="tl-open"
+                              onClick={() => toggleThemes(entry)}
+                              title={t('tierlist.picker.themes')}
+                            >
+                              {loadingThemes === entry.anilistId ? '…' : open ? '▴' : '▾'}
+                            </button>
+                          ) : undefined
+                        }
+                      />
+
+                      {section.themeMode && open && (
+                        <div className="tl-themes">
+                          {entryThemes === undefined ? (
+                            <span className="hint">{t('tierlist.picker.loading')}</span>
+                          ) : entryThemes.length === 0 ? (
+                            <span className="hint">{t('tierlist.picker.noThemes')}</span>
+                          ) : (
+                            <>
+                              {entryThemes.map((theme) => (
+                                <Result
+                                  key={`${entry.anilistId}-${theme.slug}`}
+                                  image={entry.image}
+                                  title={theme.title}
+                                  sub={[theme.slug, ...theme.artists].filter(Boolean).join(' · ')}
+                                  added={isPresent('theme', theme.title)}
+                                  onAdd={() => onAdd([themeToItem(theme, entry.image, entry)])}
+                                />
+                              ))}
+                              <button
+                                className="btn sm"
+                                onClick={() =>
+                                  onAdd(
+                                    entryThemes
+                                      .filter((theme) => !isPresent('theme', theme.title))
+                                      .map((theme) => themeToItem(theme, entry.image, entry))
+                                  )
+                                }
+                              >
+                                {t('tierlist.picker.all', { count: entryThemes.length })}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+            </div>
+          ))}
+        </div>
       )}
     </aside>
   )
 }
 
-/** The tracks already typed in, so the panel is not just an empty field. */
-function OstAlready({ list, onRemove }: { list: TierList; onRemove: () => void }): ReactNode {
-  void onRemove
-  if (list.items.length === 0) return null
+/** One candidate row: picture, two lines of text, and an add button. */
+function Result({
+  image,
+  title,
+  sub,
+  added,
+  onAdd,
+  extra
+}: {
+  image: string | null | undefined
+  title: string
+  sub: string
+  added: boolean
+  onAdd: () => void
+  extra?: ReactNode
+}): ReactNode {
+  const { t } = useI18n()
   return (
-    <div className="tl-results" style={{ marginTop: 4 }}>
-      {list.items.map((item) => (
-        <div key={item.id} className="tl-res on">
+    <div className={`tl-res${added ? ' on' : ''}`}>
+      <button
+        className="tl-res-main"
+        onClick={onAdd}
+        disabled={added}
+        title={added ? t('tierlist.picker.alreadyAdded') : title}
+      >
+        {image ? (
+          <img className="art" src={image} alt="" loading="lazy" draggable={false} />
+        ) : (
           <span className="art empty" />
-          <span className="txt">
-            <span className="a">{item.label}</span>
-            <span className="b">{item.sublabel}</span>
-          </span>
-        </div>
-      ))}
+        )}
+        <span className="txt">
+          <span className="a">{title}</span>
+          {sub !== '' && <span className="b">{sub}</span>}
+        </span>
+        {!added && <IconPlus size={13} />}
+      </button>
+      {extra}
     </div>
   )
 }
-
-/** Re-exported so the view can build the same elements without a second import. */
-export { addItems }

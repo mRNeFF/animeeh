@@ -22,11 +22,38 @@ export interface TierCharacter {
   anilistId: number
   name: string
   image: string | null
-  /** `MAIN` or `SUPPORTING`, as AniList reports it. */
+  /** `MAIN`, `SUPPORTING` or `BACKGROUND`, as AniList reports it. */
   role: string
   favourites: number
-  /** The library entry this character was asked for. */
-  animeId: string
+  /** Title of the anime the character belongs to, for the second line. */
+  animeTitle: string | null
+}
+
+/**
+ * One anime, from the whole catalogue rather than from the library.
+ *
+ * A tier list is often about shows the user has not rated, so the search reaches
+ * the full catalogue. `inLibrary` is carried so a result can say whether it is
+ * already tracked, which is the only thing the library is needed for here.
+ */
+export interface TierAnime {
+  anilistId: number
+  title: string
+  englishTitle: string | null
+  image: string | null
+  format: string | null
+  year: number | null
+  episodes: number | null
+  genres: string[]
+  inLibrary: boolean
+  /** The library entry's id, when there is one, so a tile can link back. */
+  libraryId: string | null
+}
+
+/** Everything a single search returns, in one request. */
+export interface TierSearchResult {
+  anime: TierAnime[]
+  characters: TierCharacter[]
 }
 
 /** One opening or ending. */
@@ -63,17 +90,11 @@ export interface ThemeLookupEntry {
   title: string
 }
 
-export interface TierCharactersResult {
-  characters: TierCharacter[]
-  /** Entries AniList returned nothing for. */
-  missing: number
-}
-
 export interface TierThemesResult {
   themes: TierTheme[]
   /** Entries whose themes could not be found or matched. */
   unmatched: number
 }
 
-export type TierCharactersOutcome = { ok: true; data: TierCharactersResult } | Failure
+export type TierSearchOutcome = { ok: true; data: TierSearchResult } | Failure
 export type TierThemesOutcome = { ok: true; data: TierThemesResult } | Failure

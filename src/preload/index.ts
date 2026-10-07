@@ -3,7 +3,7 @@ import type { AnimeDetails, AnimeSearchResult, AniListOutcome } from '../shared/
 import type { EpisodeNamesOutcome } from '../shared/episodes'
 import type { ScheduleOutcome } from '../shared/schedule'
 import type {
-  TierCharactersOutcome,
+  TierSearchOutcome,
   TierThemesOutcome,
   ThemeLookupEntry
 } from '../shared/tierlist'
@@ -44,13 +44,17 @@ const api = {
     ipcRenderer.invoke('schedule:get', force),
 
   /* ---- tier list sources ---- */
-  /** Characters for several library entries at once. */
-  tierCharacters: (
-    entries: { anilistId: number; animeId: string }[]
-  ): Promise<TierCharactersOutcome> => ipcRenderer.invoke('tier:characters', entries),
   /**
-   * Openings and endings. Each entry is looked up on AnimeThemes and matched to
-   * its AniList id before its themes are accepted.
+   * Search anime and characters across the whole catalogue, in one request. The
+   * library is passed in only so results can say what is already tracked.
+   */
+  tierSearch: (
+    query: string,
+    library: { anilistId: number; id: string }[]
+  ): Promise<TierSearchOutcome> => ipcRenderer.invoke('tier:search', query, library),
+  /**
+   * Openings and endings of given entries. Each is looked up on AnimeThemes and
+   * matched to its AniList id before its themes are accepted.
    */
   tierThemes: (entries: ThemeLookupEntry[]): Promise<TierThemesOutcome> =>
     ipcRenderer.invoke('tier:themes', entries),

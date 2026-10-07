@@ -2363,8 +2363,7 @@ mark {
   position: relative;
   display: flex;
   align-items: center;
-}
-.tl-search svg {
+}.tl-search svg {
   position: absolute;
   left: 10px;
   color: var(--muted-2);
@@ -2378,31 +2377,132 @@ mark {
   align-items: center;
   gap: 8px;
 }
+
+/* The filters narrow one search rather than deciding a list's nature, so they sit
+   under the box and wrap rather than scrolling. */
+.tl-filters {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.tl-filter {
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tl-filter:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+.tl-filter.on {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+  color: #fff;
+}
+
+/* Set on the search field while a request is in flight, so a slow answer is not
+   mistaken for a query that found nothing. */
+.tl-search-spin {
+  position: absolute;
+  right: 11px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  animation: tl-spin 0.7s linear infinite;
+}
+@keyframes tl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tl-section {
+  display: grid;
+  gap: 5px;
+}
+.tl-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.tl-section-head .t {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+
+/* An anime's themes, nested under it in the theme filter. */
+.tl-themes {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 6px 14px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border-strong);
+}
+.tl-open {
+  flex: none;
+  width: 26px;
+  align-self: stretch;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+}
+.tl-open:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .tl-results {
   display: grid;
   gap: 5px;
-  max-height: 420px;
+  max-height: 460px;
   overflow-y: auto;
 }
 .tl-res {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 6px;
+  gap: 5px;
+  align-items: stretch;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel-2);
+  overflow: hidden;
+}
+.tl-res.on {
+  opacity: 0.5;
+}
+.tl-res-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border: 0;
+  background: transparent;
   color: var(--text);
   font: inherit;
   text-align: left;
   cursor: pointer;
-  width: 100%;
 }
-.tl-res:hover:not(:disabled) {
-  border-color: var(--accent);
+.tl-res-main:hover:not(:disabled) {
+  background: rgba(34, 211, 238, 0.07);
 }
-.tl-res.on {
-  opacity: 0.45;
+.tl-res-main:disabled {
   cursor: default;
 }
 .tl-res .art {
@@ -2436,7 +2536,7 @@ mark {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tl-res svg {
+.tl-res-main svg {
   flex: none;
   color: var(--accent);
 }

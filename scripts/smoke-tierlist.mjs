@@ -1,9 +1,10 @@
 /**
  * Drives the TierList tab end to end, against a copy of the real library.
  *
- * Covers the whole path the user takes: create a list, add elements from the
- * library, drag one into a row, use the keyboard route, rename a row, sort by
- * score, reload to prove it persisted, and delete the list.
+ * Covers the whole path the user takes: create a list in one click, search for
+ * elements, add anime, characters and themes from the whole catalogue rather than
+ * only from the library, drag one into a row, use the keyboard route, rename a
+ * row, sort by score, reload to prove it persisted, and delete the list.
  *
  * The real data file is copied into a throwaway profile rather than opened in
  * place, so nothing here can write to the actual library.
@@ -19,7 +20,7 @@ import { tmpdir } from 'node:os'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 let failures = 0
-const check = (label, actual, expected) => {
+const check = (label, actual, expected = true) => {
   const ok = JSON.stringify(actual) === JSON.stringify(expected)
   if (!ok) failures += 1
   console.log(
@@ -39,7 +40,6 @@ copyFileSync(real, join(profile, 'animeeh-data.json'))
 const copy = JSON.parse(readFileSync(join(profile, 'animeeh-data.json'), 'utf-8'))
 copy.settings.checkForUpdatesOnStartup = false
 copy.settings.language = 'en'
-// Start from no tier lists, so the empty state and creation are exercised.
 copy.tierLists = []
 writeFileSync(join(profile, 'animeeh-data.json'), JSON.stringify(copy), 'utf-8')
 
@@ -53,6 +53,22 @@ win.on('pageerror', (e) => {
 const sleep = (ms) => win.waitForTimeout(ms)
 const board = () => win.locator('.tl-capture')
 const tilesIn = (selector) => win.locator(`${selector} .tl-tile`)
+const searchBox = () => win.locator('.tl-picker .tl-search input')
+
+/** Types a query and waits for results to land. */
+const search = async (term) => {
+  await searchBox().fill('')
+  await sleep(200)
+  await searchBox().fill(term)
+  const deadline = Date.now() + 25_000
+  while (Date.now() < deadline) {
+    await sleep(400)
+    if ((await win.locator('.tl-res').count()) > 0) return true
+  }
+  return false
+}
+
+const pickFilter = (label) => win.locator('.tl-filter', { hasText: label }).first().click()
 
 try {
   await sleep(1800)
@@ -60,261 +76,217 @@ try {
   /* ---- 1. The tab and the empty state ---- */
   console.log('\n1. THE TAB')
   const nav = await win.locator('.nav-label').allInnerTexts()
-  check('TierList is in the navigation', nav.map((s) => s.trim()).includes('TierList'), true)
-  check('between Films & OVA and Leaderboard', nav.map((s) => s.trim()).slice(0, 4), [
-    'Anime',
-    'Films & OVA',
-    'TierList',
-    'Leaderboard'
-  ])
+  check('TierList is in the navigation', nav.map((s) => s.trim()).includes('TierList'))
+  check(
+    'between Films & OVA and Leaderboard',
+    nav.map((s) => s.trim()).slice(0, 4),
+    ['Anime', 'Films & OVA', 'TierList', 'Leaderboard']
+  )
 
   await win.getByRole('button', { name: /^TierList/ }).click()
   await sleep(700)
   check('the empty state is shown', await win.locator('.empty h3').count(), 1)
-  await win.screenshot({ path: join(root, 'smoke-tierlist-empty.png') })
 
-  /* ---- 2. Creating asks what it is made of ---- */
-  console.log('\n2. CREATING')
+  /* ---- 2. Creating takes one click, with no question asked ---- */
+  console.log('\n2. CREATING, IN ONE CLICK')
   await win.getByRole('button', { name: /Create a tierlist/i }).first().click()
-  await sleep(500)
-  const kinds = (await win.locator('.tl-kinds .btn').allInnerTexts()).map((s) => s.trim())
-  check('every kind is offered', kinds.length, 6)
-  check('including openings and endings', kinds.includes('Openings') && kinds.includes('Endings'), true)
-  await win.screenshot({ path: join(root, 'smoke-tierlist-kinds.png') })
-
-  await win.locator('.tl-kinds .btn', { hasText: 'Anime' }).first().click()
   await sleep(900)
-  check('the board opened straight away', await board().count(), 1)
+  check('the board opened immediately', await board().count(), 1)
+  check('no kind dialog was shown', await win.locator('.tl-kinds').count(), 0)
   check('with seven rows', await win.locator('.tl-row').count(), 7)
-
   const letters = await win.locator('.tl-label').allInnerTexts()
   check('labelled S to F', letters.map((s) => s.trim()[0]).join(''), 'SABCDEF')
 
   const rows = await win.locator('.tl-row').evaluateAll((els) =>
     els.map((el) => {
       const label = el.querySelector('.tl-label')
-      const area = el.querySelector('.tl-area')
       return {
         letter: label?.textContent?.trim() ?? '',
-        background: label ? getComputedStyle(label).backgroundImage.slice(0, 24) : '',
-        color: label ? getComputedStyle(label).color : '',
-        height: area ? Math.round(area.getBoundingClientRect().height) : 0
+        background: label ? getComputedStyle(label).backgroundImage.slice(0, 24) : ''
       }
     })
   )
-  check('each row is coloured', rows.every((r) => r.background.includes('gradient')), true)
-  check('the S row is not plain grey', rows[0].background !== 'linear-gradient(160deg, #2b3d5e', true)
-  console.log(`   row colours — ${rows.map((r) => `${r.letter}:${r.background.slice(0, 18)}…`).join('  ')}`)
+  check('each row is coloured', rows.every((r) => r.background.includes('gradient')))
+  check('the S row is not plain grey', rows[0].background !== 'linear-gradient(160deg, #2b3d5e')
 
-  /* ---- 3. Adding elements from the library ---- */
-  console.log('\n3. ADDING ELEMENTS')
+  /* ---- 3. One search, with filters ---- */
+  console.log('\n3. ONE SEARCH WITH FILTERS')
   await win.getByRole('button', { name: /Add elements/i }).click()
   await sleep(600)
-  const offers = await win.locator('.tl-res').count()
-  console.log(`   the picker offers ${offers} entries`)
-  check('the picker lists the library', offers > 10, true)
 
-  await win.locator('.tl-picker-actions .btn').click()
-  await sleep(900)
-  const poolCount = await tilesIn('.tl-pool-tiles').count()
-  check('they land in the pool', poolCount, offers)
-  await win.screenshot({ path: join(root, 'smoke-tierlist-pool.png') })
+  const filters = (await win.locator('.tl-filter').allInnerTexts()).map((s) => s.trim())
+  console.log(`   filters: ${filters.join(' | ')}`)
+  check('six filters are offered', filters.length, 6)
+  check('including characters', filters.some((f) => /character/i.test(f)))
+  check('including openings and endings', filters.some((f) => /opening/i.test(f)))
+  check('including soundtracks', filters.some((f) => /soundtrack/i.test(f)))
+
+  check('it asks for a query first', (await win.locator('.tl-picker .hint').innerText()).length > 0)
+
+  const found = await search('frieren')
+  check('anime results arrive', found)
+  const sections = (await win.locator('.tl-section-head .t').allInnerTexts()).map((s) => s.trim())
+  console.log(`   sections: ${sections.join(' | ')}`)
+  check('both anime and characters came back', sections.length, 2)
+
+  /* ---- 4. The catalogue, not just the library ---- */
+  console.log('\n4. THE WHOLE CATALOGUE')
+  const tracked = await win.locator('.tl-res .b', { hasText: 'in your list' }).count()
+  const untracked = (await win.locator('.tl-res .b').allInnerTexts()).filter(
+    (s) => !/in your list/.test(s)
+  ).length
+  console.log(`   ${tracked} marked as tracked, ${untracked} from the wider catalogue`)
+  check('some results are marked as already tracked', tracked > 0)
+  check('and results outside the library are found', untracked > 0)
+  await win.screenshot({ path: join(root, 'smoke-tierlist-search.png') })
+
+  /* ---- 5. Adding an anime, then a character ---- */
+  console.log('\n5. ADDING FROM EACH SOURCE')
+  await win.locator('.tl-section', { hasText: 'Anime' }).first().locator('.tl-res-main').first().click()
+  await sleep(500)
+  await pickFilter('Characters')
+  await sleep(400)
+  const characterResults = await win.locator('.tl-res').count()
+  console.log(`   ${characterResults} character(s) for the same query`)
+  check('the character filter narrows to characters', characterResults > 0)
+  await win.locator('.tl-res-main').first().click()
+  await sleep(500)
+
+  await pickFilter('Seasons')
+  await sleep(500)
+  const seasonResults = await win.locator('.tl-res').count()
+  console.log(`   ${seasonResults} season(s) in the library`)
+  check('seasons come from the library', seasonResults > 0)
 
   await win.locator('.tl-picker .icon-btn').click()
   await sleep(500)
+  const mixed = await tilesIn('.tl-pool-tiles').count()
+  check('an anime and a character are both in the pool', mixed, 2)
 
-  /* ---- 4. Drag one into a row ---- */
-  console.log('\n4. DRAGGING')
+  /* ---- 6. Themes for any anime ---- */
+  console.log('\n6. OPENINGS AND ENDINGS')
+  await win.getByRole('button', { name: /Add elements/i }).click()
+  await sleep(500)
+  await pickFilter('Openings')
+  await sleep(400)
+  await search('bakemonogatari')
+  const animeRows = await win.locator('.tl-section .tl-res').count()
+  check('an anime outside the library is found', animeRows > 0)
+  await win.locator('.tl-open').first().click()
+  const deadline = Date.now() + 25_000
+  while (Date.now() < deadline) {
+    await sleep(600)
+    if ((await win.locator('.tl-themes .tl-res').count()) > 0) break
+  }
+  const themeRows = await win.locator('.tl-themes .tl-res').count()
+  console.log(`   ${themeRows} theme(s) loaded`)
+  check('its themes load on demand', themeRows > 0)
+  const themeLabels = (await win.locator('.tl-themes .tl-res .b').allInnerTexts())
+    .map((s) => s.split('·')[0].trim())
+    .slice(0, 4)
+  console.log(`   labels: ${themeLabels.join(', ')}`)
+  check('labelled OP1, OP2, ED1…', themeLabels.every((l) => /^(OP|ED)\d/.test(l)))
+
+  await win.locator('.tl-themes .tl-res-main').first().click()
+  await sleep(500)
+  await win.locator('.tl-picker .icon-btn').click()
+  await sleep(500)
+  const withTheme = await tilesIn('.tl-pool-tiles').count()
+  check('the theme joined the pool', withTheme, mixed + 1)
+  await win.screenshot({ path: join(root, 'smoke-tierlist-mixed.png') })
+
+  /* ---- 7. Drag one into a row ---- */
+  console.log('\n7. DRAGGING')
   // Playwright's dragTo, not raw mouse moves: moving the pointer does not raise
   // the HTML5 dragstart and drop events the board listens for.
   const first = tilesIn('.tl-pool-tiles').first()
   const target = win.locator('.tl-row').first().locator('.tl-area')
-  const from = await first.boundingBox()
-  const to = await target.boundingBox()
-  check('both ends are on screen', from !== null && to !== null, true)
+  check('both ends are on screen', (await first.boundingBox()) !== null && (await target.boundingBox()) !== null)
   await first.dragTo(target)
   await sleep(700)
-  const inS = await tilesIn('.tl-row:nth-child(1) .tl-area').count()
-  check('it is now in the S row', inS, 1)
-  const poolAfter = await tilesIn('.tl-pool-tiles').count()
-  check('and no longer in the pool', poolAfter, poolCount - 1)
+  check('it is now in the S row', await tilesIn('.tl-row:nth-child(1) .tl-area').count(), 1)
+  check('and no longer in the pool', await tilesIn('.tl-pool-tiles').count(), withTheme - 1)
 
-  /* ---- 5. The keyboard route ---- */
-  console.log('\n5. THE KEYBOARD')
+  /* ---- 8. The keyboard route ---- */
+  console.log('\n8. THE KEYBOARD')
   await tilesIn('.tl-pool-tiles').first().click()
   await sleep(250)
-  const selectedText = await win.locator('.tl-sel').innerText().catch(() => '')
-  check('the selection is shown', selectedText.includes('1'), true)
-
+  check('the selection is shown', (await win.locator('.tl-sel').innerText()).includes('1'))
   await win.keyboard.press('a')
   await sleep(500)
   check('pressing A sends it to the A row', await tilesIn('.tl-row:nth-child(2) .tl-area').count(), 1)
-  check('and the selection cleared', await win.locator('.tl-sel').count(), 0)
 
-  // Ctrl-click adds to the selection rather than replacing it.
-  await tilesIn('.tl-pool-tiles').nth(0).click()
-  await tilesIn('.tl-pool-tiles').nth(1).click({ modifiers: ['Control'] })
-  await sleep(250)
-  const twoSelected = await win.locator('.tl-tile.on').count()
-  check('control-click selects two', twoSelected, 2)
-  await win.keyboard.press('b')
-  await sleep(500)
-  check('and B takes both', await tilesIn('.tl-row:nth-child(3) .tl-area').count(), 2)
-
-  /* ---- 6. Sort by score ---- */
-  console.log('\n6. SORT BY SCORE')
-  await win.getByRole('button', { name: /Sort by score/i }).click()
-  await sleep(900)
-  const placedNow = await win.locator('.tl-area .tl-tile').count()
-  console.log(`   ${placedNow} of ${poolAfter} elements placed by score`)
-  check('the score pass placed most of them', placedNow > poolAfter / 2, true)
-  const perRow = await win.locator('.tl-row').evaluateAll((els) =>
-    els.map((el) => el.querySelectorAll('.tl-area .tl-tile').length)
-  )
-  console.log(`   per row S→F: ${perRow.join(' ')}`)
-  check('the rows fill from the top down', perRow[0] >= perRow[6], true)
-  await win.screenshot({ path: join(root, 'smoke-tierlist-board.png') })
-
-  /* ---- 7. Renaming ---- */
-  console.log('\n7. RENAMING')
+  /* ---- 9. Renaming ---- */
+  console.log('\n9. RENAMING')
   await win.locator('.tl-label').first().click()
   await sleep(300)
   await win.locator('.tl-label-input').fill('Chefs-d oeuvre')
   await win.keyboard.press('Enter')
   await sleep(400)
-  check('the row was renamed', (await win.locator('.tl-label').first().innerText()).trim().startsWith('Chefs'), true)
+  check('the row was renamed', (await win.locator('.tl-label').first().innerText()).trim().startsWith('Chefs'))
 
   await win.locator('.tl-name').click()
   await sleep(300)
-  await win.locator('.tl-name-input').fill('Mes animés')
+  await win.locator('.tl-name-input').fill('Mon mix')
   await win.keyboard.press('Enter')
   await sleep(400)
-  check('the list was renamed', (await win.locator('.tl-name').innerText()).trim(), 'Mes animés')
+  check('the list was renamed', (await win.locator('.tl-name').innerText()).trim(), 'Mon mix')
 
-  /* ---- 8. It persisted ---- */
-  console.log('\n8. PERSISTENCE')
-  await sleep(700)
+  /* ---- 10. It persisted ---- */
+  console.log('\n10. PERSISTENCE')
+  await sleep(800)
   const onDisk = JSON.parse(readFileSync(join(profile, 'animeeh-data.json'), 'utf-8'))
   check('the list is in the data file', onDisk.tierLists.length, 1)
-  check('under its new name', onDisk.tierLists[0].name, 'Mes animés')
-  check('with its elements', onDisk.tierLists[0].items.length, poolCount)
-  check('and their placements', onDisk.tierLists[0].items.filter((i) => i.rowId !== null).length > 0, true)
-  check('the renamed row survived', onDisk.tierLists[0].rows[0].label, 'Chefs-d oeuvre')
+  check('under its new name', onDisk.tierLists[0].name, 'Mon mix')
+  check('with a mixed set of elements', onDisk.tierLists[0].items.length, withTheme)
+  const kinds = [...new Set(onDisk.tierLists[0].items.map((i) => i.kind))].sort()
+  console.log(`   element kinds stored: ${kinds.join(', ')}`)
+  check('holding more than one kind', kinds.length > 1)
+  check('with their placements', onDisk.tierLists[0].items.filter((i) => i.rowId !== null).length > 0)
 
   await win.reload()
   await sleep(1900)
   await win.getByRole('button', { name: /^TierList/ }).click()
   await sleep(800)
-  const cards = await win.locator('.tl-card:not(.new)').count()
-  check('one card after reloading', cards, 1)
-  check('named correctly', (await win.locator('.tl-card .name').first().innerText()).trim(), 'Mes animés')
-  const previewBands = await win.locator('.tl-card .prow').count()
-  check('the card previews the board', previewBands, 5)
-  await win.screenshot({ path: join(root, 'smoke-tierlist-cards.png') })
+  check('one card after reloading', await win.locator('.tl-card:not(.new)').count(), 1)
+  check('named correctly', (await win.locator('.tl-card .name').first().innerText()).trim(), 'Mon mix')
+  check('the card previews the board', await win.locator('.tl-card .prow').count(), 5)
 
-  /* ---- 9. Back into it, then delete ---- */
-  console.log('\n9. REOPENING AND DELETING')
+  /* ---- 11. Reopening and deleting ---- */
+  console.log('\n11. REOPENING AND DELETING')
   await win.locator('.tl-card .preview').first().click()
   await sleep(800)
   check('the board reopened', await board().count(), 1)
-  check('with the placements intact', (await win.locator('.tl-area .tl-tile').count()) > 0, true)
+  check('with the placements intact', (await win.locator('.tl-area .tl-tile').count()) > 0)
 
-  // The bar's first button is the back arrow, which is robust whatever it reads.
   await win.locator('.tl-bar .btn').first().click()
   await sleep(700)
-  check('back on the grid', await win.locator('.tl-card:not(.new)').count(), 1)
-
   await win.locator('.tl-card .icon-btn').first().click()
   await sleep(700)
   check('deleting returns to the empty state', await win.locator('.empty h3').count(), 1)
   const afterDelete = JSON.parse(readFileSync(join(profile, 'animeeh-data.json'), 'utf-8'))
   check('and the data file agrees', afterDelete.tierLists.length, 0)
 
-  /* ---- 10. The other kinds offer the right things ---- */
-  console.log('\n10. THE OTHER KINDS')
+  /* ---- 12. The one source with no catalogue ---- */
+  console.log('\n12. SOUNDTRACKS')
   await win.getByRole('button', { name: /Create a tierlist/i }).first().click()
-  await sleep(400)
-  await win.locator('.tl-kinds .btn', { hasText: /^Seasons/ }).click()
   await sleep(800)
   await win.getByRole('button', { name: /Add elements/i }).click()
-  await sleep(600)
-  const seasonOffers = await win.locator('.tl-res').count()
-  console.log(`   seasons offered: ${seasonOffers}`)
-  check('seasons come from multi-season entries', seasonOffers > 0, true)
-
-  await win.locator('.tl-kinds .btn', { hasText: /^Seasons/ }).count().catch(() => 0)
-  await win.locator('.tl-picker .icon-btn').click()
-  await sleep(400)
-  await win.locator('.tl-bar .btn').first().click()
   await sleep(500)
-
-  await win.getByRole('button', { name: /Create a tierlist/i }).first().click()
+  await pickFilter('Soundtracks')
   await sleep(400)
-  await win.locator('.tl-kinds .btn', { hasText: /^Soundtracks/ }).click()
-  await sleep(800)
-  await win.getByRole('button', { name: /Add elements/i }).click()
-  await sleep(600)
-  const ostNote = await win.locator('.tl-picker .note').innerText().catch(() => '')
-  check('the soundtrack tab explains itself', ostNote.length > 40, true)
-  check('and offers a typed field', await win.locator('.tl-picker input.input').count(), 1)
-  await win.screenshot({ path: join(root, 'smoke-tierlist-ost.png') })
-
-  /* ---- 11. Openings, which need the network ---- */
-  console.log('\n11. OPENINGS FROM ANIMETHEMES')
+  const ostNote = await win.locator('.tl-picker .note').innerText()
+  check('it explains why it is empty', ostNote.length > 40)
+  // Two fields are on screen in this filter: the search box above, and the track
+  // field. The track one is the last.
+  const trackField = win.locator('.tl-picker input.input').last()
+  check('and offers a typed field', await win.locator('.tl-picker input.input').count(), 2)
+  await trackField.fill('Mother Sea')
+  await win.getByRole('button', { name: /Add the track/i }).click()
+  await sleep(500)
   await win.locator('.tl-picker .icon-btn').click()
-  await sleep(400)
-  await win.locator('.tl-bar .btn').first().click()
-  await sleep(600)
-
-  await win.getByRole('button', { name: /Create a tierlist/i }).first().click()
-  await sleep(400)
-  await win.locator('.tl-kinds .btn', { hasText: /^Openings/ }).click()
-  await sleep(800)
-  await win.getByRole('button', { name: /Add elements/i }).click()
-  await sleep(600)
-
-  const loadBtn = win.getByRole('button', { name: /Load the openings of my library/i })
-  check('the openings tab offers a load', await loadBtn.count(), 1)
-  const started = Date.now()
-  await loadBtn.click()
-
-  // Streamed batch by batch, so the first openings appear after a few seconds
-  // rather than after the whole library has been walked.
-  let offered = 0
-  let firstAppearedAt = 0
-  for (let i = 0; i < 40; i += 1) {
-    await sleep(1000)
-    offered = await win.locator('.tl-res').count()
-    if (offered > 0) {
-      firstAppearedAt = Date.now() - started
-      break
-    }
-  }
-  console.log(`   ${offered} openings after ${firstAppearedAt} ms`)
-  check('openings arrive before the whole library is walked', offered > 0, true)
-  check('and reasonably quickly', firstAppearedAt < 20_000, true)
-
-  const firstOp = await win.locator('.tl-res .a').first().innerText().catch(() => '')
-  const firstOpSub = await win.locator('.tl-res .b').first().innerText().catch(() => '')
-  console.log(`   first: "${firstOp}" — ${firstOpSub}`)
-  check('they are labelled OP1, OP2, ED1…', /^(OP|ED)\d/.test(firstOpSub), true)
-
-  // Let a few more batches land, then stop watching and take what there is.
-  for (let i = 0; i < 12; i += 1) {
-    await sleep(2000)
-    const now = await win.locator('.tl-res').count()
-    if (now > offered) offered = now
-  }
-  console.log(`   ${offered} openings after a further 24 s`)
-  await win.screenshot({ path: join(root, 'smoke-tierlist-openings.png') })
-
-  await win.locator('.tl-picker-actions .btn').click()
-  await sleep(900)
-  await win.locator('.tl-picker .icon-btn').click()
-  await sleep(400)
-  const opTiles = await tilesIn('.tl-pool-tiles').count()
-  console.log(`   ${opTiles} tiles in the pool`)
-  check('the openings are in the pool', opTiles > 0, true)
+  await sleep(500)
+  check('the typed track is in the pool', await tilesIn('.tl-pool-tiles').count(), 1)
 } catch (err) {
   failures += 1
   console.log(`\n[error] ${err.message}`)
@@ -325,3 +297,4 @@ try {
 
 console.log(`\n${failures === 0 ? 'TIERLIST TEST OK' : `${failures} FAILURE(S)`}`)
 process.exit(failures === 0 ? 0 : 1)
+

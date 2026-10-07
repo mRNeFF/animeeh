@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { getAnimeDetails, MIN_QUERY_LENGTH, searchAnime, type SearchKind } from './anilist'
 import { loadEpisodeNames } from './episodes'
 import { buildSchedule } from './schedule'
-import { loadCharacters, loadThemes } from './tierlist'
+import { loadThemes, searchEverything } from './tierlist'
 import { CodedError, type ErrorCode, type ServiceName } from '../shared/errors'
 import {
   checkForUpdates,
@@ -18,7 +18,7 @@ import type { AnimeDetails, AnimeSearchResult, AniListOutcome } from '../shared/
 import type { EpisodeNamesOutcome } from '../shared/episodes'
 import { SCHEDULE_TTL_MS, type ScheduleOutcome, type ScheduleResult } from '../shared/schedule'
 import type {
-  TierCharactersOutcome,
+  TierSearchOutcome,
   TierThemesOutcome,
   ThemeLookupEntry
 } from '../shared/tierlist'
@@ -334,17 +334,22 @@ function emptySchedule(): ScheduleResult {
 /* IPC: tier list sources                                              */
 /* ------------------------------------------------------------------ */
 
-ipcMain.handle('tier:characters', async (_event, entries: unknown): Promise<TierCharactersOutcome> => {
-  if (!Array.isArray(entries)) {
-    return { ok: false, code: 'noReference', service: 'anilist', error: 'expected an array' }
+ipcMain.handle(
+  'tier:search',
+  async (_event, query: unknown, library: unknown): Promise<TierSearchOutcome> => {
+    if (typeof query !== 'string') {
+      return { ok: false, code: 'empty', service: 'anilist', error: 'expected a string' }
+    }
+    const tracked = Array.isArray(library)
+      ? library.flatMap((entry) => {
+          const candidate = entry as { anilistId?: unknown; id?: unknown }
+          if (typeof candidate.anilistId !== 'number' || typeof candidate.id !== 'string') return []
+          return [{ anilistId: candidate.anilistId, id: candidate.id }]
+        })
+      : []
+    return searchEverything(query, tracked)
   }
-  const clean = entries
-    .filter((entry): entry is { anilistId: number; animeId: string } => {
-      const candidate = entry as { anilistId?: unknown; animeId?: unknown }
-      return typeof candidate.anilistId === 'number' && typeof candidate.animeId === 'string'
-    })
-  return loadCharacters(clean)
-})
+)
 
 ipcMain.handle('tier:themes', async (_event, entries: unknown): Promise<TierThemesOutcome> => {
   if (!Array.isArray(entries)) {

@@ -167,16 +167,15 @@ export interface StoreData {
 /* Tier lists                                                          */
 /* ------------------------------------------------------------------ */
 
-/** What a tier list is made of. Each kind comes from a different source. */
-export type TierListKind = 'anime' | 'season' | 'character' | 'op' | 'ed' | 'ost'
+/** What a tier list is made of — here only to label a filter, never to restrict. */
+export type TierSourceKind = 'anime' | 'season' | 'character' | 'theme' | 'ost'
 
-/** Every kind, in the order the picker offers them. */
-export const TIER_LIST_KINDS: readonly TierListKind[] = [
+/** A mixed tier list holds whatever the user wants, from any source. */
+export const TIER_LIST_KINDS: readonly TierSourceKind[] = [
   'anime',
   'season',
   'character',
-  'op',
-  'ed',
+  'theme',
   'ost'
 ]
 
@@ -200,20 +199,29 @@ export interface TierItem {
   id: string
   label: string
   sublabel: string
-  /** Cover, portrait or theme thumbnail, depending on the kind. */
+  /** Cover, portrait or theme thumbnail, depending on the source. */
   image?: string
   /** The row it sits in, or null while it is still in the pool. */
   rowId: string | null
+  /** What it is, shown as a small badge on the tile. */
+  kind?: TierSourceKind
   /** Which library entry it came from, when it did. */
   animeId?: string
-  /** AniList id for a character, so a portrait can be refetched. */
+  /** AniList id, for a character, an anime or a theme's show. */
   anilistId?: number
 }
 
 export interface TierList {
   id: string
   name: string
-  kind: TierListKind
+  /**
+   * Deliberately absent: a list is not restricted to one kind of element.
+   *
+   * An earlier version asked which kind a list was before creating it, which made
+   * a mixed ranking impossible and put a decision in front of the user before
+   * they had anything to decide with. The filters in the picker do the narrowing
+   * instead, per search rather than once and for all.
+   */
   rows: TierRow[]
   items: TierItem[]
   createdAt: string

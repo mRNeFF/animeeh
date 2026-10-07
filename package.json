@@ -68,7 +68,8 @@
     "check:tierlist": "node scripts/check-tierlist.mjs",
     "check:tiersources": "node scripts/check-tierlist-sources.mjs",
     "preview:palette": "npm run build && node scripts/preview-palette.mjs",
-    "preview:tierlist": "npm run build && node scripts/preview-tierlist.mjs"
+    "preview:tierlist": "npm run build && node scripts/preview-tierlist.mjs",
+    "check:tiersearch": "node scripts/check-tierlist-search.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

@@ -6,15 +6,16 @@
  * because a tier list is a visual object and five bands of colour say what it is
  * faster than any wording.
  *
- * Creating is deliberately frictionless: the button opens the board straight away
- * with a default name, and the kind is chosen in a dialog because it decides what
- * the picker offers. It cannot be changed afterwards, which the dialog says.
+ * Creating is a single click. An earlier version asked which kind of list it was
+ * before opening anything, which put a decision in front of the user before they
+ * had anything to decide with and made a mixed ranking impossible. A list now
+ * holds whatever is put in it, and the picker's filters do the narrowing.
  */
 import { useMemo, useState, type ReactNode } from 'react'
 import { useI18n } from '../i18n'
 import { useStore } from '../store'
 import { addItems, boardView, createTierList, renameList, rowGradient, statsOf } from '../tierlist'
-import { TIER_LIST_KINDS, type TierItem, type TierList, type TierListKind } from '../types'
+import type { TierItem, TierList } from '../types'
 import { TierListBoard } from './TierListBoard'
 import { TierItemPicker } from './TierItemPicker'
 import { Modal } from './ui'
@@ -26,17 +27,17 @@ export function TierListView(): ReactNode {
 
   const [openId, setOpenId] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
-  const [creating, setCreating] = useState(false)
   const [renaming, setRenaming] = useState<string | null>(null)
 
   const lists = data.tierLists
   const open = useMemo(() => lists.find((list) => list.id === openId) ?? null, [lists, openId])
 
-  const onCreate = (kind: TierListKind): void => {
-    const list = createTierList(t('tierlist.new'), kind)
+  const create = (): void => {
+    // Named after its position so two lists never share a name out of the box.
+    const list = createTierList(`${t('tierlist.defaultName')} ${lists.length + 1}`)
     addTierList(list)
-    setCreating(false)
     setOpenId(list.id)
+    setPicking(false)
   }
 
   if (open) {
@@ -69,7 +70,7 @@ export function TierListView(): ReactNode {
       <div className="toolbar">
         <span className="hint">{t('tierlist.count', { count: lists.length })}</span>
         <span className="grow" />
-        <button className="btn primary" onClick={() => setCreating(true)}>
+        <button className="btn primary" onClick={create}>
           <IconPlus size={15} /> {t('tierlist.new')}
         </button>
       </div>
@@ -79,7 +80,7 @@ export function TierListView(): ReactNode {
           <div className="big">ティア</div>
           <h3>{t('empty.tierlist.title')}</h3>
           <p style={{ maxWidth: 460, margin: 0 }}>{t('empty.tierlist.body')}</p>
-          <button className="btn primary" onClick={() => setCreating(true)}>
+          <button className="btn primary" onClick={create}>
             <IconPlus size={16} /> {t('empty.tierlist.cta')}
           </button>
         </div>
@@ -97,7 +98,7 @@ export function TierListView(): ReactNode {
               }}
             />
           ))}
-          <button className="tl-card new" onClick={() => setCreating(true)}>
+          <button className="tl-card new" onClick={create}>
             <span>
               <span className="big">
                 <IconPlus size={22} />
@@ -107,8 +108,6 @@ export function TierListView(): ReactNode {
           </button>
         </div>
       )}
-
-      {creating && <KindDialog onPick={onCreate} onClose={() => setCreating(false)} />}
 
       {renaming !== null && (
         <RenameDialog
@@ -171,33 +170,10 @@ function TierListCard({
           </button>
         </div>
         <div className="meta">
-          <span className="kind">{t(`tierlist.kind.${list.kind}`)}</span>
           <span>{t('tierlist.items', { count: stats.items })}</span>
         </div>
       </div>
     </div>
-  )
-}
-
-/** The kind has to be asked, because the picker cannot guess it. */
-function KindDialog({
-  onPick,
-  onClose
-}: {
-  onPick: (kind: TierListKind) => void
-  onClose: () => void
-}): ReactNode {
-  const { t } = useI18n()
-  return (
-    <Modal title={t('tierlist.kindQuestion')} subtitle={t('tierlist.kindHint')} onClose={onClose}>
-      <div className="tl-kinds">
-        {TIER_LIST_KINDS.map((kind) => (
-          <button key={kind} className="btn" onClick={() => onPick(kind)}>
-            {t(`tierlist.kind.${kind}`)}
-          </button>
-        ))}
-      </div>
-    </Modal>
   )
 }
 

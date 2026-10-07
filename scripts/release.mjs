@@ -127,16 +127,24 @@ if (dryRun) {
   process.exit(0)
 }
 
-/* 2. Make sure the commit backing the tag is pushed ------------------ */
+/* 2. Make sure the commit backing the tag is pushed ------------------
+   This step used to only warn, and that is how v0.9.4 first shipped a tag pointing
+   at the v0.9.3 commit: `gh release create` puts the tag on whatever the remote's
+   default branch holds, so unpushed commits silently produce a tag on the previous
+   release's source. A warning nobody acts on is not a check. */
 const branch = capture(gitBin, ['rev-parse', '--abbrev-ref', 'HEAD']).out || 'main'
 const dirty = capture(gitBin, ['status', '--porcelain']).out
 if (dirty) {
-  console.warn('\n! Working tree is dirty; commit before releasing for a clean tag.')
+  throw new Error(
+    `Working tree is dirty, so the installer would not match any commit:\n${dirty}\n` +
+      'Commit before releasing.'
+  )
 }
 const unpushed = capture(gitBin, ['log', `origin/${branch}..HEAD`, '--oneline'])
 if (unpushed.ok && unpushed.out !== '') {
-  console.warn(`\n! Unpushed commits on ${branch}:\n${unpushed.out}`)
-  console.warn('  The tag would point at a commit GitHub does not have yet.')
+  console.log(`\n=== pushing ${branch}, so the tag has a commit to point at ===`)
+  console.log(unpushed.out)
+  run(gitBin, ['push', 'origin', branch])
 }
 
 /* 3. Create or update the release ----------------------------------- */
@@ -175,4 +183,23 @@ const assets = capture(ghBin, [
   '{{range .assets}}{{.name}} ({{.size}} bytes)\n{{end}}'
 ])
 console.log(assets.out || '(no assets reported)')
+
+/* The tag must point at the source of the version being released, and it is worth
+   checking rather than assuming: `gh release create` places the tag on the remote's
+   default branch, so a commit that was never pushed leaves the tag on the previous
+   release's source. That is exactly how v0.9.4 first shipped a tag pointing at
+   v0.9.3's commit. Comparing the tagged source's own version catches it; comparing
+   against HEAD would not, since a pushed HEAD can still differ from the tagged
+   commit for reasons that are nobody's bug. */
+const taggedPkg = capture(ghBin, ['api', `repos/${repo}/contents/package.json?ref=${tag}`, '--jq', '.content'])
+if (taggedPkg.ok && taggedPkg.out !== '') {
+  const declared = JSON.parse(Buffer.from(taggedPkg.out, 'base64').toString('utf-8')).version
+  if (declared !== version) {
+    console.warn(`\n! ${tag} points at source declaring version ${declared}, not ${version}.`)
+    console.warn('  The installer does not match the tagged source; move the tag before anyone builds from it.')
+  } else {
+    console.log(`${tag} points at source declaring version ${declared}, which matches the installer`)
+  }
+}
+
 console.log(`\nhttps://github.com/${repo}/releases/tag/${tag}`)

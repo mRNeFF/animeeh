@@ -13,6 +13,8 @@ const api = {
   load: (): Promise<unknown | null> => ipcRenderer.invoke('data:load'),
   save: (data: unknown): Promise<boolean> => ipcRenderer.invoke('data:save', data),
   reveal: (): Promise<string> => ipcRenderer.invoke('data:reveal'),
+  /** Open a URL in the user's own browser. Only http and https are accepted. */
+  openExternal: (url: string): Promise<boolean> => ipcRenderer.invoke('app:openExternal', url),
   exportData: (data: unknown): Promise<string | null> => ipcRenderer.invoke('data:export', data),
   importData: (): Promise<{ path: string; data: unknown } | null> =>
     ipcRenderer.invoke('data:import'),

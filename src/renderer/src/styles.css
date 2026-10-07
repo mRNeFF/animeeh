@@ -2206,11 +2206,33 @@ mark {
   width: 82px;
   border: 0;
   border-radius: 9px;
-  font-size: 26px;
   font-weight: 900;
   cursor: pointer;
   position: relative;
-  font-family: inherit;
+  overflow: hidden;
+  padding: 0 4px;
+  line-height: 1.05;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tl-label.editing {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+/* The wrapper is what clips. A single long word cannot wrap, so `break-word` and
+   the hidden overflow together guarantee nothing escapes the label however long
+   the text is — the font size already shrinks it, this is the backstop. */
+.tl-label-text {
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: center;
+  /* Two lines at most: a third would be illegible at these sizes. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 .tl-label .count {
   position: absolute;
@@ -2225,11 +2247,12 @@ mark {
   width: 82px;
   border: 0;
   border-radius: 9px;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 800;
   text-align: center;
   font-family: inherit;
   outline: none;
+  min-width: 0;
 }
 .tl-area {
   flex: 1;
@@ -2296,16 +2319,18 @@ mark {
   place-items: center;
 }
 .tl-tile .cap {
-  display: block;
+  display: -webkit-box;
   padding: 4px 5px 5px;
   font-size: 9.5px;
   font-weight: 700;
   line-height: 1.22;
   overflow: hidden;
-  display: -webkit-box;
+  overflow-wrap: anywhere;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  min-height: 26px;
+  /* A fixed height rather than a minimum: a caption that grows would push the
+     tile taller than its neighbours and break the row's alignment. */
+  height: 30px;
 }
 .tl-tile .rm {
   position: absolute;
@@ -2539,4 +2564,186 @@ mark {
 .tl-res-main svg {
   flex: none;
   color: var(--accent);
+}
+
+/* ---------------- The row options panel ---------------- */
+
+/* Anchored bottom right, as asked, and floating over the board so opening it does
+   not reflow the rows being edited. */
+.tl-style {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 30;
+  width: 288px;
+  max-height: calc(100vh - 44px);
+  overflow-y: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: var(--shadow-lift);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.tl-style-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tl-style-head .t {
+  font-weight: 700;
+  font-size: 13px;
+}
+.tl-style-preview {
+  border-radius: 9px;
+  padding: 8px 10px;
+  min-height: 46px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-weight: 900;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  line-height: 1.05;
+}
+.tl-style-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  margin-top: 3px;
+}
+.tl-style-chips {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.tl-style-swatches {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.tl-swatch {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+  position: relative;
+}
+.tl-swatch.on {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.tl-swatch.light {
+  border-color: var(--muted-2);
+}
+.tl-swatch.custom {
+  display: grid;
+  place-items: center;
+  background: conic-gradient(#f87171, #fbbf24, #34d399, #22d3ee, #8A80EA, #EA8CEE, #f87171);
+  overflow: hidden;
+}
+.tl-swatch.custom input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+}
+.tl-style-size {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.tl-style-size .slider {
+  flex: 1;
+}
+.tl-style-size .mono {
+  min-width: 22px;
+  text-align: right;
+}
+.tl-style-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ---------------- The right-click menu ---------------- */
+
+.tl-menu {
+  position: fixed;
+  z-index: 40;
+  min-width: 190px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--panel-2);
+  box-shadow: var(--shadow-lift);
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tl-menu-head {
+  padding: 5px 8px 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--muted-2);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tl-menu-item {
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  padding: 7px 9px;
+  cursor: pointer;
+}
+.tl-menu-item:hover {
+  background: var(--panel-3);
+}
+.tl-menu-item.danger:hover {
+  background: rgba(248, 113, 113, 0.16);
+  color: var(--bad);
+}
+
+/* ---------------- The status tag in the leaderboard ---------------- */
+
+/* Only shown when the status is not "completed": a ranking marks what is
+   unfinished, since that is what the numbers beside it cannot say. */
+.status-tag {
+  margin-left: 7px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+}
+.status-tag.status-watching {
+  color: var(--good);
+}
+.status-tag.status-planned {
+  color: var(--accent);
+}
+.status-tag.status-on_hold {
+  color: var(--warn);
+}
+.status-tag.status-dropped {
+  color: var(--bad);
 }

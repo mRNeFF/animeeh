@@ -216,14 +216,107 @@ try {
   await sleep(500)
   check('pressing A sends it to the A row', await tilesIn('.tl-row:nth-child(2) .tl-area').count(), 1)
 
-  /* ---- 9. Renaming ---- */
-  console.log('\n9. RENAMING')
+  /* ---- 9. The row options panel, and the label must not overflow ---- */
+  console.log('\n9. ROW OPTIONS AND THE OVERFLOW FIX')
+
+  // The fault that was reported: a renamed row's text ran across the row beside
+  // it. The label must stay inside its 82px box however long the text is.
   await win.locator('.tl-label').first().click()
-  await sleep(300)
-  await win.locator('.tl-label-input').fill('Chefs-d oeuvre')
-  await win.keyboard.press('Enter')
+  await sleep(500)
+  check('clicking the label opens the options panel', await win.locator('.tl-style').count(), 1)
+  const panelPos = await win.locator('.tl-style').boundingBox()
+  const viewport = win.viewportSize() ?? { width: 1152, height: 800 }
+  console.log(
+    `   panel at x=${panelPos ? Math.round(panelPos.x) : '?'} y=${panelPos ? Math.round(panelPos.y) : '?'}` +
+      ` in a ${viewport.width}×${viewport.height} window`
+  )
+  check(
+    'it is anchored bottom right',
+    panelPos !== null && panelPos.x + panelPos.width > viewport.width * 0.6 && panelPos.y + panelPos.height > viewport.height * 0.5
+  )
+
+  const longLabel = 'Chefs-d oeuvre absolus'
+  await win.locator('.tl-style input.input').fill(longLabel)
   await sleep(400)
-  check('the row was renamed', (await win.locator('.tl-label').first().innerText()).trim().startsWith('Chefs'))
+  const labelBox = await win.locator('.tl-label').first().boundingBox()
+  const textBox = await win.locator('.tl-label-text').first().boundingBox()
+  const labelMetrics = await win.locator('.tl-label').first().evaluate((el) => ({
+    fontSize: getComputedStyle(el).fontSize,
+    overflow: getComputedStyle(el).overflow,
+    scrollWidth: el.scrollWidth,
+    clientWidth: el.clientWidth
+  }))
+  console.log(
+    `   label ${labelBox ? Math.round(labelBox.width) : '?'}px wide, text ` +
+      `${textBox ? Math.round(textBox.width) : '?'}×${textBox ? Math.round(textBox.height) : '?'}, ` +
+      `font ${labelMetrics.fontSize}`
+  )
+  check('the text stays inside the label', textBox !== null && labelBox !== null && textBox.width <= labelBox.width + 1)
+  check('the label clips as a backstop', labelMetrics.overflow, 'hidden')
+
+  // The row beside it must not be pushed or overlapped.
+  const rowWidths = await win.locator('.tl-row').evaluateAll((els) =>
+    els.map((el) => Math.round(el.querySelector('.tl-label').getBoundingClientRect().width))
+  )
+  check('every label is the same width', new Set(rowWidths).size, 1)
+
+  /* ---- Changing the colour, the font and the size ---- */
+  await win.locator('.tl-swatch').nth(2).click()
+  await sleep(350)
+  const afterColor = await win.locator('.tl-label').first().evaluate((el) => getComputedStyle(el).backgroundColor)
+  check('a swatch changes the background', afterColor, 'rgb(138, 128, 234)')
+
+  await win.locator('.tl-style-chips .tl-filter', { hasText: 'Mono' }).click()
+  await sleep(350)
+  const afterFont = await win.locator('.tl-label').first().evaluate((el) => getComputedStyle(el).fontFamily)
+  check('the font changes', /mono|consolas|cascadia/i.test(afterFont))
+
+  await win.locator('.tl-style .slider').fill('30')
+  await sleep(350)
+  const afterSize = await win.locator('.tl-label').first().evaluate((el) => getComputedStyle(el).fontSize)
+  check('the size changes', afterSize, '30px')
+
+  // An explicit size must still not let the text escape.
+  const afterResize = await win.locator('.tl-label-text').first().boundingBox()
+  check('and it still clips at a large size', afterResize !== null && afterResize.width <= labelBox.width + 1)
+
+  await win.locator('.tl-style .btn', { hasText: /^Palette/ }).click()
+  await sleep(350)
+  const afterReset = await win.locator('.tl-label').first().evaluate((el) => getComputedStyle(el).backgroundImage)
+  check('the palette can be restored', afterReset.includes('gradient'))
+
+  await win.locator('.tl-style .btn', { hasText: /^Done/ }).click()
+  await sleep(400)
+  check('the panel closes', await win.locator('.tl-style').count(), 0)
+  await win.screenshot({ path: join(root, 'smoke-tierlist-style.png') })
+
+  /* ---- 10. Right-click offers a web search ---- */
+  console.log('\n10. RIGHT-CLICK TO LOOK SOMETHING UP')
+
+  const anAnime = win.locator('.tl-area .tl-tile').first()
+  await anAnime.click({ button: 'right' })
+  await sleep(500)
+  check('a menu opens', await win.locator('.tl-menu').count(), 1)
+  const menuItems = (await win.locator('.tl-menu-item').allInnerTexts()).map((s) => s.trim())
+  console.log(`   entries: ${menuItems.join(' | ')}`)
+  check('it offers a web search', menuItems.some((s) => /web/i.test(s)))
+  check('and a remove', menuItems.some((s) => /remove/i.test(s)))
+  await win.screenshot({ path: join(root, 'smoke-tierlist-menu.png') })
+
+  // Opening a link must not throw, and must not navigate the app itself.
+  const url = await win.evaluate(() => window.animeeh.openExternal('https://example.com/'))
+  check('opening a link is accepted', url, true)
+  const badScheme = await win.evaluate(() => window.animeeh.openExternal('file:///C:/Windows/win.ini'))
+  check('a non-web scheme is refused', badScheme, false)
+  const notAUrl = await win.evaluate(() => window.animeeh.openExternal('javascript:alert(1)'))
+  check('and so is script', notAUrl, false)
+
+  await win.keyboard.press('Escape')
+  await sleep(400)
+  check('Escape closes the menu', await win.locator('.tl-menu').count(), 0)
+
+  /* ---- 11. Renaming ---- */
+  console.log('\n11. RENAMING')
 
   await win.locator('.tl-name').click()
   await sleep(300)
@@ -232,8 +325,8 @@ try {
   await sleep(400)
   check('the list was renamed', (await win.locator('.tl-name').innerText()).trim(), 'Mon mix')
 
-  /* ---- 10. It persisted ---- */
-  console.log('\n10. PERSISTENCE')
+  /* ---- 12. It persisted ---- */
+  console.log('\n12. PERSISTENCE')
   await sleep(800)
   const onDisk = JSON.parse(readFileSync(join(profile, 'animeeh-data.json'), 'utf-8'))
   check('the list is in the data file', onDisk.tierLists.length, 1)
@@ -252,8 +345,8 @@ try {
   check('named correctly', (await win.locator('.tl-card .name').first().innerText()).trim(), 'Mon mix')
   check('the card previews the board', await win.locator('.tl-card .prow').count(), 5)
 
-  /* ---- 11. Reopening and deleting ---- */
-  console.log('\n11. REOPENING AND DELETING')
+  /* ---- 13. Reopening and deleting ---- */
+  console.log('\n13. REOPENING AND DELETING')
   await win.locator('.tl-card .preview').first().click()
   await sleep(800)
   check('the board reopened', await board().count(), 1)
@@ -267,8 +360,8 @@ try {
   const afterDelete = JSON.parse(readFileSync(join(profile, 'animeeh-data.json'), 'utf-8'))
   check('and the data file agrees', afterDelete.tierLists.length, 0)
 
-  /* ---- 12. The one source with no catalogue ---- */
-  console.log('\n12. SOUNDTRACKS')
+  /* ---- 14. The one source with no catalogue ---- */
+  console.log('\n14. SOUNDTRACKS')
   await win.getByRole('button', { name: /Create a tierlist/i }).first().click()
   await sleep(800)
   await win.getByRole('button', { name: /Add elements/i }).click()

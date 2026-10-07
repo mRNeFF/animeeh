@@ -476,11 +476,24 @@ export function normaliseTierList(input: unknown): TierList {
   const rows: TierRow[] = Array.isArray(raw.rows)
     ? raw.rows
         .filter((r): r is TierRow => !!r && typeof r === 'object')
-        .map((r) => ({
-          id: typeof r.id === 'string' && r.id ? r.id : newId(),
-          label: typeof r.label === 'string' && r.label ? r.label : '?',
-          letter: typeof r.letter === 'string' && r.letter ? r.letter : '?'
-        }))
+        .map((r) => {
+          const row = r as TierRow & Record<string, unknown>
+          return {
+            id: typeof row.id === 'string' && row.id ? row.id : newId(),
+            label: typeof row.label === 'string' && row.label ? row.label : '?',
+            letter: typeof row.letter === 'string' && row.letter ? row.letter : '?',
+            // The styling overrides have to be carried through too, or a colour
+            // chosen in the options panel would be lost on the next reload.
+            color: typeof row.color === 'string' && row.color !== '' ? row.color : undefined,
+            textColor:
+              typeof row.textColor === 'string' && row.textColor !== '' ? row.textColor : undefined,
+            font: typeof row.font === 'string' && row.font !== '' ? row.font : undefined,
+            fontSize:
+              typeof row.fontSize === 'number' && Number.isFinite(row.fontSize) && row.fontSize > 0
+                ? Math.min(64, Math.round(row.fontSize))
+                : undefined
+          }
+        })
     : []
 
   // A row that no longer exists would leave an item unreachable, so anything

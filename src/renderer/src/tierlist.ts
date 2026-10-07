@@ -49,7 +49,45 @@ export function createTierList(name: string): TierList {
   }
 }
 
-/** The colour a row's label takes. Unknown letters fall back to a neutral grey. */
+/**
+ * The label size for a row, from the length of its text.
+ *
+ * A fixed 26px suited a one-letter label and overflowed the moment a row was
+ * renamed: "Chefs-d'oeuvre" ran straight across the row beside it. The size now
+ * falls away as the text grows, and the container clips as a last resort, so
+ * nothing can escape whatever is typed.
+ */
+export function labelFontSize(row: TierRow): number {
+  if (typeof row.fontSize === 'number' && row.fontSize > 0) return row.fontSize
+  const length = row.label.trim().length
+  if (length <= 1) return 26
+  if (length <= 2) return 22
+  if (length <= 4) return 17
+  if (length <= 7) return 13
+  if (length <= 11) return 11
+  return 9
+}
+
+/**
+ * The colour a row's label takes.
+ *
+ * An explicit colour wins; otherwise the grade palette, so a row and a badge read
+ * the same thing.
+ */
+export function rowBackground(row: TierRow): string {
+  if (typeof row.color === 'string' && row.color !== '') return row.color
+  return rowGradient(row)
+}
+
+/** The label colour: an explicit one, else the one chosen for contrast. */
+export function rowLabelColor(row: TierRow): string {
+  if (typeof row.textColor === 'string' && row.textColor !== '') return row.textColor
+  return rowTextColor(row)
+}
+
+/**
+ * The colour a row's label takes. Unknown letters fall back to a neutral grey.
+ */
 export function rowGradient(row: TierRow): string {
   const tier = tierOf(row.letter)
   // The same gradient a grade badge uses, so a row and a badge cannot drift apart.
@@ -60,6 +98,21 @@ export function rowGradient(row: TierRow): string {
 export function rowTextColor(row: TierRow): string {
   const tier = tierOf(row.letter)
   return tier === null ? '#a8b6cb' : tierTextColor(tier)
+}
+
+/** The fonts a row label may take. Websafe only, so nothing has to be loaded. */
+export const LABEL_FONTS: { key: string; label: string; stack: string }[] = [
+  { key: 'ui', label: 'Interface', stack: "Inter, 'Segoe UI', system-ui, sans-serif" },
+  { key: 'sans', label: 'Sans', stack: 'Arial, Helvetica, sans-serif' },
+  { key: 'serif', label: 'Serif', stack: "Georgia, 'Times New Roman', serif" },
+  { key: 'mono', label: 'Mono', stack: "ui-monospace, 'Cascadia Mono', Consolas, monospace" },
+  { key: 'rounded', label: 'Rounded', stack: "'Trebuchet MS', 'Segoe UI', sans-serif" }
+]
+
+/** Resolves a stored font key to a CSS stack. */
+export function fontStack(key: string | undefined): string {
+  if (!key) return LABEL_FONTS[0].stack
+  return LABEL_FONTS.find((font) => font.key === key)?.stack ?? LABEL_FONTS[0].stack
 }
 
 /* ------------------------------------------------------------------ */

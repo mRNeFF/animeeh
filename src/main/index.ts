@@ -416,6 +416,30 @@ ipcMain.handle(
 )
 
 /* ------------------------------------------------------------------ */
+/* IPC: opening a link in the user's browser                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Opens a URL in the default browser.
+ *
+ * The scheme is checked rather than trusted: a URL that arrived from the renderer
+ * could otherwise be a `file:` or a custom scheme, and handing those to the shell
+ * is how an app ends up launching something other than a web page.
+ */
+ipcMain.handle('app:openExternal', async (_event, url: unknown): Promise<boolean> => {
+  if (typeof url !== 'string') return false
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return false
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+  await shell.openExternal(parsed.toString())
+  return true
+})
+
+/* ------------------------------------------------------------------ */
 /* IPC: in-app updates                                                 */
 /* ------------------------------------------------------------------ */
 

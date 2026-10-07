@@ -412,6 +412,15 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
                               {isMovie(entry.anime) ? t('form.film') : t('form.ova')}
                             </span>
                           )}
+                          {/* Shown only when it is worth saying. "Completed" is what
+                              most entries are, so marking it would be noise on every
+                              row; a series being watched, on hold or dropped is the
+                              information that is actually missing from a ranking. */}
+                          {entry.anime.status !== 'completed' && (
+                            <span className={`status-tag status-${entry.anime.status}`}>
+                              {t(`status.${entry.anime.status}` as 'status.watching')}
+                            </span>
+                          )}
                         </div>
                         <div className="t-sub">
                           {entry.anime.year && (

@@ -42,7 +42,8 @@ await buildStore({
 const { normaliseStore } = await import(pathToFileURL(storeOut).href)
 
 let failures = 0
-const check = (label, actual, expected) => {
+/** Takes the actual and expected values, so a falsy result is reported honestly. */
+const check = (label, actual, expected = true) => {
   const ok = JSON.stringify(actual) === JSON.stringify(expected)
   if (!ok) failures += 1
   console.log(
@@ -185,9 +186,52 @@ check('an empty name is refused', T.renameList(fresh, '   ').name, fresh.name)
 check('a row can be renamed', T.renameRow(fresh, fresh.rows[0].id, 'Chefs-d’œuvre').rows[0].label, 'Chefs-d’œuvre')
 check('an empty row name is refused', T.renameRow(fresh, fresh.rows[0].id, '  ').rows[0].label, 'S')
 
+/* ---------------- 6. The row label must never overflow ---------------- */
+
+console.log('\n6. ROW LABELS NEVER OVERFLOW\n')
+
+// A fixed 26px suited a one-letter label and ran across the next row as soon as a
+// row was renamed, which is the rendering fault that was reported. The size now
+// falls with the length, and it never grows past the short-label size.
+const sizes = ['S', 'AB', 'ABCD', 'Chefs', "Chefs-d'oeuvre", 'A very long row label indeed'].map((label) =>
+  T.labelFontSize({ id: 'r', label, letter: 'S' })
+)
+console.log(`   sizes for 1, 2, 4, 5, 13, 28 characters: ${sizes.join(', ')}`)
+check('a one-letter label gets the largest size', sizes[0], 26)
+check('the size only falls as the text grows', sizes.every((s, i) => i === 0 || s <= sizes[i - 1]))
+check('a long label is small enough to fit', sizes[sizes.length - 1] <= 9, true)
+check('and never smaller than legible', sizes.every((s) => s >= 8), true)
+check('an explicit size wins over the automatic one', T.labelFontSize({ id: 'r', label: 'S', letter: 'S', fontSize: 30 }), 30)
+
+/* ---------------- 7. Row colours and fonts ---------------- */
+
+console.log('\n7. ROW COLOURS AND FONTS\n')
+
+const plain = { id: 'r', label: 'S', letter: 'S' }
+check('an untouched row uses the palette gradient', T.rowBackground(plain).startsWith('linear-gradient'), true)
+check('and the palette label colour', T.rowLabelColor(plain), '#070c16')
+
+const custom = { ...plain, color: '#123456', textColor: '#abcdef' }
+check('an explicit background wins', T.rowBackground(custom), '#123456')
+check('an explicit label colour wins', T.rowLabelColor(custom), '#abcdef')
+check('an empty string is not treated as a colour', T.rowBackground({ ...plain, color: '' }).startsWith('linear-gradient'), true)
+
+check('the interface font is the default', T.fontStack(undefined), T.LABEL_FONTS[0].stack)
+check('a known key resolves to a stack', T.fontStack('mono'), T.LABEL_FONTS.find((f) => f.key === 'mono').stack)
+check('an unknown key falls back rather than breaking', T.fontStack('nonsense'), T.LABEL_FONTS[0].stack)
+check('every offered font has a stack', T.LABEL_FONTS.every((f) => f.stack.length > 0), true)
+
+// Styling a row must survive a round trip through the file.
+const styled = { ...fresh, rows: [{ ...fresh.rows[0], label: 'Chefs', color: '#EA8CEE', font: 'serif', fontSize: 18 }] }
+const reloaded = normaliseStore({ version: 1, anime: [], settings: {}, tierLists: [styled] }).tierLists[0]
+check('the label survived', reloaded.rows[0].label, 'Chefs')
+check('the colour survived', reloaded.rows[0].color, '#EA8CEE')
+check('the font survived', reloaded.rows[0].font, 'serif')
+check('the size survived', reloaded.rows[0].fontSize, 18)
+
 /* ---------------- 6. Reading a file written before the tab existed -------- */
 
-console.log('\n6. Older data files\n')
+console.log('\n8. Older data files\n')
 const legacy = normaliseStore({ version: 1, anime: [], settings: {} })
 check('a file with no tierLists key loads', Array.isArray(legacy.tierLists), true)
 check('and it is empty', legacy.tierLists.length, 0)
@@ -237,7 +281,7 @@ check('the list kind is gone', 'kind' in migrated, false)
 check('op folds into theme', migrated.items[0].kind, 'theme')
 check('ed folds into theme too', migrated.items[1].kind, 'theme')
 check('anime is untouched', migrated.items[2].kind, 'anime')
-check('an unknown kind is dropped rather than guessed', migrated.items[3].kind, undefined)
+check('an unknown kind is dropped rather than guessed', migrated.items[3].kind === undefined)
 
 console.log(`\n${failures === 0 ? 'TIER LIST LOGIC OK' : `${failures} FAILURE(S)`}`)
 process.exit(failures === 0 ? 0 : 1)

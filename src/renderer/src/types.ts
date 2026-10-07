@@ -186,6 +186,21 @@ export interface TierRow {
   label: string
   /** Which grade tier the row takes its colour from. */
   letter: string
+  /**
+   * Optional overrides set from the row's options panel.
+   *
+   * Absent means "follow the palette", which is what every row starts as. A row
+   * that has been restyled keeps its `letter` so resetting the colour is possible
+   * without remembering what it was.
+   */
+  /** A background colour, replacing the gradient the letter would give. */
+  color?: string
+  /** A label colour, replacing the one chosen for contrast. */
+  textColor?: string
+  /** A font stack, from a short list of websafe choices. */
+  font?: string
+  /** A label size in pixels, replacing the automatic one. */
+  fontSize?: number
 }
 
 /**

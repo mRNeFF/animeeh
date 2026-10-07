@@ -17,17 +17,19 @@ import {
   boardView,
   clearPlacements,
   countsByRow,
+  fontStack,
+  labelFontSize,
   orphanAnimeIds,
   removeItem,
   renameList,
-  renameRow,
-  rowGradient,
-  rowTextColor,
+  rowBackground,
+  rowLabelColor,
   sortByScore,
   statsOf
 } from '../tierlist'
-import type { TierItem, TierList } from '../types'
+import type { TierItem, TierList, TierRow } from '../types'
 import { IconArrowLeft, IconClose, IconDownload, IconPlus, IconRefresh, IconTrash } from './Icons'
+import { TierRowStylePanel } from './TierRowStylePanel'
 
 interface Props {
   list: TierList
@@ -43,15 +45,52 @@ interface DragState {
   ids: string[]
 }
 
+/**
+ * The links a right-click offers for an element.
+ *
+ * An AniList page is preferred where it exists, because it *is* the description:
+ * a synopsis, a cast, a score. An element that has no page — a song, or a typed
+ * soundtrack — falls back to a web search, which is the only thing that can help
+ * there.
+ */
+function linksFor(item: TierItem): { labelKey: string; url: string }[] {
+  const links: { labelKey: string; url: string }[] = []
+  const title = item.label.trim()
+
+  if (item.anilistId !== undefined) {
+    const trimmed = item.anilistId
+    if (item.kind === 'character') {
+      links.push({ labelKey: 'tierlist.menu.anilistCharacter', url: `https://anilist.co/character/${trimmed}` })
+    } else if (item.kind === 'anime') {
+      links.push({ labelKey: 'tierlist.menu.anilistAnime', url: `https://anilist.co/anime/${trimmed}` })
+    }
+  }
+
+  // Always offered: it is the only route for a song, and a useful one for
+  // anything AniList does not hold.
+  const query = [title, item.kind === 'theme' ? 'anime opening' : null]
+    .filter(Boolean)
+    .join(' ')
+  links.push({
+    labelKey: 'tierlist.menu.web',
+    url: `https://www.google.com/search?q=${encodeURIComponent(query)}`
+  })
+
+  return links
+}
+
 export function TierListBoard({ list, onClose, onAddItems, onChange }: Props): ReactNode {
   const { t } = useI18n()
   const { data } = useStore()
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [editingName, setEditingName] = useState(false)
-  const [editingRow, setEditingRow] = useState<string | null>(null)
+  /** The row whose options panel is open, if any. */
+  const [styling, setStyling] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
   const [message, setMessage] = useState('')
+  /** The tile whose right-click menu is open, with where to put it. */
+  const [menu, setMenu] = useState<{ item: TierItem; x: number; y: number } | null>(null)
   const dragging = useRef<DragState | null>(null)
   const boardRef = useRef<HTMLDivElement>(null)
 
@@ -125,6 +164,32 @@ export function TierListBoard({ list, onClose, onAddItems, onChange }: Props): R
     })
   }
 
+  /**
+   * Closes the right-click menu on any click elsewhere, on Escape, or on scroll,
+   * since the menu is positioned in viewport coordinates and would otherwise drift
+   * away from the tile it belongs to.
+   */
+  useEffect(() => {
+    if (!menu) return
+    const close = (): void => setMenu(null)
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setMenu(null)
+    }
+    window.addEventListener('click', close)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [menu])
+
+  const openLink = (url: string): void => {
+    void window.animeeh.openExternal(url)
+    setMenu(null)
+  }
+
   /* ---- Drag and drop ---- */
 
   const onDragStart = (event: React.DragEvent, itemId: string, rowId: string | null): void => {
@@ -185,6 +250,10 @@ export function TierListBoard({ list, onClose, onAddItems, onChange }: Props): R
         draggable
         onDragStart={(event) => onDragStart(event, item.id, rowId)}
         onClick={(event) => toggleSelected(item.id, event.ctrlKey || event.metaKey || event.shiftKey)}
+        onContextMenu={(event) => {
+          event.preventDefault()
+          setMenu({ item, x: event.clientX, y: event.clientY })
+        }}
         title={orphan ? `${item.label} — ${t('tierlist.orphan')}` : item.label}
       >
         {item.image ? (
@@ -205,6 +274,18 @@ export function TierListBoard({ list, onClose, onAddItems, onChange }: Props): R
         </button>
       </div>
     )
+  }
+
+  /** The row whose options panel is open. */
+  const styledRow = styling === null ? null : list.rows.find((row) => row.id === styling) ?? null
+
+  /** Applies a change to one row, through the same path as every other edit. */
+  const patchRow = (rowId: string, patch: Partial<TierRow>): void => {
+    onChange((current) => ({
+      ...current,
+      rows: current.rows.map((row) => (row.id === rowId ? { ...row, ...patch } : row)),
+      updatedAt: new Date().toISOString()
+    }))
   }
 
   return (
@@ -297,32 +378,20 @@ export function TierListBoard({ list, onClose, onAddItems, onChange }: Props): R
           <div className="tl-rows">
             {view.rows.map(({ row, items }) => (
               <div className="tl-row" key={row.id}>
-                {editingRow === row.id ? (
-                  <input
-                    className="tl-label-input"
-                    autoFocus
-                    defaultValue={row.label}
-                    style={{ background: rowGradient(row), color: rowTextColor(row) }}
-                    onBlur={(event) => {
-                      onChange((current) => renameRow(current, row.id, event.target.value))
-                      setEditingRow(null)
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') (event.target as HTMLInputElement).blur()
-                      if (event.key === 'Escape') setEditingRow(null)
-                    }}
-                  />
-                ) : (
-                  <button
-                    className="tl-label"
-                    style={{ background: rowGradient(row), color: rowTextColor(row) }}
-                    onClick={() => setEditingRow(row.id)}
-                    title={t('tierlist.rename')}
-                  >
-                    {row.label}
-                    <span className="count">{counts.get(row.id) ?? 0}</span>
-                  </button>
-                )}
+                <button
+                  className={`tl-label${styling === row.id ? ' editing' : ''}`}
+                  style={{
+                    background: rowBackground(row),
+                    color: rowLabelColor(row),
+                    fontFamily: fontStack(row.font),
+                    fontSize: labelFontSize(row)
+                  }}
+                  onClick={() => setStyling(row.id)}
+                  title={t('tierlist.style.open')}
+                >
+                  <span className="tl-label-text">{row.label}</span>
+                  <span className="count">{counts.get(row.id) ?? 0}</span>
+                </button>
 
                 <div
                   className={`tl-area${dragOver === row.id ? ' over' : ''}`}
@@ -348,6 +417,36 @@ export function TierListBoard({ list, onClose, onAddItems, onChange }: Props): R
           </div>
         </div>
       </div>
+
+      {styledRow && (
+        <TierRowStylePanel
+          row={styledRow}
+          onChange={(patch) => patchRow(styledRow.id, patch)}
+          onClose={() => setStyling(null)}
+        />
+      )}
+
+      {menu && (
+        <div className="tl-menu" style={{ left: menu.x, top: menu.y }}>
+          <div className="tl-menu-head" title={menu.item.label}>
+            {menu.item.label}
+          </div>
+          {linksFor(menu.item).map((link) => (
+            <button key={link.url} className="tl-menu-item" onClick={() => openLink(link.url)}>
+              {t(link.labelKey as 'tierlist.menu.web')}
+            </button>
+          ))}
+          <button
+            className="tl-menu-item danger"
+            onClick={() => {
+              onRemoveItem(menu.item.id)
+              setMenu(null)
+            }}
+          >
+            {t('tierlist.menu.remove')}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -35,7 +35,8 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - **Rate every episode from 0 to 100.** An unrated episode is simply ignored, so you can create a whole season up front and score it as you watch, without skewing your average.
 - **Seven criteria per anime** — Characters, Story, Animation, OST, Opening, Key Factor, Originality.
 - **Weighted global score**, with the episode average as a first-class component.
-- **Tier lists.** Build rankings of your own, by universe. One click creates a list and one search box fills it: type a title and get the anime from the **whole catalogue**, its characters, their openings and endings in the same result, then narrow with a filter. A single list can hold an anime, two of its characters and its opening. Rows run S to F in the grade palette and are renamable. An element is placed by dragging it, or by selecting several and pressing the row's letter — which is what makes a list of sixty practical. One button places everything according to the scores you have already given. The board exports as a PNG. See [Where a tier list gets its elements](#where-a-tier-list-gets-its-elements).
+- **Tier lists.** Build rankings of your own, by universe. One click creates a list and one search box fills it: type a title and get the anime from the **whole catalogue**, its characters, their openings and endings in the same result, then narrow with a filter. A single list can hold an anime, two of its characters and its opening. Rows run S to F in the grade palette and are renamable; clicking a row opens an **options panel** for its text, font, background and label colour, and its text shrinks to fit rather than running across the row beside it. An element is placed by dragging it, or by selecting several and pressing the row's letter — which is what makes a list of sixty practical. One button places everything according to the scores you have already given, and a **right-click** on an element opens it on AniList or searches the web for it. The board exports as a PNG. See [Where a tier list gets its elements](#where-a-tier-list-gets-its-elements).
+- **The ranking says what is unfinished.** A row whose status is not "Completed" carries a tag — Watching, Plan to watch, On hold or Dropped — each in its own colour. A completed entry carries nothing, since that is what most of them are and a tag on every row would say nothing.
 - **Seven views**: Anime (series), Films & OVA, TierList, Leaderboard, Rankings by criteria, Calendar, Statistics, Settings.
 - **Grade colours that carry information.** The seven letter grades share one palette, defined in `src/renderer/src/palette.ts`. Each tier owns a slice of a single gradient, and a slice ends exactly where the next begins, so the badges read as one continuous gradient cut into steps. The tier's colour washes the row and fills the badge, and the letter colour is chosen by contrast rather than assumed dark — the blue and violet slices are intrinsically dark, where a dark letter reached only 2.9:1. See [The grade palette](#the-grade-palette).
 - **Find a title in the ranking.** The leaderboard keeps its order and its reader's place: a search there highlights the matching rows in amber and jumps the current match to the middle of the page, rather than filtering the table. `/` puts the focus in the field, Enter and Shift+Enter walk the matches, Escape clears then releases the focus, and accents are ignored, so `pokemon` finds `Pokémon`. Amber rather than the cyan accent on purpose: cyan already means "selected", so a search result has to read as something else.
@@ -141,11 +142,24 @@ A fifth was caught by a test rather than by eye: asking AnimeThemes for songs an
 in one include requires both paths fully qualified. Writing `animethemeentries.videos`
 without the `animethemes.` prefix is answered with HTTP 422.
 
+### A row label must never escape its box
+
+A renamed row ran straight across the row beside it. The label was a fixed 26px in an
+82px box, which suited a single letter and nothing else, so the size now falls with the
+text — 26px for one character down to 9px for a dozen — and the container clips as a
+backstop. `overflow-wrap: anywhere` is what covers a single long word, which cannot
+wrap on its own.
+
+The check asserts the geometry rather than the intent: the rendered text box must fit
+inside the label box, at both the automatic size and an explicitly enlarged one, and
+every label must be exactly the same width so no row is pushed out of alignment.
+
 ```powershell
 npm run check:tierlist         # the logic, offline, including older data files
 npm run check:tiersearch       # the search, against the live services
 npm run check:tiersources      # the theme source, including the traps above
 npm run smoke:tierlist         # the whole tab, on a copy of your library
+npm run smoke:status           # the status tags in the ranking
 npm run design:tierlist        # the design proposals it was built from
 ```
 
@@ -534,6 +548,7 @@ If something goes wrong, **Settings** shows the current version and the data fol
 | `npm run check:tiersearch` | Verifies the unified search against the live catalogue |
 | `npm run check:tiersources` | Verifies the character and theme sources against the live services |
 | `npm run smoke:tierlist` | Drives the whole TierList tab on a copy of your library |
+| `npm run smoke:status` | The status tags in the ranking, in both languages |
 | `npm run preview:palette` | Screenshots the palette in place, on a copy of your library |
 | `npm run design:palette` | Serves the palette comparison page |
 | `npm run check:numbering` | Asserts episode titles land on the correct episode numbers |

@@ -164,9 +164,11 @@ try {
   await win.screenshot({ path: join(root, 'smoke-find-empty.png') })
 
   /* ---- 2. The "/" shortcut focuses the field ---- */
-  // The table row click opens a detail view, so the board is re-entered to leave
-  // the focus somewhere that is not the find field.
-  await win.locator('tbody tr').first().click()
+  // A row well down the list is clicked rather than the first one: Playwright
+  // scrolls a target to the very top of the container, where the sticky toolbar and
+  // column headers sit, and the click would land on those instead. Any row works
+  // here — the point is only to leave the focus somewhere that is not the field.
+  await win.locator('tbody tr').nth(5).click()
   await sleep(600)
   await win.getByRole('button', { name: /^Leaderboard/ }).click()
   await sleep(700)

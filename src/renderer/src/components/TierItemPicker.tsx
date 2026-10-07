@@ -25,7 +25,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useI18n } from '../i18n'
 import { useStore } from '../store'
-import { itemsFromSeasons } from '../tierlist'
 import type { TierAnime, TierCharacter, TierTheme } from '../../../shared/tierlist'
 import {
   newId,
@@ -37,6 +36,15 @@ import { IconClose, IconPlus, IconSearch } from './Icons'
 
 /** How long the box waits before searching, so a typed word costs one request. */
 const DEBOUNCE_MS = 420
+
+/**
+ * Formats that can be a season of a series.
+ *
+ * Used by the season filter, which lists catalogue entries: a film, an OVA or a
+ * special is a work of its own rather than a season, so it is left to the anime
+ * filter.
+ */
+const SEASON_FORMATS = new Set(['TV', 'TV_SHORT', 'ONA'])
 
 type Filter = 'all' | 'anime' | 'season' | 'character' | 'theme' | 'ost'
 
@@ -182,13 +190,16 @@ export function TierItemPicker({ list, onAdd, onClose }: Props): ReactNode {
     anilistId: undefined
   })
 
-  /* ---- Seasons, which need no network ---- */
-
-  const seasons = useMemo(() => {
-    const all = itemsFromSeasons(data.anime).map((item) => ({ ...item, kind: 'season' as const }))
-    const q = query.trim().toLowerCase()
-    return q === '' ? all : all.filter((item) => item.label.toLowerCase().includes(q))
-  }, [data.anime, query])
+  /* ---- Seasons ----
+     Taken from the catalogue results rather than from the library, because a tier
+     list is often about shows that are not tracked. Each AniList entry for a series
+     *is* one season: searching "frieren" returns the first season, the second and
+     the third as separate entries, which is exactly the list wanted. Only formats
+     that can be a season are kept, so a film or a special does not appear here. */
+  const seasons = useMemo(
+    () => anime.filter((entry) => SEASON_FORMATS.has(entry.format ?? '')),
+    [anime]
+  )
 
   /* ---- Opening an anime's themes ---- */
 
@@ -254,7 +265,9 @@ export function TierItemPicker({ list, onAdd, onClose }: Props): ReactNode {
     !searching &&
     !showOst &&
     (showSeasons ? seasons.length === 0 : anime.length === 0 && characters.length === 0)
-  const needsQuery = !showSeasons && !showOst && query.trim().length < 2
+  // Seasons now come from the catalogue, so every filter except the manual one
+  // needs a query before there is anything to show.
+  const needsQuery = !showOst && query.trim().length < 2
 
   const addAllAnime = (): void => {
     const fresh = anime.filter((entry) => !isPresent('anime', entry.title, entry.anilistId))
@@ -349,14 +362,35 @@ export function TierItemPicker({ list, onAdd, onClose }: Props): ReactNode {
               </div>
 
               {section.key === 'season' &&
-                seasons.slice(0, 120).map((item) => (
+                seasons.map((entry) => (
                   <Result
-                    key={item.id}
-                    image={item.image}
-                    title={item.label}
-                    sub={item.sublabel}
-                    added={isPresent('season', item.label, item.anilistId)}
-                    onAdd={() => onAdd([item])}
+                    key={entry.anilistId}
+                    image={entry.image}
+                    title={entry.title}
+                    sub={[
+                      [entry.format, entry.year].filter(Boolean).join(' '),
+                      entry.episodes ? `${entry.episodes} ep.` : null,
+                      entry.inLibrary ? t('tierlist.picker.tracked') : null
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                    added={isPresent('season', entry.title, entry.anilistId)}
+                    onAdd={() =>
+                      onAdd([
+                        {
+                          id: newId(),
+                          label: entry.title,
+                          sublabel: [entry.year ? String(entry.year) : null, entry.episodes ? `${entry.episodes} ep.` : null]
+                            .filter(Boolean)
+                            .join(' · '),
+                          image: entry.image ?? undefined,
+                          rowId: null,
+                          kind: 'season',
+                          animeId: entry.libraryId ?? undefined,
+                          anilistId: entry.anilistId
+                        }
+                      ])
+                    }
                   />
                 ))}
 

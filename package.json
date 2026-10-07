@@ -71,7 +71,8 @@
     "preview:tierlist": "npm run build && node scripts/preview-tierlist.mjs",
     "check:tiersearch": "node scripts/check-tierlist-search.mjs",
     "smoke:status": "npm run build && node scripts/smoke-status.mjs",
-    "preview:labels": "npm run build && node scripts/preview-tierlist-labels.mjs"
+    "preview:labels": "npm run build && node scripts/preview-tierlist-labels.mjs",
+    "preview:seasons": "npm run build && node scripts/preview-seasons.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

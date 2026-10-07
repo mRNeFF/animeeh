@@ -14,7 +14,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { useI18n } from '../i18n'
 import { LABEL_FONTS, labelFontSize, rowBackground, rowLabelColor } from '../tierlist'
 import type { TierRow } from '../types'
-import { IconClose } from './Icons'
+import { IconClose, IconTrash } from './Icons'
 
 /** Colours offered as swatches, a spread of hues rather than a full wheel. */
 const SWATCHES = [
@@ -38,11 +38,28 @@ const SWATCHES = [
 
 interface Props {
   row: TierRow
+  /** True for the first row, so its "move up" is disabled. */
+  isFirst: boolean
+  /** True for the last row, so its "move down" is disabled. */
+  isLast: boolean
+  /** False when it is the only row, since a list needs at least one. */
+  canDelete: boolean
   onChange: (patch: Partial<TierRow>) => void
+  onMove: (delta: number) => void
+  onDelete: () => void
   onClose: () => void
 }
 
-export function TierRowStylePanel({ row, onChange, onClose }: Props): ReactNode {
+export function TierRowStylePanel({
+  row,
+  isFirst,
+  isLast,
+  canDelete,
+  onChange,
+  onMove,
+  onDelete,
+  onClose
+}: Props): ReactNode {
   const { t } = useI18n()
   const textRef = useRef<HTMLInputElement>(null)
 
@@ -176,6 +193,31 @@ export function TierRowStylePanel({ row, onChange, onClose }: Props): ReactNode 
           {t('tierlist.style.done')}
         </button>
       </div>
+
+      <div className="tl-style-label">{t('tierlist.style.row')}</div>
+      <div className="tl-style-actions">
+        <button
+          className="btn sm"
+          onClick={() => onMove(-1)}
+          title={t('tierlist.style.moveUp')}
+          disabled={isFirst}
+        >
+          ↑
+        </button>
+        <button
+          className="btn sm"
+          onClick={() => onMove(1)}
+          title={t('tierlist.style.moveDown')}
+          disabled={isLast}
+        >
+          ↓
+        </button>
+        <span className="grow" />
+        <button className="btn sm danger" onClick={onDelete} disabled={!canDelete}>
+          <IconTrash size={13} /> {t('tierlist.style.deleteRow')}
+        </button>
+      </div>
+      {!canDelete && <div className="hint">{t('tierlist.style.lastRow')}</div>}
     </aside>
   )
 }

@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useI18n } from '../i18n'
 import { useStore } from '../store'
 import {
+  addRow,
   boardView,
   clearPlacements,
   countsByRow,
@@ -21,6 +22,7 @@ import {
   labelFontSize,
   orphanAnimeIds,
   removeItem,
+  removeRow,
   renameList,
   rowBackground,
   rowLabelColor,
@@ -415,13 +417,36 @@ export function TierListBoard({ list, onClose, onAddItems, onChange }: Props): R
               </div>
             ))}
           </div>
+
+          {/* Adding a row sits below the last one, where the next row would appear. */}
+          <button className="tl-add-row" onClick={() => onChange(addRow)}>
+            <IconPlus size={14} /> {t('tierlist.addRow')}
+          </button>
         </div>
       </div>
 
       {styledRow && (
         <TierRowStylePanel
           row={styledRow}
+          isFirst={list.rows[0]?.id === styledRow.id}
+          isLast={list.rows[list.rows.length - 1]?.id === styledRow.id}
+          canDelete={list.rows.length > 1}
           onChange={(patch) => patchRow(styledRow.id, patch)}
+          onMove={(delta) =>
+            onChange((current) => {
+              const index = current.rows.findIndex((row) => row.id === styledRow.id)
+              const target = index + delta
+              if (index === -1 || target < 0 || target >= current.rows.length) return current
+              const rows = [...current.rows]
+              const [moved] = rows.splice(index, 1)
+              rows.splice(target, 0, moved)
+              return { ...current, rows, updatedAt: new Date().toISOString() }
+            })
+          }
+          onDelete={() => {
+            onChange((current) => removeRow(current, styledRow.id))
+            setStyling(null)
+          }}
           onClose={() => setStyling(null)}
         />
       )}

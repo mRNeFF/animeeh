@@ -35,6 +35,20 @@ const ANILIST = process.env['ANIMEEH_ANILIST_ENDPOINT'] ?? 'https://graphql.anil
 const ANIMETHEMES = process.env['ANIMEEH_ANIMETHEMES_ENDPOINT'] ?? 'https://api.animethemes.moe'
 const USER_AGENT = 'ANIMEEH (https://github.com/mRNeFF/animeeh)'
 
+/**
+ * Titles that are not works: promotional videos and commercials.
+ *
+ * AniList files them as anime, so they turn up in every search — "Tengoku Daimakyou
+ * PV" beside the series — and they are noise in a ranking, since nobody tiers a
+ * trailer. Matched as a whole word at the end of a title only, so a real title that
+ * merely contains those letters is untouched.
+ */
+const PROMO_SUFFIX = /(?:\s|\()(?:pvs?|cms?|teasers?|trailers?|previews?)\)?\s*$/i
+
+function isPromo(title: string): boolean {
+  return PROMO_SUFFIX.test(title.trim())
+}
+
 const REQUEST_TIMEOUT_MS = 20_000
 /** AnimeThemes allows 90 a minute; a second between calls stays well inside it. */
 const THEME_PACING_MS = 700
@@ -203,6 +217,8 @@ export async function searchEverything(
       if (typeof media.id !== 'number') return []
       const title = media.title?.romaji?.trim() || media.title?.english?.trim()
       if (!title) return []
+      // Trailers and commercials are catalogued as anime but are not works.
+      if (isPromo(title)) return []
       const libraryId = byAnilist.get(media.id) ?? null
       return [
         {

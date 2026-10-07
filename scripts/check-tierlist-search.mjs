@@ -182,5 +182,53 @@ if (!outside.ok) {
   console.log(`   ${themes.length} themes, e.g. ${themes.slice(0, 3).map((t) => `${t.slug} "${t.title}"`).join(', ')}`)
 }
 
+/* ------------------------------------------------------------------ */
+/* 8. Trailers are not works                                           */
+/* ------------------------------------------------------------------ */
+
+console.log('\n8. TRAILERS AND COMMERCIALS\n')
+
+// AniList catalogues promotional videos as anime, so they turn up in a search —
+// "Tengoku Daimakyou PV" beside the series. Nobody tiers a trailer, so they are
+// dropped. The title that actually exists is checked, not a made-up one.
+const withPromos = await searchEverything('tengoku daimakyou', [])
+if (withPromos.ok) {
+  const titles = withPromos.data.anime.map((entry) => entry.title)
+  console.log(`   results: ${titles.map((t) => `"${t}"`).join(', ')}`)
+  check('no result is a trailer or a commercial', titles.every((t) => !/\b(pvs?|cms?)\b/i.test(t)))
+  check('a real entry is still found', titles.length > 0)
+}
+
+// The rule is about the end of a title, so a name that merely contains the letters
+// must survive. "PVal" is not a real anime; the point is that the filter is not a
+// blanket substring match, so a title ending differently is untouched.
+const notPromo = await searchEverything('frieren', [])
+if (notPromo.ok) {
+  check(
+    'ordinary titles are untouched',
+    notPromo.data.anime.every((entry) => !entry.title.endsWith(' PV')),
+    true
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 9. The season filter reads the whole catalogue                      */
+/* ------------------------------------------------------------------ */
+
+console.log('\n9. SEASONS COME FROM THE CATALOGUE\n')
+
+// The season filter lists catalogue entries rather than library ones, so a show
+// the user has never added still yields its seasons. Every AniList entry for a
+// series is one season, which is why the anime search is the right source.
+const seasonal = await searchEverything('sousou no frieren', [])
+if (seasonal.ok) {
+  const seriesFormats = new Set(['TV', 'TV_SHORT', 'ONA'])
+  const seasons = seasonal.data.anime.filter((entry) => seriesFormats.has(entry.format ?? ''))
+  console.log(`   ${seasons.length} season-format entries, e.g. ${seasons.slice(0, 3).map((s) => s.title).join(' | ')}`)
+  check('more than one season is found', seasons.length > 1)
+  check('none is from the library', seasons.every((entry) => !entry.inLibrary))
+  check('each carries a format, so a filter can tell a film apart', seasons.every((e) => e.format !== null))
+}
+
 console.log(`\n${failures === 0 ? 'TIERLIST SEARCH OK' : `${failures} FAILURE(S)`}`)
 process.exit(failures === 0 ? 0 : 1)

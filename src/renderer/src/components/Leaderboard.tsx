@@ -104,6 +104,30 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
   const [nudge, setNudge] = useState(0)
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>())
   const findInput = useRef<HTMLInputElement>(null)
+  const toolbarRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * Publishes the toolbar's height so the column headers can stick below it.
+   *
+   * Measured rather than fixed, because the toolbar wraps: the scope chips and the
+   * find field sit on one line in a wide window and on two in a narrow one, and a
+   * hard-coded offset would leave the headers either overlapping the toolbar or
+   * floating away from it.
+   */
+  useEffect(() => {
+    const element = toolbarRef.current
+    if (!element) return
+    const publish = (): void => {
+      element.parentElement?.style.setProperty('--toolbar-h', `${element.offsetHeight}px`)
+    }
+    publish()
+    const observer = new ResizeObserver(publish)
+    observer.observe(element)
+    return () => {
+      observer.disconnect()
+      element.parentElement?.style.removeProperty('--toolbar-h')
+    }
+  }, [])
 
   /**
    * `/` moves the focus into the find field, the way a page-level search usually
@@ -236,7 +260,7 @@ export function Leaderboard({ onOpen }: { onOpen: (id: string) => void }): React
 
   return (
     <>
-      <div className="toolbar toolbar-sticky">
+      <div className="toolbar toolbar-sticky" ref={toolbarRef}>
         <div className="find">
           <IconSearch size={14} />
           <input

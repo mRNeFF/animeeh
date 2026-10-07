@@ -55,15 +55,30 @@ const board = () => win.locator('.tl-capture')
 const tilesIn = (selector) => win.locator(`${selector} .tl-tile`)
 const searchBox = () => win.locator('.tl-picker .tl-search input')
 
-/** Types a query and waits for results to land. */
+/**
+ * Types a query and waits for results to land.
+ *
+ * Retried once and given a generous deadline: the search is live, and AniList
+ * allows about thirty requests a minute, so a busy run can be throttled. The app
+ * already retries a 429 internally; this covers the case where the throttle
+ * outlasts those retries.
+ */
 const search = async (term) => {
-  await searchBox().fill('')
-  await sleep(200)
-  await searchBox().fill(term)
-  const deadline = Date.now() + 25_000
-  while (Date.now() < deadline) {
-    await sleep(400)
-    if ((await win.locator('.tl-res').count()) > 0) return true
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await searchBox().fill('')
+    // Wait for the list to empty, so a read cannot pick up the previous query.
+    for (let i = 0; i < 20; i += 1) {
+      if ((await win.locator('.tl-res').count()) === 0) break
+      await sleep(200)
+    }
+    await searchBox().fill(term)
+    const deadline = Date.now() + 40_000
+    while (Date.now() < deadline) {
+      await sleep(500)
+      if ((await win.locator('.tl-res').count()) > 0) return true
+    }
+    console.log(`   (no results for "${term}", retrying)`)
+    await sleep(5000)
   }
   return false
 }
@@ -173,10 +188,13 @@ try {
   const animeRows = await win.locator('.tl-section .tl-res').count()
   check('an anime outside the library is found', animeRows > 0)
   await win.locator('.tl-open').first().click()
-  const deadline = Date.now() + 25_000
-  while (Date.now() < deadline) {
-    await sleep(600)
-    if ((await win.locator('.tl-themes .tl-res').count()) > 0) break
+  {
+    // Same reasoning as the search helper: a live call, so a generous deadline.
+    const deadline = Date.now() + 40_000
+    while (Date.now() < deadline) {
+      await sleep(600)
+      if ((await win.locator('.tl-themes .tl-res').count()) > 0) break
+    }
   }
   const themeRows = await win.locator('.tl-themes .tl-res').count()
   console.log(`   ${themeRows} theme(s) loaded`)
@@ -216,8 +234,30 @@ try {
   await sleep(500)
   check('pressing A sends it to the A row', await tilesIn('.tl-row:nth-child(2) .tl-area').count(), 1)
 
-  /* ---- 9. The row options panel, and the label must not overflow ---- */
-  console.log('\n9. ROW OPTIONS AND THE OVERFLOW FIX')
+  /* ---- 9. Adding and removing rows ---- */
+  console.log('\n9. ADDING AND REMOVING ROWS')
+
+  const rowsBefore = await win.locator('.tl-row').count()
+  await win.locator('.tl-add-row').click()
+  await sleep(500)
+  check('a row was added', await win.locator('.tl-row').count(), rowsBefore + 1)
+
+  // The new row has no letter left to take, so it takes the neutral colour rather
+  // than repeating one of the seven.
+  const lastBg = await win.locator('.tl-label').last().evaluate((el) => getComputedStyle(el).backgroundImage)
+  check('and it is not a repeated palette colour', lastBg.includes('#2b3d5e') || lastBg.includes('43, 61, 94'), true)
+
+  // Deleting it through its own options panel.
+  await win.locator('.tl-label').last().click()
+  await sleep(450)
+  check('its options panel opened', await win.locator('.tl-style').count(), 1)
+  await win.locator('.tl-style .btn.danger').click()
+  await sleep(500)
+  check('the row is gone', await win.locator('.tl-row').count(), rowsBefore)
+  check('and the panel closed with it', await win.locator('.tl-style').count(), 0)
+
+  /* ---- 10. The row options panel, and the label must not overflow ---- */
+  console.log('\n10. ROW OPTIONS AND THE OVERFLOW FIX')
 
   // The fault that was reported: a renamed row's text ran across the row beside
   // it. The label must stay inside its 82px box however long the text is.
@@ -290,8 +330,8 @@ try {
   check('the panel closes', await win.locator('.tl-style').count(), 0)
   await win.screenshot({ path: join(root, 'smoke-tierlist-style.png') })
 
-  /* ---- 10. Right-click offers a web search ---- */
-  console.log('\n10. RIGHT-CLICK TO LOOK SOMETHING UP')
+  /* ---- 11. Right-click offers a web search ---- */
+  console.log('\n11. RIGHT-CLICK TO LOOK SOMETHING UP')
 
   const anAnime = win.locator('.tl-area .tl-tile').first()
   await anAnime.click({ button: 'right' })
@@ -315,8 +355,8 @@ try {
   await sleep(400)
   check('Escape closes the menu', await win.locator('.tl-menu').count(), 0)
 
-  /* ---- 11. Renaming ---- */
-  console.log('\n11. RENAMING')
+  /* ---- 12. Renaming ---- */
+  console.log('\n12. RENAMING')
 
   await win.locator('.tl-name').click()
   await sleep(300)
@@ -325,8 +365,8 @@ try {
   await sleep(400)
   check('the list was renamed', (await win.locator('.tl-name').innerText()).trim(), 'Mon mix')
 
-  /* ---- 12. It persisted ---- */
-  console.log('\n12. PERSISTENCE')
+  /* ---- 13. It persisted ---- */
+  console.log('\n13. PERSISTENCE')
   await sleep(800)
   const onDisk = JSON.parse(readFileSync(join(profile, 'animeeh-data.json'), 'utf-8'))
   check('the list is in the data file', onDisk.tierLists.length, 1)
@@ -345,8 +385,8 @@ try {
   check('named correctly', (await win.locator('.tl-card .name').first().innerText()).trim(), 'Mon mix')
   check('the card previews the board', await win.locator('.tl-card .prow').count(), 5)
 
-  /* ---- 13. Reopening and deleting ---- */
-  console.log('\n13. REOPENING AND DELETING')
+  /* ---- 14. Reopening and deleting ---- */
+  console.log('\n14. REOPENING AND DELETING')
   await win.locator('.tl-card .preview').first().click()
   await sleep(800)
   check('the board reopened', await board().count(), 1)
@@ -360,8 +400,8 @@ try {
   const afterDelete = JSON.parse(readFileSync(join(profile, 'animeeh-data.json'), 'utf-8'))
   check('and the data file agrees', afterDelete.tierLists.length, 0)
 
-  /* ---- 14. The one source with no catalogue ---- */
-  console.log('\n14. SOUNDTRACKS')
+  /* ---- 15. The one source with no catalogue ---- */
+  console.log('\n15. SOUNDTRACKS')
   await win.getByRole('button', { name: /Create a tierlist/i }).first().click()
   await sleep(800)
   await win.getByRole('button', { name: /Add elements/i }).click()

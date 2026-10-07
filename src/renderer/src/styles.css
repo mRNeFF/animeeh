@@ -534,7 +534,10 @@ thead th {
   background: var(--panel-2);
   border-bottom: 1px solid var(--border);
   position: sticky;
-  top: 0;
+  /* Offset by the toolbar above it, which the leaderboard measures into this
+     variable. Both used to stick at 0 and the toolbar painted over the headers, so
+     they were lost as soon as the ranking was scrolled. Resolves to 0 elsewhere. */
+  top: var(--toolbar-h, 0px);
   z-index: 1;
   white-space: nowrap;
   cursor: pointer;
@@ -547,6 +550,15 @@ tbody td {
   padding: 11px 14px;
   border-bottom: 1px solid rgba(44, 36, 64, 0.6);
   vertical-align: middle;
+}
+
+/* Room for the sticky chrome above.
+   The toolbar and the column headers are sticky, so they permanently cover the top
+   of the scrolling area. Anything scrolled there — by a browser's "scroll into
+   view", by a focus, by an anchor — would land underneath them and be unclickable.
+   `scroll-margin-top` is what tells the browser to leave that space. */
+tbody tr {
+  scroll-margin-top: calc(var(--toolbar-h, 0px) + 48px);
 }
 tbody tr:last-child td {
   border-bottom: none;
@@ -943,8 +955,8 @@ mark {
    keystroke, undoing the jump to the matched row. With the toolbar stuck it never
    needs revealing. It also keeps the search and the scope tabs at hand while
    reading a long ranking.
-   The translucent background and the blur keep the body gradient showing through,
-   so there is no seam against the rest of the page. */
+   Opaque, deliberately. It was 90% opaque with a blur, which let the rows scrolling
+   underneath show through as a ghost row of figures — visible, and ugly. */
 .toolbar-sticky {
   position: sticky;
   top: 0;
@@ -952,10 +964,15 @@ mark {
   padding-top: 8px;
   padding-bottom: 14px;
   margin-bottom: 6px;
-  background: rgba(7, 12, 22, 0.9);
-  backdrop-filter: blur(10px);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
+
+/* Column headers stick below the toolbar rather than under it.
+   Both used to stick at `top: 0` with the toolbar painting over the headers, so the
+   headers were lost as soon as the ranking was scrolled. The offset comes from a
+   variable the leaderboard measures, and defaults to 0 where there is no toolbar. */
+
 .toolbar .spacer {
   flex: 1;
 }
@@ -2673,6 +2690,29 @@ mark {
   align-items: center;
   gap: 8px;
   margin-top: 4px;
+}
+
+/* Adding a row, styled like a row that is not there yet rather than a button. */
+.tl-add-row {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.tl-add-row:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* ---------------- The right-click menu ---------------- */

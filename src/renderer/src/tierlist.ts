@@ -143,35 +143,6 @@ export function itemsFromAnime(anime: Anime[], weights: Weights): TierItem[] {
   })
 }
 
-/**
- * One element per season, across every entry that groups more than one.
- *
- * A single-season entry contributes nothing: it would only duplicate the entry
- * itself, which is already available as the `anime` kind.
- */
-export function itemsFromSeasons(anime: Anime[]): TierItem[] {
-  const items: TierItem[] = []
-  for (const entry of anime) {
-    const seasons = entry.seasons ?? []
-    if (seasons.length < 2) continue
-    for (const season of seasons) {
-      items.push({
-        id: newId(),
-        label: season.title || `${entry.title} S${season.season}`,
-        sublabel:
-          [season.year ? String(season.year) : null, season.episodes ? `${season.episodes} ep.` : null]
-            .filter(Boolean)
-            .join(' · ') || entry.title,
-        image: entry.coverImage,
-        rowId: null,
-        animeId: entry.id,
-        anilistId: season.anilistId
-      })
-    }
-  }
-  return items
-}
-
 /* ------------------------------------------------------------------ */
 /* Reading the board                                                   */
 /* ------------------------------------------------------------------ */
@@ -221,6 +192,55 @@ export function countsByRow(list: TierList): Map<string, number> {
 /* Editing                                                             */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Adds a row at the end.
+ *
+ * Its letter is the first one not already in use, so a new row is coloured
+ * differently from the existing ones. When all seven are taken, the row still
+ * appears with no letter of its own and takes the neutral colour — better than
+ * refusing to add it, since the palette is only a starting point.
+ */
+export function addRow(list: TierList): TierList {
+  const used = new Set(list.rows.map((row) => row.letter))
+  const free = GRADE_LETTERS.find((letter) => !used.has(letter))
+  const row: TierRow = {
+    id: newId(),
+    label: free ?? '',
+    letter: free ?? ''
+  }
+  return touch({ ...list, rows: [...list.rows, row] })
+}
+
+/**
+ * Removes a row, returning its elements to the pool.
+ *
+ * The elements are released rather than deleted: a row is a place, and losing what
+ * was in it because the place was removed would be a surprise. Deleting an element
+ * is its own action, in its right-click menu.
+ */
+export function removeRow(list: TierList, rowId: string): TierList {
+  if (!list.rows.some((row) => row.id === rowId)) return list
+  if (list.rows.length <= 1) return list
+  return touch({
+    ...list,
+    rows: list.rows.filter((row) => row.id !== rowId),
+    items: list.items.map((item) => (item.rowId === rowId ? { ...item, rowId: null } : item))
+  })
+}
+
+/** Moves a row up or down, since the order of the tiers is itself a ranking. */
+export function moveRow(list: TierList, rowId: string, delta: number): TierList {
+  const index = list.rows.findIndex((row) => row.id === rowId)
+  if (index === -1) return list
+  const target = index + delta
+  if (target < 0 || target >= list.rows.length) return list
+  const rows = [...list.rows]
+  const [row] = rows.splice(index, 1)
+  rows.splice(target, 0, row)
+  return touch({ ...list, rows })
+}
+
+/** The list as it is, with the time of the change. */
 function touch(list: TierList): TierList {
   return { ...list, updatedAt: new Date().toISOString() }
 }

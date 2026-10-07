@@ -35,7 +35,7 @@ A desktop app to **rate and rank every anime you watch** — episode by episode,
 - **Rate every episode from 0 to 100.** An unrated episode is simply ignored, so you can create a whole season up front and score it as you watch, without skewing your average.
 - **Seven criteria per anime** — Characters, Story, Animation, OST, Opening, Key Factor, Originality.
 - **Weighted global score**, with the episode average as a first-class component.
-- **Tier lists.** Build rankings of your own, by universe. One click creates a list and one search box fills it: type a title and get the anime from the **whole catalogue**, its characters, their openings and endings in the same result, then narrow with a filter. A single list can hold an anime, two of its characters and its opening. Rows run S to F in the grade palette and are renamable; clicking a row opens an **options panel** for its text, font, background and label colour, and its text shrinks to fit rather than running across the row beside it. An element is placed by dragging it, or by selecting several and pressing the row's letter — which is what makes a list of sixty practical. One button places everything according to the scores you have already given, and a **right-click** on an element opens it on AniList or searches the web for it. The board exports as a PNG. See [Where a tier list gets its elements](#where-a-tier-list-gets-its-elements).
+- **Tier lists.** Build rankings of your own, by universe. One click creates a list and one search box fills it: type a title and get the anime from the **whole catalogue**, its characters, its openings and endings in the same result, then narrow with a filter. A single list can hold an anime, two of its characters and its opening. Rows run S to F in the grade palette; **rows can be added, removed and reordered**, and clicking one opens an **options panel** for its text, font, background and label colour, with its text shrinking to fit rather than running across the row beside it. An element is placed by dragging it, or by selecting several and pressing the row's letter — which is what makes a list of sixty practical. One button places everything according to the scores you have already given, and a **right-click** on an element opens it on AniList or searches the web for it. The board exports as a PNG. See [Where a tier list gets its elements](#where-a-tier-list-gets-its-elements).
 - **The ranking says what is unfinished.** A row whose status is not "Completed" carries a tag — Watching, Plan to watch, On hold or Dropped — each in its own colour. A completed entry carries nothing, since that is what most of them are and a tag on every row would say nothing.
 - **Seven views**: Anime (series), Films & OVA, TierList, Leaderboard, Rankings by criteria, Calendar, Statistics, Settings.
 - **Grade colours that carry information.** The seven letter grades share one palette, defined in `src/renderer/src/palette.ts`. Each tier owns a slice of a single gradient, and a slice ends exactly where the next begins, so the badges read as one continuous gradient cut into steps. The tier's colour washes the row and fills the badge, and the letter colour is chosen by contrast rather than assumed dark — the blue and violet slices are intrinsically dark, where a dark letter reached only 2.9:1. See [The grade palette](#the-grade-palette).
@@ -105,9 +105,21 @@ built and then found unfillable.
 |---|---|---|---|
 | Anime | AniList, whole catalogue | title, cover, year, episodes, genres | 1 request |
 | Characters | AniList | name, **portrait**, favourites, their anime | in the same request |
-| Seasons | your library | one per season, from the multi-season entries | none |
+| Seasons | AniList, whole catalogue | one entry per season of a series | in the same request |
 | Openings, endings | AnimeThemes | song title, **artists**, hosted video | 1 request per anime |
 | Soundtracks | none | — | typed by hand |
+
+The season filter lists catalogue entries too, which is what the first version got
+wrong: it read the library, so a show that had not been added had no seasons at all.
+Every AniList entry for a series *is* one season — searching "frieren" returns the
+seasons as separate entries — so the anime search is already the list wanted. Only
+formats that can be a season are kept, so a film or a special stays in the anime
+filter.
+
+Trailers and commercials are dropped. AniList files them as anime, so they turn up in
+every search — "Tengoku Daimakyou PV" beside the series — and nobody tiers a trailer.
+Matched as a whole word at the end of a title only, so a real title that merely
+contains those letters is untouched.
 
 Anime and characters are searched **in one request**, since both fit in a single
 GraphQL query with aliases. That matters because the box is typed into. The library is
@@ -141,6 +153,25 @@ for.
 A fifth was caught by a test rather than by eye: asking AnimeThemes for songs and videos
 in one include requires both paths fully qualified. Writing `animethemeentries.videos`
 without the `animethemes.` prefix is answered with HTTP 422.
+
+### Sticky chrome must be opaque, and must leave room
+
+Two faults with one cause. The leaderboard toolbar stuck to the top so the find field
+could not be scrolled away — see [Why the find bar has to be sticky](#why-the-find-bar-has-to-be-sticky) —
+but it was **90% opaque with a blur**, so the ranking scrolling underneath showed
+through it as a ghost row of figures. It is opaque now, and the column headers stick
+*below* it rather than behind it, by an offset the component measures into
+`--toolbar-h` because the toolbar's height changes when its chips wrap.
+
+The second fault was only visible to a test: a sticky toolbar and a sticky header
+permanently cover the top of the scrolling area, so anything scrolled there — by a
+browser's "scroll into view", by a focus, by an anchor — lands underneath them and
+cannot be clicked. `scroll-margin-top` on the table rows is what tells the browser to
+leave that space, rather than the click landing on the header.
+
+```powershell
+npm run smoke:status           # the status tags, and the sticky toolbar geometry
+```
 
 ### A row label must never escape its box
 

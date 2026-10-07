@@ -94,18 +94,8 @@ check('all start in the pool', items.every((i) => i.rowId === null), true)
 check('the score is carried', items[0].sublabel.includes('96.0'), true)
 check('the link is kept', items[0].animeId, 'a1')
 
-const seasonal = T.itemsFromSeasons([
-  { id: 's1', title: 'Frieren', seasons: [
-    { season: 1, anilistId: 1, malId: null, title: 'Frieren', year: 2023, episodes: 28 },
-    { season: 2, anilistId: 2, malId: null, title: 'Frieren 2nd', year: 2026, episodes: 10 }
-  ] },
-  // A single-season entry contributes nothing: it would duplicate the entry.
-  { id: 's2', title: 'Solo', seasons: [
-    { season: 1, anilistId: 3, malId: null, title: 'Solo', year: 2019, episodes: 12 }
-  ] }
-])
-check('only multi-season entries contribute', seasonal.length, 2)
-check('each season is its own element', seasonal.map((i) => i.label), ['Frieren', 'Frieren 2nd'])
+const seasonal = T.itemsFromAnime(library, weights)
+check('one element per entry', seasonal.length, library.length)
 
 /* ---------------- 3. Placing ---------------- */
 
@@ -229,9 +219,44 @@ check('the colour survived', reloaded.rows[0].color, '#EA8CEE')
 check('the font survived', reloaded.rows[0].font, 'serif')
 check('the size survived', reloaded.rows[0].fontSize, 18)
 
-/* ---------------- 6. Reading a file written before the tab existed -------- */
+/* ---------------- 8. Adding and removing rows ---------------- */
 
-console.log('\n8. Older data files\n')
+console.log('\n8. ADDING AND REMOVING ROWS\n')
+
+const grown = T.addRow(fresh)
+check('a row was added', grown.rows.length, 8)
+check('at the end', grown.rows[7].letter, '')
+// The first seven letters are taken, so a new row has none of its own and takes
+// the neutral colour rather than repeating one.
+check('with no letter left to take', grown.rows[7].letter, '')
+check('and it is still distinct', new Set(grown.rows.map((r) => r.id)).size, 8)
+
+// Once a letter is freed, a new row takes it rather than repeating another.
+const freed = T.removeRow(grown, grown.rows[0].id)
+check('removing a row removes it', freed.rows.length, 7)
+const refilled = T.addRow(freed)
+check('and the freed letter is reused', refilled.rows[refilled.rows.length - 1].letter, 'S')
+
+// An element in a removed row must return to the pool, not disappear.
+const populated = T.moveItem(T.addItems(fresh, items), items[0].id, fresh.rows[2].id)
+const afterRemove = T.removeRow(populated, fresh.rows[2].id)
+check('the row is gone', afterRemove.rows.length, 6)
+check('the element survived', afterRemove.items.length, populated.items.length)
+check('and went back to the pool', afterRemove.items.find((i) => i.id === items[0].id)?.rowId, null)
+check('the pool counts it', T.statsOf(afterRemove).pool, 3)
+
+check('the last row cannot be removed', T.removeRow({ ...fresh, rows: [fresh.rows[0]] }, fresh.rows[0].id).rows.length, 1)
+check('removing an unknown row changes nothing', T.removeRow(fresh, 'nope'), fresh)
+
+const moved = T.moveRow(fresh, fresh.rows[0].id, 1)
+check('a row can move down', moved.rows[0].label, 'A')
+check('and it takes its label with it', moved.rows[1].label, 'S')
+check('moving past the end changes nothing', T.moveRow(fresh, fresh.rows[0].id, -1), fresh)
+check('moving past the start changes nothing', T.moveRow(fresh, fresh.rows[6].id, 1), fresh)
+
+/* ---------------- 9. Older data files ---------------- */
+
+console.log('\n9. Older data files\n')
 const legacy = normaliseStore({ version: 1, anime: [], settings: {} })
 check('a file with no tierLists key loads', Array.isArray(legacy.tierLists), true)
 check('and it is empty', legacy.tierLists.length, 0)

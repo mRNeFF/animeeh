@@ -6,7 +6,9 @@ import {
   DEFAULT_WEIGHTS,
   EPISODE_AVG_KEY,
   STORE_VERSION,
+  TIER_LIST_KINDS,
   emptyCriteria,
+  newId,
   type Anime,
   type AnimeSeason,
   type AnimeSource,
@@ -16,6 +18,10 @@ import {
   type Episode,
   type Settings,
   type StoreData,
+  type TierItem,
+  type TierList,
+  type TierListKind,
+  type TierRow,
   type Weights
 } from './types'
 import { tierHue, tierOf, type Tier } from './palette'
@@ -451,6 +457,66 @@ export function normaliseStore(input: unknown): StoreData {
   return {
     version: STORE_VERSION,
     anime: Array.isArray(raw.anime) ? raw.anime.map(normaliseAnime) : [],
+    // A file written before the tab existed has no key here, hence the default.
+    // Entries that are not objects are dropped rather than turned into empty
+    // lists, so a damaged file cannot invent blank tier lists.
+    tierLists: Array.isArray(raw.tierLists)
+      ? (raw.tierLists as unknown[])
+          .filter((entry) => !!entry && typeof entry === 'object')
+          .map(normaliseTierList)
+      : [],
     settings
   }
 }
+
+const TIER_LIST_KIND_SET = new Set<string>(TIER_LIST_KINDS)
+
+/** Reads one tier list back, dropping anything malformed rather than throwing. */
+export function normaliseTierList(input: unknown): TierList {
+  const raw = (input ?? {}) as Partial<TierList>
+  const id = typeof raw.id === 'string' && raw.id ? raw.id : newId()
+  const kind: TierListKind =
+    typeof raw.kind === 'string' && TIER_LIST_KIND_SET.has(raw.kind)
+      ? (raw.kind as TierListKind)
+      : 'anime'
+
+  const rows: TierRow[] = Array.isArray(raw.rows)
+    ? raw.rows
+        .filter((r): r is TierRow => !!r && typeof r === 'object')
+        .map((r) => ({
+          id: typeof r.id === 'string' && r.id ? r.id : newId(),
+          label: typeof r.label === 'string' && r.label ? r.label : '?',
+          letter: typeof r.letter === 'string' && r.letter ? r.letter : '?'
+        }))
+    : []
+
+  // A row that no longer exists would leave an item unreachable, so anything
+  // pointing at a missing row falls back to the pool.
+  const rowIds = new Set(rows.map((r) => r.id))
+  const items: TierItem[] = Array.isArray(raw.items)
+    ? raw.items
+        .filter((i): i is TierItem => !!i && typeof i === 'object')
+        .map((i) => ({
+          id: typeof i.id === 'string' && i.id ? i.id : newId(),
+          label: typeof i.label === 'string' ? i.label : '',
+          sublabel: typeof i.sublabel === 'string' ? i.sublabel : '',
+          image: typeof i.image === 'string' ? i.image : undefined,
+          rowId: typeof i.rowId === 'string' && rowIds.has(i.rowId) ? i.rowId : null,
+          animeId: typeof i.animeId === 'string' ? i.animeId : undefined,
+          anilistId: typeof i.anilistId === 'number' ? i.anilistId : undefined
+        }))
+    : []
+
+  const now = new Date().toISOString()
+  return {
+    id,
+    name: typeof raw.name === 'string' && raw.name ? raw.name : 'Tier list',
+    kind,
+    rows: rows.length > 0 ? rows : [],
+    items,
+    createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : now,
+    updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : now
+  }
+}
+
+

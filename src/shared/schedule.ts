@@ -6,6 +6,7 @@
  *
  * Types only — no runtime code.
  */
+import type { ServiceName } from './errors'
 
 /** One upcoming episode of a show. */
 export interface AiringEpisode {
@@ -80,7 +81,7 @@ export type ScheduleOutcome =
       error: string
       code?: string
       detail?: string
-      service?: 'anilist' | 'kitsu'
+      service?: ServiceName
     }
 
 /** How long a fetched schedule is considered fresh. */

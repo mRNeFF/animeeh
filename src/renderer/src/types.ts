@@ -158,7 +158,66 @@ export type Language = 'en' | 'fr'
 export interface StoreData {
   version: number
   anime: Anime[]
+  /** The user's own tier lists. Absent from files written before the tab existed. */
+  tierLists: TierList[]
   settings: Settings
+}
+
+/* ------------------------------------------------------------------ */
+/* Tier lists                                                          */
+/* ------------------------------------------------------------------ */
+
+/** What a tier list is made of. Each kind comes from a different source. */
+export type TierListKind = 'anime' | 'season' | 'character' | 'op' | 'ed' | 'ost'
+
+/** Every kind, in the order the picker offers them. */
+export const TIER_LIST_KINDS: readonly TierListKind[] = [
+  'anime',
+  'season',
+  'character',
+  'op',
+  'ed',
+  'ost'
+]
+
+/** One row of a tier list: the S/A/B label and everything dropped into it. */
+export interface TierRow {
+  id: string
+  /** Shown in the row's label. Renamable, so it is free text. */
+  label: string
+  /** Which grade tier the row takes its colour from. */
+  letter: string
+}
+
+/**
+ * One element of a tier list.
+ *
+ * `animeId` is kept whenever the element comes from the library, so the list can
+ * be rebuilt or repaired after the entry is re-added, and so a missing entry can
+ * be shown as missing rather than silently vanishing.
+ */
+export interface TierItem {
+  id: string
+  label: string
+  sublabel: string
+  /** Cover, portrait or theme thumbnail, depending on the kind. */
+  image?: string
+  /** The row it sits in, or null while it is still in the pool. */
+  rowId: string | null
+  /** Which library entry it came from, when it did. */
+  animeId?: string
+  /** AniList id for a character, so a portrait can be refetched. */
+  anilistId?: number
+}
+
+export interface TierList {
+  id: string
+  name: string
+  kind: TierListKind
+  rows: TierRow[]
+  items: TierItem[]
+  createdAt: string
+  updatedAt: string
 }
 
 /* ------------------------------------------------------------------ */
@@ -184,9 +243,19 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export const STORE_VERSION = 1
 
+/**
+ * A stable unique id.
+ *
+ * Used for tier lists, their rows and their elements. `crypto.randomUUID` is
+ * available in both the Electron renderer and Node, with a fallback so a test
+ * environment without it still works.
+ */
+export function newId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `id-${Math.random().toString(36).slice(2)}`
+}
+
 export function emptyCriteria(): CriterionScores {
-  return CRITERIA.reduce(
-    (acc, c) => ({ ...acc, [c.key]: null }),
+  return CRITERIA.reduce(    (acc, c) => ({ ...acc, [c.key]: null }),
     {} as CriterionScores
   )
 }

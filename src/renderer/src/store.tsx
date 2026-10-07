@@ -14,12 +14,14 @@ import {
   STORE_VERSION,
   type Anime,
   type Settings,
-  type StoreData
+  type StoreData,
+  type TierList
 } from './types'
 
 const EMPTY_STORE: StoreData = {
   version: STORE_VERSION,
   anime: [],
+  tierLists: [],
   settings: DEFAULT_SETTINGS
 }
 
@@ -36,6 +38,11 @@ interface StoreContextValue {
   clearAnime: () => void
   updateSettings: (patch: Partial<Settings>) => void
   replaceAll: (data: StoreData) => void
+  /** Tier lists. `updateTierList` takes a function so a caller can build on the
+   *  current value without racing another update. */
+  addTierList: (list: TierList) => void
+  updateTierList: (id: string, next: (list: TierList) => TierList) => void
+  removeTierList: (id: string) => void
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null)
@@ -124,6 +131,33 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setData(normaliseStore(next))
   }, [])
 
+  const addTierList = useCallback((list: TierList) => {
+    setData((prev) => ({ ...prev, tierLists: [list, ...prev.tierLists] }))
+  }, [])
+
+  /**
+   * Applies a change to one tier list.
+   *
+   * Takes an updater rather than a finished list so two quick edits — dragging
+   * two items in a row — both land, instead of the second overwriting the first
+   * with a value read before it.
+   */
+  const updateTierList = useCallback((id: string, next: (list: TierList) => TierList) => {
+    setData((prev) => {
+      const index = prev.tierLists.findIndex((list) => list.id === id)
+      if (index === -1) return prev
+      const updated = next(prev.tierLists[index])
+      if (updated === prev.tierLists[index]) return prev
+      const tierLists = [...prev.tierLists]
+      tierLists[index] = updated
+      return { ...prev, tierLists }
+    })
+  }, [])
+
+  const removeTierList = useCallback((id: string) => {
+    setData((prev) => ({ ...prev, tierLists: prev.tierLists.filter((list) => list.id !== id) }))
+  }, [])
+
   const value = useMemo<StoreContextValue>(
     () => ({
       data,
@@ -135,7 +169,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       removeAnime,
       clearAnime,
       updateSettings,
-      replaceAll
+      replaceAll,
+      addTierList,
+      updateTierList,
+      removeTierList
     }),
     [
       data,
@@ -147,7 +184,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       removeAnime,
       clearAnime,
       updateSettings,
-      replaceAll
+      replaceAll,
+      addTierList,
+      updateTierList,
+      removeTierList
     ]
   )
 

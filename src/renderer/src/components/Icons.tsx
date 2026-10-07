@@ -126,6 +126,21 @@ export const IconChevronUp = (p: IconProps) => (
   </svg>
 )
 
+/**
+ * A tier list: three rows of differing width, which is the shape everyone
+ * recognises, rather than an abstract grid.
+ */
+export const IconTiers = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="3" y="4" width="6" height="4.5" rx="1" />
+    <rect x="10.5" y="4" width="10.5" height="4.5" rx="1" />
+    <rect x="3" y="9.75" width="11" height="4.5" rx="1" />
+    <rect x="15.5" y="9.75" width="5.5" height="4.5" rx="1" />
+    <rect x="3" y="15.5" width="4" height="4.5" rx="1" />
+    <rect x="8.5" y="15.5" width="12.5" height="4.5" rx="1" />
+  </svg>
+)
+
 export const IconChevronDown = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="m6 9 6 6 6-6" />

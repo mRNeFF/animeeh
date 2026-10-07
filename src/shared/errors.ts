@@ -21,7 +21,7 @@ export type ErrorCode =
   | 'noUpdateToDownload'
 
 /** Which service a message should name. */
-export type ServiceName = 'anilist' | 'kitsu'
+export type ServiceName = 'anilist' | 'kitsu' | 'animethemes'
 
 export interface Failure {
   ok: false

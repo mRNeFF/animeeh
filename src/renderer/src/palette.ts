@@ -76,6 +76,16 @@ const BY_LETTER = new Map<string, Tier>(TIERS.map((tier) => [tier.letter, tier])
 export const TIER_TEXT_DARK = '#070c16'
 export const TIER_TEXT_LIGHT = '#ffffff'
 
+/**
+ * The grade letters, best first, for anything that needs to name all seven.
+ *
+ * Kept here rather than in the tier list module so the order matches the palette
+ * it is derived from.
+ */
+export const GRADE_LETTERS: readonly string[] = [...TIERS]
+  .reverse()
+  .map((tier) => tier.letter)
+
 /** The tier for a grade letter, or null for anything else such as an em dash. */
 export function tierOf(letter: string): Tier | null {
   return BY_LETTER.get(letter) ?? null

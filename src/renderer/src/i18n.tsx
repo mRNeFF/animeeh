@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react'
+import type { ServiceName } from '../../shared/errors'
 
 export type Language = 'en' | 'fr'
 
@@ -112,6 +113,7 @@ const en = {
 
   'action.addAnime': 'Add anime',
   'action.cancel': 'Cancel',
+  'action.save': 'Save',
   'action.delete': 'Delete',
   'action.editDetails': 'Edit details',
   'action.backToLibrary': 'Library',
@@ -350,6 +352,68 @@ const en = {
 
   'service.anilist': 'AniList',
   'service.kitsu': 'Kitsu',
+  'service.animethemes': 'AnimeThemes',
+
+  'nav.tierlist': 'TierList',
+  'title.tierlist': 'TierList',
+  'subtitle.tierlist': 'Your rankings by universe',
+  'empty.tierlist.title': 'No tier list yet',
+  'empty.tierlist.body':
+    'Create your first ranking: choose what to rank, drag the elements in, then export a picture of it.',
+  'empty.tierlist.cta': 'Create a tierlist',
+
+  'tierlist.new': 'Create a tierlist',
+  'tierlist.count': '{count} tier list(s)',
+  'tierlist.items': '{count} elements',
+  'tierlist.rename': 'Rename',
+  'tierlist.delete': 'Delete',
+  'tierlist.duplicate': 'Duplicate',
+  'tierlist.confirmDelete': 'Delete this tier list?',
+  'tierlist.confirmDeleteBody': 'Its {count} elements and their placements are lost. Data files are not affected.',
+  'tierlist.kind.anime': 'Anime',
+  'tierlist.kind.season': 'Seasons',
+  'tierlist.kind.character': 'Characters',
+  'tierlist.kind.op': 'Openings',
+  'tierlist.kind.ed': 'Endings',
+  'tierlist.kind.ost': 'Soundtracks',
+  'tierlist.kindQuestion': 'What is this tier list made of?',
+  'tierlist.kindHint': 'It decides what the picker offers. It cannot be changed afterwards.',
+  'tierlist.namePlaceholder': 'Tier list name',
+
+  'tierlist.pool': 'Unranked',
+  'tierlist.poolEmpty': 'Everything is placed.',
+  'tierlist.addItems': 'Add elements',
+  'tierlist.sortByScore': 'Sort by score',
+  'tierlist.sortByScoreHint':
+    'Places your anime in the rows matching the scores you already gave them, so you only adjust.',
+  'tierlist.clearPlacements': 'Clear the board',
+  'tierlist.export': 'Export as image',
+  'tierlist.exportDone': 'Saved to {path}',
+  'tierlist.back': 'All tier lists',
+  'tierlist.orphan': 'No longer in your library',
+  'tierlist.helpDrag': 'Drag an element onto a row, or select some and press S, A, B…',
+  'tierlist.selected': '{count} selected',
+
+  'tierlist.picker.title': 'Add elements',
+  'tierlist.picker.search': 'Search…',
+  'tierlist.picker.library': 'My library',
+  'tierlist.picker.catalogue': 'Full catalogue',
+  'tierlist.picker.all': 'Add all {count}',
+  'tierlist.picker.added': '{count} added',
+  'tierlist.picker.none': 'Nothing to add.',
+  'tierlist.picker.close': 'Close',
+  'tierlist.picker.load': 'Load the openings of my library',
+  'tierlist.picker.loading': 'Loading…',
+  'tierlist.picker.step': 'AnimeThemes, one request per anime',
+  'tierlist.picker.loaded': '{themes} themes from {anime} anime',
+  'tierlist.picker.unmatched': '{count} had no match',
+  'tierlist.picker.ostWhy':
+    'No source lists soundtrack tracks. Neither AniList, Kitsu, AniDB nor AnimeThemes covers them — they are catalogues, not music databases.',
+  'tierlist.picker.ostLabel': 'Track title',
+  'tierlist.picker.ostAdd': 'Add the track',
+  'tierlist.picker.characters': 'Load characters',
+  'tierlist.picker.noScores': 'Rate some anime first, so there is something to sort.',
+
   'error.unreachable': 'Could not reach {service}. Check your connection.',
   'error.timeout': '{service} did not respond in time.',
   'error.rateLimit': 'Too many requests to {service}. Wait a moment and try again.',
@@ -491,6 +555,7 @@ const fr: Record<MessageKey, string> = {
 
   'action.addAnime': 'Ajouter un animé',
   'action.cancel': 'Annuler',
+  'action.save': 'Enregistrer',
   'action.delete': 'Supprimer',
   'action.editDetails': 'Modifier la fiche',
   'action.backToLibrary': 'Bibliothèque',
@@ -731,8 +796,69 @@ const fr: Record<MessageKey, string> = {
   'settings.clearWord': 'tout effacer',
   'settings.clearDone': 'Classement vidé.',
 
+  'nav.tierlist': 'TierList',
+  'title.tierlist': 'TierList',
+  'subtitle.tierlist': 'Vos classements par univers',
+  'empty.tierlist.title': 'Aucune tier list pour le moment',
+  'empty.tierlist.body':
+    'Créez votre premier classement : choisissez ce que vous classez, faites glisser les éléments, puis exportez-en une image.',
+  'empty.tierlist.cta': 'Créer une tierlist',
+
+  'tierlist.new': 'Créer une tierlist',
+  'tierlist.count': '{count} tier list(s)',
+  'tierlist.items': '{count} éléments',
+  'tierlist.rename': 'Renommer',
+  'tierlist.delete': 'Supprimer',
+  'tierlist.duplicate': 'Dupliquer',
+  'tierlist.confirmDelete': 'Supprimer cette tier list ?',
+  'tierlist.confirmDeleteBody': 'Ses {count} éléments et leur placement sont perdus. Vos fiches ne sont pas touchées.',
+  'tierlist.kind.anime': 'Animés',
+  'tierlist.kind.season': 'Saisons',
+  'tierlist.kind.character': 'Personnages',
+  'tierlist.kind.op': 'Openings',
+  'tierlist.kind.ed': 'Endings',
+  'tierlist.kind.ost': 'Bandes originales',
+  'tierlist.kindQuestion': 'Cette tier list porte sur quoi ?',
+  'tierlist.kindHint': 'Cela décide de ce que la recherche proposera. Ce n’est pas modifiable ensuite.',
+  'tierlist.namePlaceholder': 'Nom de la tier list',
+
+  'tierlist.pool': 'Non classés',
+  'tierlist.poolEmpty': 'Tout est classé.',
+  'tierlist.addItems': 'Ajouter des éléments',
+  'tierlist.sortByScore': 'Trier par score',
+  'tierlist.sortByScoreHint':
+    'Place vos animés dans les rangées correspondant aux notes que vous leur avez déjà données : vous n’avez plus qu’à ajuster.',
+  'tierlist.clearPlacements': 'Vider le tableau',
+  'tierlist.export': 'Exporter en image',
+  'tierlist.exportDone': 'Enregistré dans {path}',
+  'tierlist.back': 'Toutes les tier lists',
+  'tierlist.orphan': 'Plus dans votre liste',
+  'tierlist.helpDrag': 'Faites glisser un élément sur une rangée, ou sélectionnez-en puis tapez S, A, B…',
+  'tierlist.selected': '{count} sélectionnés',
+
+  'tierlist.picker.title': 'Ajouter des éléments',
+  'tierlist.picker.search': 'Rechercher…',
+  'tierlist.picker.library': 'Ma liste',
+  'tierlist.picker.catalogue': 'Tout le catalogue',
+  'tierlist.picker.all': 'Tout ajouter ({count})',
+  'tierlist.picker.added': '{count} ajoutés',
+  'tierlist.picker.none': 'Rien à ajouter.',
+  'tierlist.picker.close': 'Fermer',
+  'tierlist.picker.load': 'Charger les openings de ma liste',
+  'tierlist.picker.loading': 'Chargement…',
+  'tierlist.picker.step': 'AnimeThemes, une requête par animé',
+  'tierlist.picker.loaded': '{themes} génériques depuis {anime} animés',
+  'tierlist.picker.unmatched': '{count} sans correspondance',
+  'tierlist.picker.ostWhy':
+    'Aucune source ne liste les pistes d’une bande originale. Ni AniList, ni Kitsu, ni AniDB, ni AnimeThemes ne les couvrent : ce sont des catalogues, pas des bases musicales.',
+  'tierlist.picker.ostLabel': 'Titre de la piste',
+  'tierlist.picker.ostAdd': 'Ajouter la piste',
+  'tierlist.picker.characters': 'Charger les personnages',
+  'tierlist.picker.noScores': 'Notez d’abord quelques animés, pour avoir de quoi trier.',
+
   'service.anilist': 'AniList',
   'service.kitsu': 'Kitsu',
+  'service.animethemes': 'AnimeThemes',
   'error.unreachable': 'Impossible de joindre {service}. Vérifiez votre connexion.',
   'error.timeout': '{service} n’a pas répondu à temps.',
   'error.rateLimit': 'Trop de requêtes vers {service}. Patientez un instant puis réessayez.',
@@ -841,7 +967,7 @@ export interface FailureLike {
   code?: string
   detail?: string
   status?: number
-  service?: 'anilist' | 'kitsu'
+  service?: ServiceName
   error?: string
 }
 
@@ -859,7 +985,14 @@ export function describeFailure(
   if (!failure) return ''
   const f: FailureLike = typeof failure === 'string' ? { error: failure } : failure
   const code = f.code
-  const service = f.service === 'kitsu' ? t('service.kitsu') : t('service.anilist')
+  // A failure from AnimeThemes must name AnimeThemes, not the service it happens
+  // to sit beside in the switch below.
+  const service =
+    f.service === 'kitsu'
+      ? t('service.kitsu')
+      : f.service === 'animethemes'
+        ? t('service.animethemes')
+        : t('service.anilist')
 
   switch (code) {
     case 'unreachable':

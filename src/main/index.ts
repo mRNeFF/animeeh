@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { getAnimeDetails, MIN_QUERY_LENGTH, searchAnime, type SearchKind } from './anilist'
 import { loadEpisodeNames } from './episodes'
 import { buildSchedule } from './schedule'
+import { loadCharacters, loadThemes } from './tierlist'
 import { CodedError, type ErrorCode, type ServiceName } from '../shared/errors'
 import {
   checkForUpdates,
@@ -16,6 +17,11 @@ import {
 import type { AnimeDetails, AnimeSearchResult, AniListOutcome } from '../shared/anilist'
 import type { EpisodeNamesOutcome } from '../shared/episodes'
 import { SCHEDULE_TTL_MS, type ScheduleOutcome, type ScheduleResult } from '../shared/schedule'
+import type {
+  TierCharactersOutcome,
+  TierThemesOutcome,
+  ThemeLookupEntry
+} from '../shared/tierlist'
 import type { UpdateStatus } from '../shared/update'
 
 /** In dev, electron-vite injects this so we can load the Vite dev server. */
@@ -323,6 +329,86 @@ function emptySchedule(): ScheduleResult {
     counts: { libraryEntries: 0, airingEntries: 0, upcomingSeasons: 0, skipped: 0 }
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* IPC: tier list sources                                              */
+/* ------------------------------------------------------------------ */
+
+ipcMain.handle('tier:characters', async (_event, entries: unknown): Promise<TierCharactersOutcome> => {
+  if (!Array.isArray(entries)) {
+    return { ok: false, code: 'noReference', service: 'anilist', error: 'expected an array' }
+  }
+  const clean = entries
+    .filter((entry): entry is { anilistId: number; animeId: string } => {
+      const candidate = entry as { anilistId?: unknown; animeId?: unknown }
+      return typeof candidate.anilistId === 'number' && typeof candidate.animeId === 'string'
+    })
+  return loadCharacters(clean)
+})
+
+ipcMain.handle('tier:themes', async (_event, entries: unknown): Promise<TierThemesOutcome> => {
+  if (!Array.isArray(entries)) {
+    return { ok: false, code: 'noReference', service: 'animethemes', error: 'expected an array' }
+  }
+  const clean = entries
+    .filter((entry): entry is ThemeLookupEntry => {
+      const candidate = entry as { anilistId?: unknown; title?: unknown }
+      return typeof candidate.anilistId === 'number' && typeof candidate.title === 'string'
+    })
+  return loadThemes(clean)
+})
+
+/**
+ * Saves a picture of a region of the window.
+ *
+ * The capture is taken by the main process rather than by the page: a capture made
+ * inside the page misses the cover images and the loaded fonts, and produces a
+ * file that looks different from the screen.
+ *
+ * The rect arrives in CSS pixels, which is the coordinate space `capturePage`
+ * expects, so it is passed through unscaled — scaling by the display's pixel ratio
+ * here would crop the wrong region, since the ratio is already accounted for.
+ */
+ipcMain.handle(
+  'tier:exportImage',
+  async (
+    event,
+    rect: unknown,
+    suggestedName: unknown
+  ): Promise<string | null> => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) return null
+
+    const region = rect as { x?: number; y?: number; width?: number; height?: number }
+    const clamp = (value: unknown): number =>
+      typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0
+    const area =
+      typeof region?.width === 'number' && typeof region?.height === 'number'
+        ? {
+            x: clamp(region.x),
+            y: clamp(region.y),
+            width: clamp(region.width),
+            height: clamp(region.height)
+          }
+        : undefined
+
+    const image = await window.webContents.capturePage(area)
+    const safeName =
+      typeof suggestedName === 'string' && suggestedName.trim() !== ''
+        ? suggestedName.trim()
+        : 'tier-list'
+
+    const result = await dialog.showSaveDialog(window, {
+      title: 'Export tier list',
+      defaultPath: `${safeName}.png`,
+      filters: [{ name: 'PNG image', extensions: ['png'] }]
+    })
+    if (result.canceled || !result.filePath) return null
+
+    await fs.writeFile(result.filePath, image.toPNG())
+    return result.filePath
+  }
+)
 
 /* ------------------------------------------------------------------ */
 /* IPC: in-app updates                                                 */

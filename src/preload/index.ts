@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { AnimeDetails, AnimeSearchResult, AniListOutcome } from '../shared/anilist'
 import type { EpisodeNamesOutcome } from '../shared/episodes'
 import type { ScheduleOutcome } from '../shared/schedule'
+import type {
+  TierCharactersOutcome,
+  TierThemesOutcome,
+  ThemeLookupEntry
+} from '../shared/tierlist'
 import type { UpdateStatus } from '../shared/update'
 
 const api = {
@@ -37,6 +42,28 @@ const api = {
    */
   schedule: (force = false): Promise<ScheduleOutcome> =>
     ipcRenderer.invoke('schedule:get', force),
+
+  /* ---- tier list sources ---- */
+  /** Characters for several library entries at once. */
+  tierCharacters: (
+    entries: { anilistId: number; animeId: string }[]
+  ): Promise<TierCharactersOutcome> => ipcRenderer.invoke('tier:characters', entries),
+  /**
+   * Openings and endings. Each entry is looked up on AnimeThemes and matched to
+   * its AniList id before its themes are accepted.
+   */
+  tierThemes: (entries: ThemeLookupEntry[]): Promise<TierThemesOutcome> =>
+    ipcRenderer.invoke('tier:themes', entries),
+  /**
+   * Save a picture of a region of the window.
+   *
+   * The capture happens in the main process, so it is exact: a capture taken from
+   * inside the page would miss the cover images and the loaded fonts.
+   */
+  exportImage: (
+    rect: { x: number; y: number; width: number; height: number },
+    suggestedName: string
+  ): Promise<string | null> => ipcRenderer.invoke('tier:exportImage', rect, suggestedName),
 
   /* ---- in-app updates ---- */
   updateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:status'),

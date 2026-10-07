@@ -58,12 +58,15 @@
     "preview:find": "npm run build && node scripts/preview-find.mjs",
     "diagnose:find": "node scripts/diagnose-find-scroll.mjs",
     "smoke:counts": "npm run build && node scripts/smoke-counts.mjs",
+    "smoke:tierlist": "npm run build && node scripts/smoke-tierlist.mjs",
     "preview:library": "npm run build && node scripts/preview-library.mjs",
     "design:gradients": "node scripts/serve-design.mjs 4180 leaderboard-gradients.html",
     "design:palette": "node scripts/serve-design.mjs 4182 leaderboard-palette.html",
     "design:tierlist": "node scripts/serve-design.mjs 4183 tierlist-proposals.html",
     "probe:tierlist": "node scripts/probe-tierlist-sources.mjs",
     "check:palette": "node scripts/check-palette.mjs",
+    "check:tierlist": "node scripts/check-tierlist.mjs",
+    "check:tiersources": "node scripts/check-tierlist-sources.mjs",
     "preview:palette": "npm run build && node scripts/preview-palette.mjs"
   },
   "devDependencies": {

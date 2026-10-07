@@ -7,6 +7,7 @@ import { Leaderboard } from './components/Leaderboard'
 import { SettingsView } from './components/SettingsView'
 import { ScheduleView } from './components/ScheduleView'
 import { StatsView } from './components/StatsView'
+import { TierListView } from './components/TierListView'
 import {
   IconChart,
   IconFilm,
@@ -16,6 +17,7 @@ import {
   IconCalendar,
   IconSettings,
   IconStats,
+  IconTiers,
   IconTrophy
 } from './components/Icons'
 import { useI18n, type MessageKey } from './i18n'
@@ -24,7 +26,7 @@ import { useUpdate } from './useUpdate'
 import { applySeasonSpans, buildEpisodes } from './scoring'
 import { createAnime, isFilmLike, type Anime } from './types'
 
-type View = 'library' | 'films' | 'leaderboard' | 'criteria' | 'schedule' | 'stats' | 'settings'
+type View = 'library' | 'films' | 'tierlist' | 'leaderboard' | 'criteria' | 'schedule' | 'stats' | 'settings'
 
 /**
  * Silently fill in missing metadata for entries that have a reference id.
@@ -123,6 +125,7 @@ function useMetadataBackfill(): void {
 const NAV: { key: View; labelKey: MessageKey; icon: (p: { size?: number }) => ReactNode }[] = [
   { key: 'library', labelKey: 'nav.library', icon: IconLibrary },
   { key: 'films', labelKey: 'nav.films', icon: IconFilm },
+  { key: 'tierlist', labelKey: 'nav.tierlist', icon: IconTiers },
   { key: 'leaderboard', labelKey: 'nav.leaderboard', icon: IconTrophy },
   { key: 'criteria', labelKey: 'nav.criteria', icon: IconChart },
   { key: 'schedule', labelKey: 'nav.schedule', icon: IconCalendar },
@@ -133,6 +136,7 @@ const NAV: { key: View; labelKey: MessageKey; icon: (p: { size?: number }) => Re
 const TITLES: Record<View, { title: MessageKey; sub: MessageKey }> = {
   library: { title: 'title.library', sub: 'subtitle.library' },
   films: { title: 'title.films', sub: 'subtitle.films' },
+  tierlist: { title: 'title.tierlist', sub: 'subtitle.tierlist' },
   leaderboard: { title: 'title.leaderboard', sub: 'subtitle.leaderboard' },
   criteria: { title: 'title.criteria', sub: 'subtitle.criteria' },
   schedule: { title: 'title.schedule', sub: 'subtitle.schedule' },
@@ -302,6 +306,7 @@ export default function App(): ReactNode {
                 }}
               />
             ))}
+          {view === 'tierlist' && <TierListView />}
           {view === 'leaderboard' && <Leaderboard onOpen={(id) => {
             setView('library')
             setSelectedId(id)

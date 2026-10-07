@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ANIMEEH — Propositions TierList</title>
+    <style>
+      /* ----------------------------------------------------------------
+         Propositions de design, autonomes. Aucune dépendance, aucun réseau.
+
+         Les écrans sont dessinés avec la direction artistique réelle de
+         l'application (nuit, cyan) et la palette de notes déjà en place, pour
+         que ce qui est montré soit ce qui serait obtenu.
+         ---------------------------------------------------------------- */
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        background: #070c16;
+        color: #f1f5f9;
+        font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .page { max-width: 1340px; margin: 0 auto; padding: 34px 24px 90px; }
+
+      h1 { font-size: 24px; margin: 0 0 8px; letter-spacing: -0.01em; }
+      h2 { font-size: 17px; margin: 0; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+      h3 { font-size: 11px; margin: 0 0 10px; letter-spacing: 0.07em; text-transform: uppercase; color: #7d8ca3; }
+
+      .lead { color: #a8b6cb; font-size: 13.5px; line-height: 1.7; max-width: 940px; margin: 0 0 26px; }
+      .lead strong { color: #f1f5f9; font-weight: 600; }
+      .lead code { color: #22d3ee; font-size: 12.5px; }
+
+      .idx {
+        flex: none; width: 27px; height: 27px; border-radius: 8px; display: grid;
+        place-items: center; font-size: 12px; font-weight: 800;
+        background: #1e2c49; color: #a8b6cb;
+      }
+      .tag {
+        font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+        padding: 3px 9px; border-radius: 99px; border: 1px solid #26375a; color: #7d8ca3;
+      }
+      .tag.best { border-color: #22d3ee; color: #22d3ee; background: rgba(34,211,238,.1); }
+      .why { color: #a8b6cb; font-size: 12.5px; line-height: 1.68; margin: 0 0 16px; max-width: 940px; }
+      .why b { color: #f1f5f9; font-weight: 600; }
+      .why .plus { color: #34d399; }
+      .why .minus { color: #fbbf24; }
+
+      section { margin-bottom: 52px; }
+      section > header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+      .sep { height: 1px; background: #1c2942; margin: 46px 0; }
+
+      /* ---------------- Le sommaire des sources ---------------- */
+
+      table.sources { width: 100%; border-collapse: collapse; margin: 6px 0 0; }
+      table.sources th {
+        text-align: left; font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em;
+        color: #7d8ca3; font-weight: 700; padding: 0 10px 9px;
+      }
+      table.sources td { padding: 9px 10px; border-top: 1px solid #131e33; font-size: 12.5px; }
+      table.sources tr:first-child td { border-top: none; }
+      .pill {
+        display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 700;
+      }
+      .pill.ok { background: rgba(52,211,153,.16); color: #34d399; }
+      .pill.no { background: rgba(248,113,113,.16); color: #f87171; }
+      .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 11.5px; color: #cbd5e1; }
+
+      /* ---------------- L'application simulée ---------------- */
+
+      .win {
+        border-radius: 14px; overflow: hidden; border: 1px solid #1c2942; background: #070c16;
+        box-shadow: 0 28px 66px -36px rgba(0,0,0,.96);
+      }
+      .win-bar {
+        display: flex; align-items: center; gap: 8px; padding: 9px 13px;
+        background: #121a2b; border-bottom: 1px solid #1c2942; font-size: 12px; font-weight: 700; color: #a8b6cb;
+      }
+      .win-bar .dot { width: 8px; height: 8px; border-radius: 50%; background: #22d3ee; flex: none; }
+      .win-bar .grow { flex: 1; }
+      .win-body { padding: 16px; }
+
+      /* Le châssis : barre latérale + contenu, comme l'app */
+      .shell { display: grid; grid-template-columns: 158px 1fr; min-height: 420px; }
+      .side { background: #0a0f19; border-right: 1px solid #1c2942; padding: 12px 9px; }
+      .side .brand { font-size: 12.5px; font-weight: 800; letter-spacing: .04em; padding: 4px 8px 12px; }
+      .side .item {
+        display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 8px;
+        font-size: 12px; color: #a8b6cb; margin-bottom: 2px;
+      }
+      .side .item.on { background: linear-gradient(135deg, #22d3ee, #0ea5e9); color: #fff; font-weight: 700; }
+      .side .item .sq { width: 12px; height: 12px; border-radius: 3px; background: currentColor; opacity: .5; flex: none; }
+      .side .item .n { margin-left: auto; font-size: 10px; opacity: .8; }
+      .content { padding: 16px 18px; min-width: 0; }
+
+      .topbar { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+      .topbar h4 { margin: 0; font-size: 18px; letter-spacing: -0.01em; }
+      .topbar .sub { color: #7d8ca3; font-size: 12px; margin-top: 2px; }
+      .topbar .grow { flex: 1; }
+      .btn {
+        display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 99px;
+        border: 1px solid #26375a; background: #16223a; color: #a8b6cb;
+        font-size: 12px; font-weight: 600; white-space: nowrap;
+      }
+      .btn.primary {
+        border-color: transparent; color: #fff;
+        background: linear-gradient(135deg, #22d3ee, #0ea5e9);
+      }
+      .btn.sm { padding: 5px 10px; font-size: 11px; }
+
+      /* ---------------- A1 : grille de cartes ---------------- */
+
+      .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(206px, 1fr)); gap: 13px; }
+      .tl-card {
+        border: 1px solid #1c2942; border-radius: 12px; overflow: hidden; background: #121a2b;
+      }
+      .tl-card .preview { padding: 9px; display: grid; gap: 4px; background: #0d1421; }
+      .tl-card .prow { display: flex; gap: 4px; align-items: center; }
+      .tl-card .plabel {
+        width: 20px; height: 15px; border-radius: 4px; display: grid; place-items: center;
+        font-size: 9px; font-weight: 800; color: #070c16; flex: none;
+      }
+      .tl-card .parea {
+        flex: 1; height: 15px; border-radius: 4px; background: #16223a;
+        display: flex; gap: 3px; align-items: center; padding: 0 4px;
+      }
+      .tl-card .ptile {
+        width: 11px; height: 11px; border-radius: 3px; background: linear-gradient(140deg, #2b3d5e, #16223a);
+      }
+      .tl-card .info { padding: 10px 11px 11px; }
+      .tl-card .name { font-weight: 700; font-size: 13px; }
+      .tl-card .meta { display: flex; gap: 7px; align-items: center; margin-top: 5px; font-size: 10.5px; color: #7d8ca3; }
+      .tl-card .kind {
+        font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+        padding: 2px 7px; border-radius: 99px; background: #1e2c49; color: #a8b6cb;
+      }
+      .tl-card.new {
+        display: grid; place-items: center; border-style: dashed; border-color: #26375a;
+        background: transparent; color: #7d8ca3; min-height: 132px; font-size: 12px; text-align: center;
+      }
+      .tl-card.new .big { font-size: 22px; display: block; margin-bottom: 4px; color: #22d3ee; }
+
+      /* ---------------- A2 : lignes compactes ---------------- */
+
+      .rows-list { display: grid; gap: 7px; }
+      .tl-row {
+        display: flex; align-items: center; gap: 12px; padding: 10px 13px;
+        border: 1px solid #1c2942; border-radius: 10px; background: #121a2b;
+      }
+      .tl-row .strip { display: flex; gap: 2px; flex: none; }
+      .tl-row .strip i { width: 5px; height: 22px; border-radius: 2px; display: block; }
+      .tl-row .name { font-weight: 700; font-size: 13px; min-width: 150px; }
+      .tl-row .meta { color: #7d8ca3; font-size: 11.5px; }
+      .tl-row .grow { flex: 1; }
+
+      /* ---------------- B : le tableau ---------------- */
+
+      .board { display: grid; gap: 5px; }
+      .brow { display: flex; gap: 5px; align-items: stretch; min-height: 62px; }
+      .blabel {
+        width: 76px; flex: none; border-radius: 9px; display: grid; place-items: center;
+        font-size: 25px; font-weight: 900; color: #070c16; position: relative;
+      }
+      .blabel .count {
+        position: absolute; bottom: 4px; right: 6px; font-size: 9.5px; font-weight: 800; opacity: .7;
+      }
+      .barea {
+        flex: 1; border-radius: 9px; border: 1px solid #1c2942; background: #0d1421;
+        display: flex; gap: 6px; padding: 7px; flex-wrap: wrap; align-content: flex-start; min-width: 0;
+      }
+      .barea.over { border-color: #22d3ee; background: rgba(34,211,238,.07); }
+
+      /* Le bassin des non classés */
+      .pool {
+        border: 1px solid #26375a; border-radius: 10px; background: #0a0f19;
+        padding: 9px; margin-bottom: 12px;
+      }
+      .pool-head { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+      .pool-head .t { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #7d8ca3; font-weight: 700; }
+      .pool-head .grow { flex: 1; }
+      .pool-tiles { display: flex; gap: 6px; flex-wrap: wrap; max-height: 132px; overflow: hidden; }
+
+      /* ---------------- C : les tuiles ---------------- */
+
+      .tile {
+        width: 74px; flex: none; border-radius: 8px; overflow: hidden;
+        border: 1px solid #26375a; background: #16223a;
+      }
+      .tile .art {
+        height: 74px; background: linear-gradient(140deg, #33507a, #1b2a44);
+        display: grid; place-items: center; font-size: 15px; font-weight: 800; color: #93a7c6;
+        position: relative;
+      }
+      .tile .art .badge {
+        position: absolute; top: 3px; left: 3px; font-size: 8.5px; font-weight: 800;
+        padding: 1px 5px; border-radius: 99px; background: rgba(7,12,22,.78); color: #22d3ee;
+      }
+      .tile .art .gr {
+        position: absolute; top: 3px; right: 3px; width: 15px; height: 15px; border-radius: 5px;
+        display: grid; place-items: center; font-size: 9px; font-weight: 800; color: #070c16;
+      }
+      .tile .cap { padding: 4px 5px 5px; }
+      .tile .cap .t1 {
+        font-size: 9.5px; font-weight: 700; line-height: 1.25; overflow: hidden;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      }
+      .tile .cap .t2 { font-size: 8.5px; color: #7d8ca3; margin-top: 1px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .tile.song .art { height: 42px; }
+      .tile.song { width: 108px; }
+      .tile.person { width: 62px; }
+      .tile.person .art { height: 74px; }
+
+      .tiles-demo { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+      .tiles-demo > div { }
+      .tiles-row { display: flex; gap: 7px; }
+
+      /* ---------------- D : le tiroir de recherche ---------------- */
+
+      .drawer-scene { display: grid; grid-template-columns: 1fr 330px; gap: 0; min-height: 400px; }
+      .drawer-scene .behind { padding: 16px; opacity: .35; }
+      .drawer {
+        border-left: 1px solid #26375a; background: #0d1421; padding: 13px;
+        display: flex; flex-direction: column; gap: 11px;
+      }
+      .drawer .dhead { display: flex; align-items: center; gap: 8px; }
+      .drawer .dhead .t { font-weight: 700; font-size: 13px; }
+      .drawer .dhead .grow { flex: 1; }
+      .field {
+        display: flex; align-items: center; gap: 8px; padding: 8px 11px; border-radius: 99px;
+        border: 1px solid #26375a; background: #121a2b; color: #7d8ca3; font-size: 12px;
+      }
+      .tabs { display: flex; gap: 5px; flex-wrap: wrap; }
+      .tab {
+        padding: 4px 10px; border-radius: 99px; border: 1px solid #26375a; background: transparent;
+        color: #a8b6cb; font-size: 11px; font-weight: 600;
+      }
+      .tab.on { background: linear-gradient(135deg, #22d3ee, #0ea5e9); border-color: transparent; color: #fff; }
+      .results { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+      .res {
+        display: flex; gap: 7px; align-items: center; padding: 6px; border-radius: 8px;
+        border: 1px solid #1c2942; background: #121a2b;
+      }
+      .res .art { width: 30px; height: 38px; border-radius: 5px; background: linear-gradient(140deg, #33507a, #1b2a44); flex: none; }
+      .res .txt { min-width: 0; }
+      .res .txt .a { font-size: 10.5px; font-weight: 700; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .res .txt .b { font-size: 9.5px; color: #7d8ca3; }
+      .res .add { margin-left: auto; color: #22d3ee; font-size: 15px; font-weight: 800; flex: none; }
+
+      .note {
+        border: 1px solid #26375a; border-left: 3px solid #fbbf24; border-radius: 9px;
+        background: rgba(251,191,36,.06); padding: 10px 12px; font-size: 11.5px; line-height: 1.6; color: #d7dfea;
+      }
+      .note b { color: #fbbf24; }
+      .note.cyan { border-left-color: #22d3ee; background: rgba(34,211,238,.06); }
+      .note.cyan b { color: #22d3ee; }
+      .progress { height: 5px; border-radius: 3px; background: #1c2942; overflow: hidden; }
+      .progress i { display: block; height: 100%; width: 62%; background: linear-gradient(90deg, #22d3ee, #0ea5e9); }
+
+      /* ---------------- E : l'export ---------------- */
+
+      .dialog { max-width: 420px; border: 1px solid #26375a; border-radius: 12px; background: #121a2b; padding: 15px; }
+      .dialog .dh { font-weight: 700; margin-bottom: 3px; }
+      .dialog .ds { color: #7d8ca3; font-size: 11.5px; margin-bottom: 13px; }
+      .opt { display: flex; align-items: center; gap: 9px; padding: 8px 0; font-size: 12px; border-top: 1px solid #1c2942; }
+      .opt:first-of-type { border-top: none; }
+      .opt .grow { flex: 1; }
+      .seg { display: flex; border: 1px solid #26375a; border-radius: 8px; overflow: hidden; }
+      .seg span { padding: 4px 10px; font-size: 11px; color: #a8b6cb; }
+      .seg span.on { background: #1e2c49; color: #fff; font-weight: 700; }
+      .swatch { width: 20px; height: 20px; border-radius: 5px; border: 1px solid #26375a; }
+      .sheet { display: flex; gap: 13px; align-items: flex-start; }
+      .sheet .shot {
+        flex: none; width: 190px; border: 1px solid #26375a; border-radius: 9px; overflow: hidden; background: #0d1421;
+      }
+      .sheet .shot .preview { padding: 6px; display: grid; gap: 3px; }
+      .sheet .shot .prow { display: flex; gap: 3px; align-items: center; }
+      .sheet .shot .plabel { width: 15px; height: 12px; border-radius: 3px; }
+      .sheet .shot .parea { flex: 1; height: 12px; border-radius: 3px; background: #16223a; display: flex; gap: 2px; padding: 0 3px; align-items: center; }
+      .sheet .shot .ptile { width: 8px; height: 8px; border-radius: 2px; background: linear-gradient(140deg, #33507a, #1b2a44); }
+      .sheet .shot .title { padding: 5px 6px; font-size: 9px; font-weight: 700; border-top: 1px solid #1c2942; }
+
+      .foot { color: #7d8ca3; font-size: 12px; line-height: 1.75; }
+      .foot code { color: #22d3ee; font-size: 11.5px; }
+      ul.tight { margin: 8px 0 0; padding-left: 20px; color: #a8b6cb; font-size: 12.5px; line-height: 1.75; }
+      ul.tight li { margin-bottom: 5px; }
+      ul.tight b { color: #f1f5f9; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <h1>TierList — propositions</h1>
+      <p class="lead">
+        Rien n'est implémenté : cette page sert à choisir. Les écrans sont dessinés avec
+        la direction artistique réelle de l'application et la <strong>palette de notes</strong>
+        déjà en place, donc ce qui est montré ici est ce qui serait obtenu.
+      </p>
+
+      <h3>D'abord : ce que dit le catalogue</h3>
+      <p class="lead" style="margin-bottom:14px">
+        Une tier list ne vaut que par les éléments qu'elle peut proposer. J'ai donc interrogé
+        chaque source avant de dessiner quoi que ce soit — et une vérification a évité de
+        concevoir un écran impossible à remplir.
+      </p>
+      <div style="border:1px solid #1c2942;border-radius:12px;background:#0d1421;padding:6px 8px 8px">
+        <table class="sources">
+          <thead>
+            <tr><th>Élément</th><th>Source</th><th>Ce que ça donne</th><th>Coût</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>Animés</b></td>
+              <td>Ta bibliothèque</td>
+              <td>tes 72 fiches, avec couverture, note et grade</td>
+              <td><span class="pill ok">aucune requête</span></td>
+            </tr>
+            <tr>
+              <td><b>Saisons</b></td>
+              <td>Ta bibliothèque</td>
+              <td>chaque saison déjà regroupée, avec son année</td>
+              <td><span class="pill ok">aucune requête</span></td>
+            </tr>
+            <tr>
+              <td><b>Personnages</b></td>
+              <td>AniList</td>
+              <td>nom, <b>portrait</b>, rôle (principal/secondaire), favoris</td>
+              <td><span class="pill ok">1 req / animé, 25</span></td>
+            </tr>
+            <tr>
+              <td><b>Openings</b></td>
+              <td>AnimeThemes</td>
+              <td>titre de la chanson, <b>artistes</b>, et une vignette vidéo</td>
+              <td><span class="pill ok">1 req / animé</span></td>
+            </tr>
+            <tr>
+              <td><b>Endings</b></td>
+              <td>AnimeThemes</td>
+              <td>idem, avec le drapeau <span class="mono">nc</span> pour la version crédits-libres</td>
+              <td><span class="pill ok">1 req / animé</span></td>
+            </tr>
+            <tr>
+              <td><b>OST</b></td>
+              <td>aucune</td>
+              <td>ni AniList, ni Kitsu, ni AniDB, ni AnimeThemes ne listent les pistes</td>
+              <td><span class="pill no">saisie manuelle</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note" style="margin-top:14px;max-width:940px">
+        <b>Ce que la vérification a évité.</b> J'allais partir du principe qu'AniList exposait
+        les génériques. Non : les champs <span class="mono">openingThemes</span> et
+        <span class="mono">endingThemes</span> n'existent pas dans son schéma, et Kitsu comme
+        l'API AniDB n'en exposent pas non plus. Sans ce test, la recherche aurait eu un onglet
+        « Openings » toujours vide. La source est <b>AnimeThemes</b>, et elle est meilleure que
+        prévu : elle donne le titre et les artistes, et elle porte des liens
+        <span class="mono">MyAnimeList</span> et <span class="mono">AniList</span>, donc un
+        générique se rattache à une fiche <b>par identifiant</b> et non par titre.
+      </div>
+
+      <div class="sep"></div>
+
+      <!-- ========================================================= -->
+      <!-- A. LA PAGE -->
+      <!-- ========================================================= -->
+
+      <section>
+        <header>
+          <span class="idx">A</span>
+          <h2>La page TierList <span class="tag">2 variantes</span></h2>
+        </header>
+        <p class="why">
+          Une liste de mes tier lists, plus un bouton « Créer une tierlist » en haut à droite,
+          comme demandé. La question est seulement : sous quelle forme montrer chaque tier list ?
+        </p>
+
+        <h3 style="margin-top:18px">A1 — Grille de cartes, avec un aperçu du tableau <span class="tag best">Recommandé</span></h3>
+        <p class="why">
+          Comme la grille de ta bibliothèque, donc rien de nouveau à apprendre. Et surtout :
+          <b>l'aperçu coloré dit tout de suite de quoi il s'agit</b> — une tier list est un objet
+          visuel, cinq bandes de couleur la résument mieux qu'une ligne de texte.
+        </p>
+
+        <div class="win">
+          <div class="win-bar"><span class="dot"></span> TierList <span class="grow"></span></div>
+          <div class="shell">
+            <div class="side">
+              <div class="brand">ANIMEEH</div>
+              <div class="item"><i class="sq"></i> Animé <span class="n">68</span></div>
+              <div class="item"><i class="sq"></i> Films &amp; OVA <span class="n">4</span></div>
+              <div class="item on"><i class="sq"></i> TierList <span class="n">3</span></div>
+              <div class="item"><i class="sq"></i> Classement</div>
+              <div class="item"><i class="sq"></i> Statistiques</div>
+            </div>
+            <div class="content">
+              <div class="topbar">
+                <div>
+                  <h4>TierList</h4>
+                  <div class="sub">Tes classements par univers</div>
+                </div>
+                <div class="grow"></div>
+                <span class="btn primary">+ Créer une tierlist</span>
+              </div>
+
+              <div class="cards">
+                <div class="tl-card">
+                  <div class="preview">
+                    <div class="prow"><span class="plabel" style="background:#EA8CEE">S</span><span class="parea"><i class="ptile"></i><i class="ptile"></i><i class="ptile"></i></span></div>
+                    <div class="prow"><span class="plabel" style="background:#8A80EA">A</span><span class="parea"><i class="ptile"></i><i class="ptile"></i></span></div>
+                    <div class="prow"><span class="plabel" style="background:#6BCFEB">B</span><span class="parea"><i class="ptile"></i><i class="ptile"></i><i class="ptile"></i><i class="ptile"></i></span></div>
+                    <div class="prow"><span class="plabel" style="background:#5CDB86">C</span><span class="parea"><i class="ptile"></i></span></div>
+                    <div class="prow"><span class="plabel" style="background:#ECB165">F</span><span class="parea"></span></div>
+                  </div>
+                  <div class="info">
+                    <div class="name">Mes animés</div>
+                    <div class="meta"><span class="kind">Animés</span> 47 éléments</div>
+                  </div>
+                </div>
+
+                <div class="tl-card">
+                  <div class="preview">
+                    <div class="prow"><span class="plabel" style="background:#EA8CEE">S</span><span class="parea"><i class="ptile"></i><i class="ptile"></i></span></div>
+                    <div class="prow"><span class="plabel" style="background:#8A80EA">A</span><span class="parea"><i class="ptile"></i><i class="ptile"></i><i class="ptile"></i><i class="ptile"></i></span></div>
+                    <div class="prow"><span class="plabel" style="background:#6BCFEB">B</span><span class="parea"><i class="ptile"></i><i class="ptile"></i></span></div>
+                    <div class="prow"><span class="plabel" style="background:#5CDB86">C</span><span class="parea"><i class="ptile"></i></span></div>
+                    <div class="prow"><span class="plabel" style="background:#A7DD64">D</span><span class="parea"></span></div>
+                  </div>
+                  <div class="info">
+                    <div class="name">Opening de 2026</div>
+                    <div class="meta"><span class="kind">OP</span> 31 éléments</div>
+                  </div>
+                </div>
+
+                <div class="tl-card">
+                  <div class="preview">
+                    <div class="prow"><span class="plabel" style="background:#EA8CEE">S</span><span class="parea"><i class="ptile"></i><i class="ptile"></i></span></div>
+                    <div class="prow"><span class="plabel" style="background:#8A80EA">A</span><span class="parea"><i class="ptile"></i><i class="ptile"></i></span></div>
+                    <div class="prow"><span class="plabel" style="background:#6BCFEB">B</span><span class="parea"><i class="ptile"></i><i class="ptile"></i><i class="ptile"></i></span></div>
+                    <div class="prow"><span class="plabel" style="background:#5CDB86">C</span><span class="parea"><i class="ptile"></i></span></div>
+                    <div class="prow"><span class="plabel" style="background:#A7DD64">D</span><span class="parea"></span></div>
+                  </div>
+                  <div class="info">
+                    <div class="name">Mes antagonistes</div>
+                    <div class="meta"><span class="kind">Personnages</span> 18 éléments</div>
+                  </div>
+                </div>
+
+                <div class="tl-card new">
+                  <div><span class="big">+</span>Créer une tierlist</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:26px">A2 — Lignes compactes</h3>
+        <p class="why">
+          Plus sobre, et plus efficace si tu finis avec quinze tier lists : tout est lisible
+          d'un coup, avec la date de modification.
+          <span class="minus">Moins immédiat</span> : la bande de couleur de 5px ne dit pas
+          grand-chose comparée à un vrai aperçu.
+        </p>
+
+        <div class="win">
+          <div class="win-body">
+            <div class="topbar">
+              <div><h4>TierList</h4><div class="sub">Tes classements par univers</div></div>
+              <div class="grow"></div>
+              <span class="btn primary">+ Créer une tierlist</span>
+            </div>
+            <div class="rows-list">
+              <div class="tl-row">
+                <span class="strip">
+                  <i style="background:#EA8CEE"></i><i style="background:#8A80EA"></i><i style="background:#6BCFEB"></i>
+                  <i style="background:#5CDB86"></i><i style="background:#A7DD64"></i>
+                </span>
+                <span class="name">Mes animés</span>
+                <span class="kind">Animés</span>
+                <span class="meta">47 éléments · modifiée il y a 3 jours</span>
+                <span class="grow"></span>
+                <span class="btn sm">Ouvrir</span>
+              </div>
+              <div class="tl-row">
+                <span class="strip">
+                  <i style="background:#EA8CEE"></i><i style="background:#8A80EA"></i><i style="background:#6BCFEB"></i>
+                  <i style="background:#5CDB86"></i><i style="background:#A7DD64"></i>
+                </span>
+                <span class="name">Opening de 2026</span>
+                <span class="kind">OP</span>
+                <span class="meta">31 éléments · modifiée hier</span>
+                <span class="grow"></span>
+                <span class="btn sm">Ouvrir</span>
+              </div>
+              <div class="tl-row">
+                <span class="strip">
+                  <i style="background:#EA8CEE"></i><i style="background:#8A80EA"></i><i style="background:#6BCFEB"></i>
+                  <i style="background:#5CDB86"></i><i style="background:#A7DD64"></i>
+                </span>
+                <span class="name">Mes antagonistes</span>
+                <span class="kind">Personnages</span>
+                <span class="meta">18 éléments · modifiée le 2 octobre</span>
+                <span class="grow"></span>
+                <span class="btn sm">Ouvrir</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="note cyan" style="margin-top:16px;max-width:940px">
+          <b>Créer, sans friction.</b> Le bouton ouvre le tableau <b>immédiatement</b>, avec un
+          titre par défaut (« Tier list 1 ») et un sélecteur de type au-dessus de la recherche —
+          Animés · Saisons · Personnages · OP · ED · OST. Le type ne peut pas être deviné, mais
+          il n'a pas besoin d'être demandé avant : tu le choisis une fois devant le tableau vide,
+          et tu renommes le titre d'un double-clic.
+        </div>
+      </section>
+
+      <div class="sep"></div>
+
+      <!-- ========================================================= -->
+      <!-- B. LE TABLEAU -->
+      <!-- ========================================================= -->
+
+      <section>
+        <header>
+          <span class="idx">B</span>
+          <h2>Le tableau de tier list <span class="tag">2 variantes</span></h2>
+        </header>
+        <p class="why">
+          Même base que tiermaker : des rangées <b>S à F</b> avec le libellé à gauche et la zone
+          de dépôt à droite. La différence porte sur l'emplacement du <b>bassin</b>, la réserve
+          des éléments pas encore classés.
+        </p>
+
+        <h3 style="margin-top:18px">B1 — Bassin toujours visible, au-dessus <span class="tag best">Recommandé</span></h3>
+        <p class="why">
+          Le geste est un glisser-déposer du bassin vers une rangée, donc garder les deux à
+          l'écran rend le geste évident. Les rangées grandissent vers le bas au fur et à mesure.
+          <span class="plus">Plus</span> : rien à ouvrir, on voit toujours ce qu'il reste à classer.
+        </p>
+
+        <div class="win">
+          <div class="win-bar">
+            <span class="dot"></span> Mes animés
+            <span class="tag" style="margin-left:6px">Animés</span>
+            <span class="grow"></span>
+            <span class="btn sm">Trier par score</span>
+            <span class="btn sm">Ajouter des éléments</span>
+            <span class="btn sm" style="border-color:#22d3ee;color:#22d3ee">Exporter en image</span>
+          </div>
+          <div class="win-body">
+            <div class="pool">
+              <div class="pool-head">
+                <span class="t">Non classés · 12</span>
+                <span class="grow"></span>
+                <span class="btn sm">Tout classer…</span>
+                <span class="btn sm">Trier A→Z</span>
+              </div>
+              <div class="pool-tiles">
+                <div class="tile"><div class="art">FR<span class="gr" style="background:#EA8CEE">S</span></div><div class="cap"><div class="t1">Frieren</div></div></div>
+                <div class="tile"><div class="art">AoT<span class="gr" style="background:#8A80EA">A</span></div><div class="cap"><div class="t1">Attack on Titan</div></div></div>
+                <div class="tile"><div class="art">JJK<span class="gr" style="background:#8A80EA">A</span></div><div class="cap"><div class="t1">Jujutsu Kaisen</div></div></div>
+                <div class="tile"><div class="art">CM<span class="gr" style="background:#6BCFEB">B</span></div><div class="cap"><div class="t1">Chainsaw Man</div></div></div>
+                <div class="tile"><div class="art">TR<span class="gr" style="background:#6BCFEB">B</span></div><div class="cap"><div class="t1">Tokyo Revengers</div></div></div>
+                <div class="tile"><div class="art">JG<span class="gr" style="background:#5CDB86">C</span></div><div class="cap"><div class="t1">Jigokuraku</div></div></div>
+                <div class="tile"><div class="art">TG<span class="gr" style="background:#5CDB86">C</span></div><div class="cap"><div class="t1">Tokyo Ghoul</div></div></div>
+                <div class="tile"><div class="art">KK<span class="gr" style="background:#A7DD64">D</span></div><div class="cap"><div class="t1">Kakegurui</div></div></div>
+                <div class="tile"><div class="art">DF<span class="gr" style="background:#A7DD64">D</span></div><div class="cap"><div class="t1">Darling in the Franxx</div></div></div>
+              </div>
+            </div>
+
+            <div class="board">
+              <div class="brow">
+                <div class="blabel" style="background:linear-gradient(160deg,#EA8CEE,#D96BDB)">S<span class="count">7</span></div>
+                <div class="barea">
+                  <div class="tile"><div class="art">FR</div><div class="cap"><div class="t1">Frieren</div></div></div>
+                  <div class="tile"><div class="art">AoT</div><div class="cap"><div class="t1">Attack on Titan</div></div></div>
+                  <div class="tile"><div class="art">SG</div><div class="cap"><div class="t1">Steins;Gate</div></div></div>
+                  <div class="tile"><div class="art">MIA</div><div class="cap"><div class="t1">Made in Abyss</div></div></div>
+                </div>
+              </div>
+              <div class="brow">
+                <div class="blabel" style="background:linear-gradient(160deg,#8A80EA,#7B6BE0)">A<span class="count">11</span></div>
+                <div class="barea">
+                  <div class="tile"><div class="art">JJK</div><div class="cap"><div class="t1">Jujutsu Kaisen</div></div></div>
+                  <div class="tile"><div class="art">VG</div><div class="cap"><div class="t1">Vinland Saga</div></div></div>
+                  <div class="tile"><div class="art">ONK</div><div class="cap"><div class="t1">Oshi no Ko</div></div></div>
+                  <div class="tile"><div class="art">MT</div><div class="cap"><div class="t1">Mushoku Tensei</div></div></div>
+                  <div class="tile"><div class="art">RZ</div><div class="cap"><div class="t1">Re:Zero</div></div></div>
+                  <div class="tile"><div class="art">HxH</div><div class="cap"><div class="t1">HUNTER×HUNTER</div></div></div>
+                </div>
+              </div>
+              <div class="brow">
+                <div class="blabel" style="background:linear-gradient(160deg,#6BCFEB,#5AB6E0)">B<span class="count">9</span></div>
+                <div class="barea over">
+                  <div class="tile"><div class="art">CM</div><div class="cap"><div class="t1">Chainsaw Man</div></div></div>
+                  <div class="tile"><div class="art">KNY</div><div class="cap"><div class="t1">Kimetsu no Yaiba</div></div></div>
+                  <div class="tile" style="border-color:#22d3ee;box-shadow:0 0 0 2px rgba(34,211,238,.35)"><div class="art">TR</div><div class="cap"><div class="t1">Tokyo Revengers</div></div></div>
+                </div>
+              </div>
+              <div class="brow">
+                <div class="blabel" style="background:linear-gradient(160deg,#5CDB86,#4CC77A)">C<span class="count">6</span></div>
+                <div class="barea">
+                  <div class="tile"><div class="art">JG</div><div class="cap"><div class="t1">Jigokuraku</div></div></div>
+                  <div class="tile"><div class="art">TG</div><div class="cap"><div class="t1">Tokyo Ghoul</div></div></div>
+                </div>
+              </div>
+              <div class="brow">
+                <div class="blabel" style="background:linear-gradient(160deg,#A7DD64,#96C95A)">D<span class="count">4</span></div>
+                <div class="barea">
+                  <div class="tile"><div class="art">KKG</div><div class="cap"><div class="t1">Kakegurui</div></div></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="why" style="margin:12px 0 0;font-size:11.5px">
+              La rangée <b>survolée</b> s'allume en cyan, et la tuile en cours de déplacement se
+              détache. Les rangées <b>E</b> et <b>F</b> existent aussi, simplement vides ici.
+            </div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:26px">B2 — Bassin en tiroir latéral</h3>
+        <p class="why">
+          Le tableau occupe alors toute la largeur, et le bassin s'ouvre depuis la droite.
+          <span class="plus">Plus</span> : beaucoup plus de place quand les rangées se remplissent.
+          <span class="minus">Moins</span> : le bassin n'est pas visible pendant le classement,
+          donc un aller-retour pour chaque élément.
+          <br /><br />
+          C'est un bon endroit pour la <b>recherche de nouveaux éléments</b>, en revanche — et
+          c'est exactement ce que montre la section D.
+        </p>
+      </section>
+
+      <div class="sep"></div>
+
+      <!-- ========================================================= -->
+      <!-- C. LES TUILES -->
+      <!-- ========================================================= -->
+
+      <section>
+        <header>
+          <span class="idx">C</span>
+          <h2>Les tuiles, une par type d'élément</h2>
+        </header>
+        <p class="why">
+          Un élément doit être reconnaissable en un coup d'œil, et c'est ce qui impose de
+          pouvoir montrer une image. Les cinq types :
+        </p>
+
+        <div class="tiles-demo">
+          <div>
+            <h3>Animés <span class="tag" style="margin-left:4px">depuis ta liste</span></h3>
+            <div class="tiles-row">
+              <div class="tile"><div class="art">FR<span class="gr" style="background:#EA8CEE">S</span></div><div class="cap"><div class="t1">Sousou no Frieren</div><div class="t2">2023</div></div></div>
+              <div class="tile"><div class="art">AoT<span class="gr" style="background:#8A80EA">A</span></div><div class="cap"><div class="t1">Shingeki no Kyojin</div><div class="t2">2013</div></div></div>
+            </div>
+          </div>
+
+          <div>
+            <h3>Saisons <span class="tag" style="margin-left:4px">depuis ta liste</span></h3>
+            <div class="tiles-row">
+              <div class="tile"><div class="art">FR<span class="badge">S1</span></div><div class="cap"><div class="t1">Frieren</div><div class="t2">2023 · 28 ép.</div></div></div>
+              <div class="tile"><div class="art">FR<span class="badge">S2</span></div><div class="cap"><div class="t1">Frieren 2nd</div><div class="t2">2026 · 10 ép.</div></div></div>
+            </div>
+          </div>
+
+          <div>
+            <h3>Personnages <span class="tag" style="margin-left:4px">AniList</span></h3>
+            <div class="tiles-row">
+              <div class="tile person"><div class="art">F<span class="badge">主</span></div><div class="cap"><div class="t1">Frieren</div></div></div>
+              <div class="tile person"><div class="art">Fe<span class="badge">主</span></div><div class="cap"><div class="t1">Fern</div></div></div>
+              <div class="tile person"><div class="art">H<span class="badge">脇</span></div><div class="cap"><div class="t1">Himmel</div></div></div>
+            </div>
+          </div>
+
+          <div style="flex:1 1 100%">
+            <h3>Openings et Endings <span class="tag" style="margin-left:4px">AnimeThemes</span></h3>
+            <div class="tiles-row">
+              <div class="tile song"><div class="art">▶<span class="badge">OP1</span></div><div class="cap"><div class="t1">Yuusha</div><div class="t2">YOASOBI</div></div></div>
+              <div class="tile song"><div class="art">▶<span class="badge">OP2</span></div><div class="cap"><div class="t1">Haru</div><div class="t2">Yorushika</div></div></div>
+              <div class="tile song"><div class="art">▶<span class="badge">ED1</span></div><div class="cap"><div class="t1">Anytime Anywhere</div><div class="t2">milet</div></div></div>
+            </div>
+            <div class="why" style="margin:9px 0 0;font-size:11.5px">
+              La vignette vient de la vidéo hébergée par AnimeThemes, en préférant la version
+              <span class="mono">nc</span> (crédits-libres) quand elle existe : c'est la plus
+              propre. Le titre et l'artiste sont ceux que la vérification a réellement renvoyés
+              pour Frieren.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="sep"></div>
+
+      <!-- ========================================================= -->
+      <!-- D. LA RECHERCHE -->
+      <!-- ========================================================= -->
+
+      <section>
+        <header>
+          <span class="idx">D</span>
+          <h2>Le tiroir de recherche, qui catalogue les éléments</h2>
+        </header>
+        <p class="why">
+          C'est la pièce que tu as le plus détaillée : un seul endroit qui répertorie animés,
+          saisons, personnages, OP, ED et OST. Un tiroir depuis la droite, ouvert par
+          « Ajouter des éléments ».
+        </p>
+
+        <div class="win">
+          <div class="win-bar"><span class="dot"></span> Ajouter des éléments <span class="grow"></span></div>
+          <div class="drawer-scene">
+            <div class="behind">
+              <div class="board">
+                <div class="brow">
+                  <div class="blabel" style="background:#EA8CEE">S</div>
+                  <div class="barea"><div class="tile"><div class="art">FR</div></div><div class="tile"><div class="art">AoT</div></div></div>
+                </div>
+                <div class="brow">
+                  <div class="blabel" style="background:#8A80EA">A</div>
+                  <div class="barea"><div class="tile"><div class="art">JJK</div></div></div>
+                </div>
+                <div class="brow">
+                  <div class="blabel" style="background:#6BCFEB">B</div>
+                  <div class="barea"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="drawer">
+              <div class="dhead">
+                <span class="t">Ajouter des éléments</span>
+                <span class="grow"></span>
+                <span style="color:#7d8ca3">✕</span>
+              </div>
+
+              <div class="tabs">
+                <span class="tab on">Animés</span>
+                <span class="tab">Saisons</span>
+                <span class="tab">Personnages</span>
+                <span class="tab">OP</span>
+                <span class="tab">ED</span>
+                <span class="tab">OST</span>
+              </div>
+
+              <div class="field">⌕ Rechercher un titre…</div>
+
+              <div class="tabs">
+                <span class="tab on">Ma bibliothèque</span>
+                <span class="tab">Tout le catalogue</span>
+              </div>
+
+              <div class="results">
+                <div class="res"><span class="art"></span><span class="txt"><span class="a">Sousou no Frieren</span><span class="b">2023 · 28 ép.</span></span><span class="add">+</span></div>
+                <div class="res"><span class="art"></span><span class="txt"><span class="a">Shingeki no Kyojin</span><span class="b">2013 · 87 ép.</span></span><span class="add">+</span></div>
+                <div class="res"><span class="art"></span><span class="txt"><span class="a">Jujutsu Kaisen</span><span class="b">2020 · 59 ép.</span></span><span class="add">+</span></div>
+                <div class="res"><span class="art"></span><span class="txt"><span class="a">Vinland Saga</span><span class="b">2019 · 48 ép.</span></span><span class="add">+</span></div>
+                <div class="res"><span class="art"></span><span class="txt"><span class="a">[Oshi no Ko]</span><span class="b">2023 · 24 ép.</span></span><span class="add">+</span></div>
+                <div class="res"><span class="art"></span><span class="txt"><span class="a">Mushoku Tensei</span><span class="b">2021 · 62 ép.</span></span><span class="add">+</span></div>
+              </div>
+
+              <div class="note cyan">
+                <b>« Tout le catalogue »</b> cherche au-delà de ta liste, en rappelant d'un badge
+                ce que tu possèdes déjà. Utile pour un personnage d'un animé que tu n'as pas noté.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:24px">D2 — L'onglet OP, qui a besoin d'un chargement</h3>
+        <p class="why">
+          Les animés, saisons et personnages sont locaux ou presque. Les <b>OP et ED</b> demandent
+          un appel par animé à AnimeThemes, donc il y a un état de chargement à dessiner — et
+          c'est le genre d'écran qu'on oublie de prévoir.
+        </p>
+
+        <div class="win" style="max-width:430px">
+          <div class="win-body">
+            <div class="drawer" style="border-left:none;padding:0">
+              <div class="tabs">
+                <span class="tab">Animés</span>
+                <span class="tab on">OP</span>
+                <span class="tab">ED</span>
+              </div>
+              <div class="note">
+                <b>Les génériques viennent d'AnimeThemes</b>, un appel par animé. Ta bibliothèque
+                en compte 68 : environ une minute au premier chargement, puis c'est mis en cache.
+              </div>
+              <span class="btn primary" style="justify-content:center">Charger les OP de ma bibliothèque</span>
+              <div>
+                <div class="progress"><i></i></div>
+                <div class="why" style="margin:7px 0 0;font-size:11.5px">
+                  42 animés sur 68 · 138 génériques trouvés · Frieren, Lycoris Recoil, Made in Abyss…
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:24px">D3 — L'onglet OST, qui n'a aucune source</h3>
+        <p class="why">
+          Aucune API ne liste les pistes d'une bande originale. Plutôt que d'afficher un onglet
+          vide, l'onglet dit pourquoi et propose la saisie.
+        </p>
+
+        <div class="win" style="max-width:430px">
+          <div class="win-body">
+            <div class="drawer" style="border-left:none;padding:0">
+              <div class="tabs">
+                <span class="tab">OP</span>
+                <span class="tab">ED</span>
+                <span class="tab on">OST</span>
+              </div>
+              <div class="note">
+                <b>Aucune source pour les OST.</b> Ni AniList, ni Kitsu, ni AniDB, ni AnimeThemes
+                ne listent les pistes d'une bande originale — ce sont des bases de catalogue, pas
+                de musique. Les titres sont donc à saisir.
+              </div>
+              <div class="field">Titre de la piste…</div>
+              <div class="tabs">
+                <span class="tab on">Rattacher à</span>
+                <span class="tab">Sousou no Frieren</span>
+              </div>
+              <span class="btn" style="justify-content:center">+ Ajouter la piste</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="sep"></div>
+
+      <!-- ========================================================= -->
+      <!-- E. L'EXPORT -->
+      <!-- ========================================================= -->
+
+      <section>
+        <header>
+          <span class="idx">E</span>
+          <h2>Le bouton de capture</h2>
+        </header>
+        <p class="why">
+          Tu veux pouvoir prendre un écran du tableau depuis l'app. Techniquement, Electron sait
+          capturer une zone de la fenêtre (<span class="mono">capturePage</span>), ce qui donne un
+          rendu exact au pixel — contrairement à une capture faite dans la page, qui rate les
+          images et les polices. Un petit dialogue vaut mieux qu'un bouton sec, parce que tout le
+          monde veut retoucher le fond et le cadrage.
+        </p>
+
+        <div class="sheet">
+          <div class="dialog">
+            <div class="dh">Exporter en image</div>
+            <div class="ds">PNG, cadré sur le tableau</div>
+
+            <div class="opt"><span class="grow">Échelle</span>
+              <span class="seg"><span>1×</span><span class="on">2×</span><span>3×</span></span>
+            </div>
+            <div class="opt"><span class="grow">Fond</span>
+              <span class="seg"><span class="on">Sombre</span><span>Clair</span><span>Aucun</span></span>
+            </div>
+            <div class="opt"><span class="grow">Inclure le titre</span>
+              <span class="seg"><span class="on">Oui</span><span>Non</span></span>
+            </div>
+            <div class="opt"><span class="grow">Inclure les non classés</span>
+              <span class="seg"><span>Oui</span><span class="on">Non</span></span>
+            </div>
+            <div class="opt"><span class="grow">Aperçu</span>
+              <span class="swatch" style="background:#070c16"></span>
+            </div>
+
+            <div style="display:flex;gap:9px;margin-top:13px">
+              <span class="btn">Annuler</span>
+              <span class="btn primary" style="flex:1;justify-content:center">Enregistrer sous…</span>
+            </div>
+          </div>
+
+          <div>
+            <h3>Aperçu du fichier</h3>
+            <div class="shot">
+              <div class="preview">
+                <div class="prow"><span class="plabel" style="background:#EA8CEE"></span><span class="parea"><i class="ptile"></i><i class="ptile"></i><i class="ptile"></i><i class="ptile"></i></span></div>
+                <div class="prow"><span class="plabel" style="background:#8A80EA"></span><span class="parea"><i class="ptile"></i><i class="ptile"></i><i class="ptile"></i><i class="ptile"></i><i class="ptile"></i></span></div>
+                <div class="prow"><span class="plabel" style="background:#6BCFEB"></span><span class="parea"><i class="ptile"></i><i class="ptile"></i><i class="ptile"></i></span></div>
+                <div class="prow"><span class="plabel" style="background:#5CDB86"></span><span class="parea"><i class="ptile"></i><i class="ptile"></i></span></div>
+                <div class="prow"><span class="plabel" style="background:#A7DD64"></span><span class="parea"><i class="ptile"></i></span></div>
+              </div>
+              <div class="title">Mes animés — ANIMEEH</div>
+            </div>
+            <div class="why" style="margin:11px 0 0;font-size:11.5px;max-width:300px">
+              Le titre signé « ANIMEEH » en pied de vignette est la seule marque ajoutée, et elle
+              se désactive.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="sep"></div>
+
+      <!-- ========================================================= -->
+      <!-- F. LES AJOUTS -->
+      <!-- ========================================================= -->
+
+      <section>
+        <header>
+          <span class="idx">F</span>
+          <h2>Les ajouts que tiermaker n'a pas</h2>
+        </header>
+        <p class="why">
+          Tu demandais « un peu basé sur tiermaker mais avec des bons ajouts ». Voici ceux que je
+          propose, du plus utile au plus accessoire.
+        </p>
+
+        <ul class="tight">
+          <li>
+            <b>Partir de tes notes.</b> Un bouton « Trier par score » place tes animés dans les
+            rangées selon les notes que tu as déjà données — S pour 90+, A pour 75+ — et tu
+            ajustes ensuite. Tu ne classes pas 68 éléments à la main depuis rien, ce qui est le
+            vrai reproche à faire à une tier list.
+          </li>
+          <li>
+            <b>Le clavier, en plus de la souris.</b> Sélectionner plusieurs tuiles puis appuyer
+            sur <span class="mono">S</span>, <span class="mono">A</span>, <span class="mono">B</span>…
+            les envoie dans la rangée. Sur 60 éléments, le glisser-déposer est épuisant, et c'est
+            l'ajout qui change le plus l'usage.
+          </li>
+          <li>
+            <b>Rangées renommables et recolorables.</b> S à F par défaut — avec la palette déjà en
+            place — mais renommables en « à revoir » ou « chefs-d'œuvre ».
+          </li>
+          <li>
+            <b>Compter les éléments par rangée</b>, affiché dans le libellé : on voit d'un coup
+            d'œil si la répartition est cohérente.
+          </li>
+          <li>
+            <b>Chercher au-delà de ta liste.</b> Pour un personnage ou un OP d'un animé que tu n'as
+            pas noté, avec un badge disant ce que tu possèdes déjà.
+          </li>
+          <li>
+            <b>Ordre interne.</b> À l'intérieur d'une rangée, l'ordre veut dire quelque chose.
+            Glisser latéralement pour affiner.
+          </li>
+          <li>
+            <b>Annuler / rétablir</b>, parce qu'une tier list se fait par essais.
+          </li>
+        </ul>
+
+        <div class="note" style="margin-top:18px;max-width:940px">
+          <b>Le point que je te laisse trancher.</b> Une rangée peut-elle contenir plusieurs fois
+          le même élément ? Par exemple « Frieren S1 » et « Frieren S2 » dans deux rangées
+          différentes se justifie ; le même OP dans deux rangées, non. Je propose qu'un élément
+          ne vive que dans une rangée — plus simple à comprendre et à exporter — mais dis-moi si
+          tu veux pouvoir le dupliquer.
+        </div>
+      </section>
+
+      <div class="sep"></div>
+
+      <h2>Ce que je recommande</h2>
+      <p class="why" style="margin-top:12px">
+        <b>A1</b> pour la page, <b>B1</b> pour le tableau, et le tiroir de <b>D</b> pour la
+        recherche. Le reste des sections ne sont pas des choix concurrents : ce sont les écrans
+        qu'il faudra de toute façon dessiner.
+        <br /><br />
+        Le seul vrai arbitrage est <b>B1 contre B2</b>, l'emplacement du bassin — et je penche
+        pour B1 parce que le geste de base est un glisser-déposer du bassin vers une rangée.
+      </p>
+      <p class="foot" style="margin-top:20px">
+        Ordre de construction que je proposerais, si tu valides :
+        <b>1.</b> l'onglet, la page et le tableau avec les <b>animés de ta liste</b> — aucune API,
+        donc testable tout de suite et ça dit si le geste te plaît ;
+        <b>2.</b> l'export en image, qui est ce qui rend la tier list partageable ;
+        <b>3.</b> les <b>personnages</b> et les <b>saisons</b>, qui viennent des données déjà là ;
+        <b>4.</b> les <b>OP et ED</b> via AnimeThemes, avec le cache et le chargement par lots ;
+        <b>5.</b> les <b>OST</b> en saisie manuelle.
+      </p>
+    </div>
+  </body>
+</html>

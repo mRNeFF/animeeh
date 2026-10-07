@@ -94,7 +94,32 @@ try {
   })
   console.log('wrote preview-top-band.png')
 
-  // And scrolled, since the sticky chrome is what looked wrong.
+  // A narrower window than the table, to confirm the removal of the wrapper's own
+  // horizontal scrolling did not cost us the ability to reach the rightmost columns.
+  await win.setViewportSize({ width: 700, height: 700 }).catch(() => {})
+  await win.waitForTimeout(500)
+  const narrow = await win.evaluate(() => {
+    const content = document.querySelector('.content')
+    const header = document.querySelector('thead th').getBoundingClientRect()
+    const toolbar = document.querySelector('.toolbar-sticky').getBoundingClientRect()
+    const wrap = document.querySelector('.table-wrap').getBoundingClientRect()
+    const row = document.querySelector('tbody tr').getBoundingClientRect()
+    return {
+      contentScrollWidth: content.scrollWidth,
+      contentClientWidth: content.clientWidth,
+      horizontallyScrollable: content.scrollWidth > content.clientWidth,
+      tableWrapTop: Math.round(wrap.top),
+      headerTop: Math.round(header.top),
+      firstRowTop: Math.round(row.top),
+      headerSitsAtWrapTop: Math.abs(header.top - wrap.top) < 2,
+      headerAboveFirstRow: header.top <= row.top + 1,
+      toolbarBottom: Math.round(toolbar.bottom),
+      headerClearsToolbar: header.top >= toolbar.bottom - 1
+    }
+  })
+  console.log(`\nnarrow window: ${JSON.stringify(narrow, null, 2)}`)
+  writeFileSync(join(root, 'preview-top-narrow.json'), JSON.stringify(narrow, null, 2), 'utf-8')
+
   await win.locator('.content').evaluate((el) => {
     el.scrollTop = 300
   })

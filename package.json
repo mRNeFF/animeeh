@@ -14,6 +14,8 @@
     "smoke:films": "npm run build && node scripts/smoke-films.mjs",
     "smoke:offline": "npm run build && node scripts/smoke-offline.mjs",
     "smoke:schedule": "npm run build && node scripts/smoke-schedule.mjs",
+    "smoke:today": "npm run build && node scripts/smoke-schedule-today.mjs",
+    "probe:airing": "node scripts/probe-airing-args.mjs",
     "smoke:seasons": "npm run build && node scripts/smoke-seasons.mjs",
     "smoke:seed": "npm run build && node scripts/smoke-seed.mjs",
     "smoke:stats": "npm run build && node scripts/smoke-stats.mjs",

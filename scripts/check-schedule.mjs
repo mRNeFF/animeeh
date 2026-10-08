@@ -90,10 +90,26 @@ const check = (label, actual, expected) => {
 console.log('\nCHECKS:')
 const now = Math.floor(Date.now() / 1000)
 const horizon = now + result.windowDays * 86400
+const startOfToday = (() => {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return Math.floor(d.getTime() / 1000)
+})()
+
+// The window starts at local midnight, not at `now`. An episode that aired this
+// morning belongs to today and stays listed until the day is over; anything older
+// than that is genuinely stale.
 check(
-  'every episode is in the future',
-  result.episodes.every((e) => e.airingAt >= now),
+  'no episode is older than today',
+  result.episodes.every((e) => e.airingAt >= startOfToday),
   true
+)
+const airedEarlierToday = result.episodes.filter((e) => e.airingAt < now)
+console.log(
+  `   ..   ${airedEarlierToday.length} episode(s) already aired today but still listed` +
+    (airedEarlierToday.length
+      ? `: ${airedEarlierToday.map((e) => `${e.title.slice(0, 30)} ep ${e.episode}`).join(', ')}`
+      : '')
 )
 check(
   'every episode is inside the window',

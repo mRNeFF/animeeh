@@ -15,6 +15,10 @@
  *
  * Everything is batched through GraphQL aliases: one request covers 20 entries,
  * which matters because AniList allows about 30 requests a minute.
+ *
+ * A day's episodes stay listed until the day is over, including the ones that
+ * have already aired. `notYetAired` cannot express that, so the part of today
+ * that has already gone out is fetched back separately — see `fetchAiringWindow`.
  */
 import { CodedError } from '../shared/errors'
 import type {
@@ -177,6 +181,102 @@ function currentSeason(): { season: string; year: number } {
 }
 
 /* ------------------------------------------------------------------ */
+/* The day's window                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Local midnight, in Unix seconds.
+ *
+ * The renderer groups episodes by the user's local day, so "today" has to mean
+ * the day the user is actually looking at, not a UTC day. Both windows are
+ * anchored to this, which is what keeps an episode listed until the day it aired
+ * is over rather than until the minute it aired.
+ */
+function startOfToday(): number {
+  const midnight = new Date()
+  midnight.setHours(0, 0, 0, 0)
+  return Math.floor(midnight.getTime() / 1000)
+}
+
+/** A schedule node with its media, as `Page.airingSchedules` returns it. */
+interface RawScheduleNode {
+  episode: number
+  airingAt: number
+  media: RawMedia | null
+}
+
+const AIRING_PAGE_SIZE = 50
+/** Ceiling per window, so a pathological answer cannot page forever. */
+const AIRING_MAX_PAGES = 8
+
+/**
+ * Every episode of `ids` airing between `from` and `to`, whoever's list they belong to.
+ *
+ * This exists because `Media.airingSchedule(notYetAired: true)` cannot answer for
+ * a day that is already under way: it excludes anything that has aired, and a
+ * lower bound cannot be asked for there — `airingAt_greater` is not an argument
+ * on that field, and `notYetAired: false` returns a show's *oldest* nodes rather
+ * than its recent ones. The top-level `Page.airingSchedules` accepts the whole id
+ * list, an `airingAt` window and an explicit `sort`, and that last part is also
+ * what makes paging deterministic rather than merely usually right.
+ *
+ * `owner` decides whose list an episode is on, so the same call serves the
+ * tracked panel and the discovery panel.
+ */
+async function fetchAiringWindow(
+  ids: number[],
+  from: number,
+  to: number,
+  owner: Map<number, ScheduleRequestEntry>
+): Promise<AiringEpisode[]> {
+  const out: AiringEpisode[] = []
+  if (ids.length === 0) return out
+
+  for (let page = 1; page <= AIRING_MAX_PAGES; page += 1) {
+    const data = await graphql<{
+      Page?: {
+        pageInfo?: { hasNextPage?: boolean | null } | null
+        airingSchedules?: RawScheduleNode[] | null
+      } | null
+    }>(`query {
+      Page(page: ${page}, perPage: ${AIRING_PAGE_SIZE}) {
+        pageInfo { hasNextPage }
+        airingSchedules(
+          mediaId_in: ${JSON.stringify(ids)}
+          airingAt_greater: ${from}
+          airingAt_lesser: ${to}
+          sort: TIME
+        ) {
+          episode
+          airingAt
+          media { id title { romaji english } coverImage { large } }
+        }
+      }
+    }`)
+
+    for (const node of data.Page?.airingSchedules ?? []) {
+      const media = node.media
+      if (!media || !media.id) continue
+      const entry = owner.get(media.id)
+      out.push({
+        anilistId: media.id,
+        title: titleOf(media),
+        coverImage: media.coverImage?.large ?? null,
+        episode: node.episode,
+        airingAt: node.airingAt,
+        seasonNumber: null,
+        inLibrary: entry !== undefined,
+        libraryStatus: entry?.status ?? null
+      })
+    }
+
+    if (!data.Page?.pageInfo?.hasNextPage) break
+  }
+
+  return out
+}
+
+/* ------------------------------------------------------------------ */
 /* Library shows: episodes, and announced continuations                */
 /* ------------------------------------------------------------------ */
 
@@ -241,14 +341,20 @@ export async function buildSchedule(
 
   const episodes: AiringEpisode[] = []
   const seasons: UpcomingSeason[] = []
-  let airingEntries = 0
+  /**
+   * Entries that produced at least one episode, as a set rather than a count.
+   * One entry is one show, and a show can contribute from both windows below —
+   * counting per window would report it twice, and counting only the upcoming
+   * window would say nothing is airing on a day whose episode has already gone out.
+   */
+  const airingIds = new Set<number>()
 
   /** Collect the upcoming episodes of one entry, from data already fetched. */
   const collectEpisodes = (media: RawMedia, entry: ScheduleRequestEntry | undefined): void => {
     const nodes = (media.airingSchedule?.nodes ?? []).filter(
       (n) => n.airingAt >= now && n.airingAt <= horizon
     )
-    if (nodes.length > 0) airingEntries += 1
+    if (nodes.length > 0) airingIds.add(media.id)
     for (const node of nodes) {
       episodes.push({
         anilistId: media.id,
@@ -344,6 +450,34 @@ export async function buildSchedule(
     frontier = next
   }
 
+  /* ---- the part of today that has already aired ---- */
+  /**
+   * Everything above comes from `notYetAired: true`, which by definition cannot
+   * return an episode that has aired. So a show's episode vanished from the
+   * calendar the moment it started, and the old `airingAt >= now` filter made
+   * that permanent rather than momentary. A user opening the calendar in the
+   * evening should still see what aired this morning, so the day's earlier
+   * episodes are fetched back and merged in.
+   *
+   * The window is [local midnight, now], which is exactly the stretch the
+   * upcoming window cannot cover; the two overlap by a minute so that an episode
+   * landing on the boundary is not lost, and the dedupe below is what keeps that
+   * overlap from showing the same episode twice. The lower bound is nudged back a
+   * second because AniList's `airingAt_greater` is exclusive, and an episode at
+   * exactly midnight is a real, if awkward, case.
+   */
+  const airedToday = await fetchAiringWindow([...owner.keys()], startOfToday() - 1, now + 60, owner)
+  const seenEpisodes = new Set(
+    episodes.map((e) => `${e.anilistId}-${e.episode}-${e.airingAt}`)
+  )
+  for (const episode of airedToday) {
+    const key = `${episode.anilistId}-${episode.episode}-${episode.airingAt}`
+    if (seenEpisodes.has(key)) continue
+    seenEpisodes.add(key)
+    airingIds.add(episode.anilistId)
+    episodes.push(episode)
+  }
+
   // A continuation might be announced by more than one entry; keep one each.
   const uniqueSeasons = new Map<number, UpcomingSeason>()
   for (const season of seasons) {
@@ -381,35 +515,37 @@ export async function buildSchedule(
           sort: POPULARITY_DESC
         ) {
           id
-          title { romaji english }
-          coverImage { large }
-          format
-          status
-          nextAiringEpisode { episode airingAt }
-          airingSchedule(notYetAired: true, perPage: 5) { nodes { episode airingAt } }
         }
       }
     }`)
 
-    for (const media of data.Page?.media ?? []) {
-      if (owner.has(media.id)) continue
-      const nodes = (media.airingSchedule?.nodes ?? []).filter(
-        (n) => n.airingAt >= now && n.airingAt <= horizon
-      )
-      // A show with nothing before the horizon is not useful here.
-      const first = nodes[0] ?? media.nextAiringEpisode
-      if (!first || first.airingAt > horizon) continue
+    const candidates = (data.Page?.media ?? []).filter((media) => !owner.has(media.id))
 
-      discovery.push({
-        anilistId: media.id,
-        title: titleOf(media),
-        coverImage: media.coverImage?.large ?? null,
-        episode: first.episode,
-        airingAt: first.airingAt,
-        seasonNumber: null,
-        inLibrary: false,
-        libraryStatus: null
-      })
+    /*
+     * The same day window as the tracked list, for the same reason: an episode of
+     * a new show that aired this morning should not vanish from the calendar the
+     * moment it starts. Only the earliest episode per show is kept, which is what
+     * this panel has always shown.
+     */
+    const window = await fetchAiringWindow(
+      candidates.map((media) => media.id),
+      startOfToday() - 1,
+      horizon,
+      owner
+    )
+
+    const earliest = new Map<number, AiringEpisode>()
+    for (const episode of window) {
+      const current = earliest.get(episode.anilistId)
+      if (!current || episode.airingAt < current.airingAt) {
+        earliest.set(episode.anilistId, episode)
+      }
+    }
+
+    // A show with nothing inside the window is not useful here.
+    for (const media of candidates) {
+      const episode = earliest.get(media.id)
+      if (episode) discovery.push({ ...episode, inLibrary: false, libraryStatus: null })
     }
   } catch {
     // Discovery is a bonus; never fail the whole refresh for it.
@@ -426,7 +562,7 @@ export async function buildSchedule(
     discovery,
     counts: {
       libraryEntries: usable.length,
-      airingEntries,
+      airingEntries: airingIds.size,
       upcomingSeasons: sortedSeasons.length,
       skipped
     }
